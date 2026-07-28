@@ -14,7 +14,7 @@ class HrQualification(models.Model):
     department_id = fields.Many2one('hr.department', string='Departamento', related='employee_id.department_id')
     fecha_evaluacion = fields.Date(string='Fecha de Evaluación', required=True)
     bonificacion = fields.Float(string='Bonificación', readonly=True,
-                                 related='version_id.bonificacion_productividad')
+                                 related='version_id.x_bonificacion_productividad')
     total = fields.Float(string='Total', store=True, readonly=True, compute='_compute_total')
     calificacion = fields.Float(string='Calificación')
     state = fields.Selection([

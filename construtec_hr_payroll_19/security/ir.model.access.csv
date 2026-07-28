@@ -15,12 +15,6 @@ access_hr_concepto_anticipo_user,hr.concepto.anticipo.user,model_hr_concepto_ant
 access_hr_concepto_anticipo_manager,hr.concepto.anticipo.manager,model_hr_concepto_anticipo,hr.group_hr_manager,1,1,1,1
 access_hr_qualification_hr_user,hr.qualification.hr_user,model_hr_qualification,hr.group_hr_user,1,1,1,0
 access_hr_qualification_manager,hr.qualification.manager,model_hr_qualification,hr.group_hr_manager,1,1,1,1
-access_hr_contract_status_user,hr.contract.status.user,model_hr_contract_status,base.group_user,1,0,0,0
-access_hr_contract_status_manager,hr.contract.status.manager,model_hr_contract_status,hr.group_hr_manager,1,1,1,1
-access_hr_contract_payment_frequency_user,hr.contract.payment.frequency.user,model_hr_contract_payment_frequency,base.group_user,1,0,0,0
-access_hr_contract_payment_frequency_manager,hr.contract.payment.frequency.manager,model_hr_contract_payment_frequency,hr.group_hr_manager,1,1,1,1
-access_hr_empresa_facturar_user,hr.empresa.facturar.user,model_hr_empresa_facturar,base.group_user,1,0,0,0
-access_hr_empresa_facturar_manager,hr.empresa.facturar.manager,model_hr_empresa_facturar,hr.group_hr_manager,1,1,1,1
 access_hr_payslip_prestaciones_hr_user,hr.payslip.prestaciones.hr_user,model_hr_payslip_prestaciones,hr.group_hr_user,1,0,0,0
 access_hr_payslip_prestaciones_manager,hr.payslip.prestaciones.manager,model_hr_payslip_prestaciones,hr.group_hr_manager,1,1,1,1
 access_hr_payslip_prestaciones_wizard_manager,hr.payslip.prestaciones.wizard.manager,model_hr_payslip_prestaciones_wizard,hr.group_hr_manager,1,1,1,1

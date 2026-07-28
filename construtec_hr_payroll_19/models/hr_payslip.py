@@ -41,7 +41,7 @@ class HrPayslip(models.Model):
                 if worked_day.work_entry_type_id.round_days == 'FULL':
                     worked_day.number_of_days = worked_day.number_of_hours / 24
                 elif worked_day.work_entry_type_id.round_days == 'NO':
-                    worked_day.amount = worked_day.number_of_hours * payslip.version_id.horas_extra_valor
+                    worked_day.amount = worked_day.number_of_hours * payslip.version_id.x_horas_extra_valor
 
     def _compute_extra_inputs(self):
         """Genera las líneas de 'otras entradas' de préstamos, anticipos y calificaciones vigentes."""

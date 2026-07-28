@@ -25,7 +25,7 @@
         'data/sequences.xml',
         'data/hr_payslip_input_types.xml',
         'views/hr_version_views.xml',
-        'views/hr_work_entry_views.xml',
+        #'views/hr_work_entry_views.xml',
         'views/hr_qualification_views.xml',
         'views/hr_loan_views.xml',
         'views/salary_advance_views.xml',

@@ -34,7 +34,7 @@ class HrVersion(models.Model):
     x_bonificacion_fija = fields.Float(string='Bonificación Fija')
     x_bonificacion_incentivo = fields.Float(string='Bonificación Incentivo')
     x_bonificacion_extra = fields.Float(string='Bonificación Extra')
-    #x_horas_extra_valor = fields.Float(string='Horas Extra Valor')
+    x_horas_extra_valor = fields.Float(string='Horas Extra Valor')
     x_bonificacion_productividad = fields.Float(string='Bonificación Productividad')
     #estado_contrato = fields.Many2one('hr.contract.status', string='Estado de contrato')
     #frecuencia_pago = fields.Many2one('hr.contract.payment.frequency', string='Frecuencia de pago')

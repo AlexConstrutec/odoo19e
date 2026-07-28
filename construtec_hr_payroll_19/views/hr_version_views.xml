@@ -5,15 +5,14 @@
         <field name="model">hr.employee</field>
         <field name="inherit_id" ref="hr.view_employee_form"/>
         <field name="arch" type="xml">
+            <xpath expr="//field[@name='employee_type']" position="before">
+                <field name="x_bonificacion_incentivo"/>
+                <field name="x_bonificacion_productividad"/>
+            </xpath>
             <xpath expr="//group[@name='contract']" position="inside">
-                <field name="tiempo_contrato"/>
-                <field name="estado_contrato"/>
-                <field name="frecuencia_pago"/>
-                <field name="empresa_facturar"/>
-                <field name="bonificacion_fija"/>
-                <field name="bonificacion_incentivo"/>
-                <field name="bonificacion_productividad"/>
-                <field name="horas_extra_valor"/>
+                <field name="x_bonificacion_fija"/>
+                <field name="x_bonificacion_extra"/>
+                <field name="x_horas_extra_valor"/>
             </xpath>
         </field>
     </record>
