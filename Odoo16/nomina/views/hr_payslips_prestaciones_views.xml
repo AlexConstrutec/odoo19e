@@ -1,0 +1,36 @@
+<odoo>
+    <data>
+        <!-- Vista de árbol personalizada -->
+        <record id="view_prestaciones_tree" model="ir.ui.view">
+            <field name="name">hr.payslip.prestaciones.tree</field>
+            <field name="model">hr.payslip.prestaciones</field>
+            <field name="arch" type="xml">
+                <tree string="Prestaciones de Nómina" create="0" edit="1" sample="1" js_class="hrPayslipPrestacionesTreeView" >
+                    <field name="id_employee_id"/>
+                    <field name="employee_id"/>
+                    <field name="department_id"/>
+                    <field name="date_start_contract"/>
+                    <field name="date_end_contract"/>
+                    <field name="contract_state"/>
+                    <field name="bono14"/>
+                    <field name="aguinaldo"/>
+                    <field name="vacaciones"/>
+                    <field name="indemnizacion"/>
+                    <field name="date_to"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- Acción para abrir la vista de árbol -->
+        <record id="action_prestaciones_tree" model="ir.actions.act_window">
+            <field name="name">Prestaciones de Nómina</field>
+            <field name="res_model">hr.payslip.prestaciones</field>
+            <field name="view_mode">tree</field>
+            <field name="view_id" ref="view_prestaciones_tree"/>
+            <field name="context">{'use_prestaciones_list': True}</field>
+        </record>
+
+        <!-- Menú para acceder a la vista -->
+        <menuitem id="menu_prestaciones_tree" name="Prestaciones de Nómina" parent="hr_payroll.menu_hr_payroll_report" action="action_prestaciones_tree"/>
+    </data>
+</odoo>

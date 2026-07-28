@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Heredar la vista hr.job.form -->
+        <record id="hr_contract_view_form_inherit" model="ir.ui.view">
+            <field name="name">hr.contract.view.form.inherit</field>
+            <field name="model">hr.contract</field>
+            <field name="inherit_id" ref="hr_contract.hr_contract_view_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//form[1]/sheet[1]/group[@name='top_info']/group[@name='top_info_left']/div[1]" position="after">
+                    <field name="departure_reason_id"/>
+                </xpath>
+                <xpath expr="//field[@name='date_end']" position="after">
+                    <field name="registrar_fecha_inspeccion" string="Registrar fecha ante GT RECIT"/>
+                  </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

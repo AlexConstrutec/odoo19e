@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_hr_work_entry_form_inherit" model="ir.ui.view">
+        <field name="name">hr.work.entry.form.inherit.construtec</field>
+        <field name="model">hr.work.entry</field>
+        <field name="inherit_id" ref="hr_work_entry.hr_work_entry_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="descripcion"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_hr_work_entry_tree_inherit" model="ir.ui.view">
+        <field name="name">hr.work.entry.list.inherit.construtec</field>
+        <field name="model">hr.work.entry</field>
+        <field name="inherit_id" ref="hr_work_entry.hr_work_entry_view_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="descripcion" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,65 @@
+<!-- Archivo: custom/addons/gth/data/experiencia_data.xml -->
+<odoo>
+    <data>
+        <!-- Experiencia: No requiere -->
+        <record id="ex1" model="request.experiencia" >
+            <field name="name">No requiere</field>
+        </record>
+        <!-- Experiencia: 1 año -->
+        <record id="ex2" model="request.experiencia">
+            <field name="name">1 año</field>
+        </record>
+        <!-- Experiencia: 2 años -->
+        <record id="ex3" model="request.experiencia">
+            <field name="name">2 años</field>
+        </record>
+        <!-- Experiencia: 3 años -->
+        <record id="ex4" model="request.experiencia">
+            <field name="name">3 años</field>
+        </record>
+        <!-- Experiencia: 4 años -->
+        <record id="ex5" model="request.experiencia">
+            <field name="name">4 años</field>
+        </record>
+        <!-- Experiencia: 5 años o más -->
+        <record id="ex6" model="request.experiencia">
+            <field name="name">5 años o más</field>
+        </record>
+        <!-- Jornada: Diurna -->
+        <record id="jo1" model="request.jornada">
+            <field name="name">Diurna</field>
+        </record>
+        <!-- Jornada: Nocturna -->
+        <record id="jo2" model="request.jornada">
+            <field name="name">Nocturna</field>
+        </record>
+        <!-- Jornada: Mixta -->
+        <record id="jo3" model="request.jornada">
+            <field name="name">Mixta</field>
+        </record>
+        <!-- Jornada: No esta sujeto a jornada -->
+        <record id="jo4" model="request.jornada">
+            <field name="name">No esta sujeto a jornada</field>
+        </record>
+        <!-- Licencia: A -->
+        <record id="li1" model="request.licencia">
+            <field name="name">A</field>
+        </record>
+        <!-- Licencia: B -->
+        <record id="li2" model="request.licencia">
+            <field name="name">B</field>
+        </record>
+        <!-- Licencia: C -->
+        <record id="li3" model="request.licencia">
+            <field name="name">C</field>
+        </record>
+        <!-- Licencia: M -->
+        <record id="li4" model="request.licencia">
+            <field name="name">M</field>
+        </record>
+        <!-- Licencia: No Aplica -->
+        <record id="li5" model="request.licencia">
+            <field name="name">No Aplica</field>
+        </record>
+    </data>
+</odoo>

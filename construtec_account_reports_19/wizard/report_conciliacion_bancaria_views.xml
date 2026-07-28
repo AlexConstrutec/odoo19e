@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_wizard_conciliacion_bancaria_form" model="ir.ui.view">
+        <field name="name">wizard.conciliacion.bancaria.form</field>
+        <field name="model">wizard.conciliacion.bancaria</field>
+        <field name="arch" type="xml">
+            <form string="Conciliación Bancaria">
+                <field name="state" invisible="1"/>
+                <field name="name" invisible="1"/>
+                <group col="4" invisible="state != 'choose'">
+                    <field name="company_id" groups="base.group_multi_company"/>
+                    <field name="journal_id" required="1"/>
+                    <field name="anio" required="1"/>
+                    <field name="mes" required="1"/>
+                    <field name="saldo_inicial" required="1"/>
+                    <field name="folio" required="1"/>
+                </group>
+                <div invisible="state != 'get'">
+                    <h2>Descargar Archivo - Conciliación Bancaria</h2>
+                    <p>Archivo: <field name="data" readonly="1" filename="name"/></p>
+                </div>
+                <footer>
+                    <button name="print_xls_conciliacion_bancaria" string="Generar Reporte" type="object" class="oe_highlight" invisible="state != 'choose'"/>
+                    <button string="Cancelar" special="cancel" invisible="state != 'choose'"/>
+                    <button name="got_back" string="Atrás" type="object" class="oe_highlight" invisible="state != 'get'"/>
+                    <button string="Cerrar" special="cancel" invisible="state != 'get'"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_wizard_conciliacion_bancaria" model="ir.actions.act_window">
+        <field name="name">Conciliación Bancaria</field>
+        <field name="res_model">wizard.conciliacion.bancaria</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

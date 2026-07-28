@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_construtec_reportes_financieros" name="Reportes Construtec"
+              parent="account.menu_finance_reports" sequence="90"/>
+
+    <menuitem id="menu_wizard_reporte_diario" action="action_wizard_reporte_diario"
+              parent="menu_construtec_reportes_financieros" sequence="1"/>
+    <menuitem id="menu_wizard_reporte_mayor" action="action_wizard_reporte_mayor"
+              parent="menu_construtec_reportes_financieros" sequence="2"/>
+    <menuitem id="menu_wizard_balance_saldos" action="action_wizard_balance_saldos"
+              parent="menu_construtec_reportes_financieros" sequence="3"/>
+    <menuitem id="menu_wizard_balance_general" action="action_wizard_balance_general"
+              parent="menu_construtec_reportes_financieros" sequence="4"/>
+    <menuitem id="menu_wizard_estado_resultados" action="action_wizard_estado_resultados"
+              parent="menu_construtec_reportes_financieros" sequence="5"/>
+    <menuitem id="menu_wizard_costo_ventas" action="action_wizard_costo_ventas"
+              parent="menu_construtec_reportes_financieros" sequence="6"/>
+    <menuitem id="menu_wizard_costo_produccion" action="action_wizard_costo_produccion"
+              parent="menu_construtec_reportes_financieros" sequence="7"/>
+    <menuitem id="menu_wizard_cambio_patrimonio" action="action_wizard_cambio_patrimonio"
+              parent="menu_construtec_reportes_financieros" sequence="8"/>
+    <menuitem id="menu_wizard_flujo_efectivo" action="action_wizard_flujo_efectivo"
+              parent="menu_construtec_reportes_financieros" sequence="9"/>
+    <menuitem id="menu_wizard_libro_inventario" action="action_wizard_libro_inventario"
+              parent="menu_construtec_reportes_financieros" sequence="10"/>
+    <menuitem id="menu_wizard_conciliacion_bancaria" action="action_wizard_conciliacion_bancaria"
+              parent="menu_construtec_reportes_financieros" sequence="11"/>
+    <menuitem id="menu_wizard_reporte_bancarizacion" action="action_wizard_reporte_bancarizacion"
+              parent="menu_construtec_reportes_financieros" sequence="12"/>
+</odoo>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="gth.finanzas_admin" model="res.groups">
+            <field name="name">FINANZAS - Admin</field>
+        </record>
+    </data>
+    <data noupdate="1">
+        <record id="gth.nominas_admin" model="res.groups">
+            <field name="name">NOMINAS - Admin</field>
+        </record>
+    </data>
+</odoo>

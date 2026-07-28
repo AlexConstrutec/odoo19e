@@ -1,0 +1,13 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_hr_departamento_user,hr.departamento.user,model_hr_departamento,base.group_user,1,0,0,0
+access_hr_departamento_manager,hr.departamento.manager,model_hr_departamento,hr.group_hr_manager,1,1,1,1
+access_hr_municipio_user,hr.municipio.user,model_hr_municipio,base.group_user,1,0,0,0
+access_hr_municipio_manager,hr.municipio.manager,model_hr_municipio,hr.group_hr_manager,1,1,1,1
+access_hr_ocupacion_puesto_user,hr.ocupacion.puesto.user,model_hr_ocupacion_puesto,base.group_user,1,0,0,0
+access_hr_ocupacion_puesto_manager,hr.ocupacion.puesto.manager,model_hr_ocupacion_puesto,hr.group_hr_manager,1,1,1,1
+access_hr_codigo_employee_user,hr.codigo.employee.user,model_hr_codigo_employee,hr.group_hr_user,1,1,1,1
+access_hr_employee_history_job_salary_user,hr.employee.history.job.salary.user,model_hr_employee_history_job_salary,hr.group_hr_user,1,1,1,1
+access_hr_employee_family_user,hr.employee.family.user,model_hr_employee_family,base.group_user,1,1,1,1
+access_hr_employee_educational_user,hr.employee.educational.user,model_hr_employee_educational,base.group_user,1,1,1,1
+access_hr_employee_work_history_user,hr.employee.work.history.user,model_hr_employee_work_history,base.group_user,1,1,1,1
+access_hr_employee_licencia_user,hr.employee.licencia.user,model_hr_employee_licencia,base.group_user,1,1,1,1

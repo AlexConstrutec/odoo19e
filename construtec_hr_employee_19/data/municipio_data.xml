@@ -1,0 +1,1709 @@
+<odoo>
+    <data>
+        <record id="hr_municipio_101" model="hr.municipio">
+            <field name="code">101</field>
+            <field name="name">Guatemala</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_102" model="hr.municipio">
+            <field name="code">102</field>
+            <field name="name">Santa Catarina Pinula</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_103" model="hr.municipio">
+            <field name="code">103</field>
+            <field name="name">San José Pinula</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_104" model="hr.municipio">
+            <field name="code">104</field>
+            <field name="name">San José del Golfo</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_105" model="hr.municipio">
+            <field name="code">105</field>
+            <field name="name">Palencia</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_106" model="hr.municipio">
+            <field name="code">106</field>
+            <field name="name">Chinautla</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_107" model="hr.municipio">
+            <field name="code">107</field>
+            <field name="name">San Pedro Ayampuc</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_108" model="hr.municipio">
+            <field name="code">108</field>
+            <field name="name">Mixco</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_109" model="hr.municipio">
+            <field name="code">109</field>
+            <field name="name">San Pedro Sacatepéquez</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_110" model="hr.municipio">
+            <field name="code">110</field>
+            <field name="name">San Juan Sacatepéquez</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_111" model="hr.municipio">
+            <field name="code">111</field>
+            <field name="name">San Raymundo</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_112" model="hr.municipio">
+            <field name="code">112</field>
+            <field name="name">Chuarrancho</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_113" model="hr.municipio">
+            <field name="code">113</field>
+            <field name="name">Fraijanes</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_114" model="hr.municipio">
+            <field name="code">114</field>
+            <field name="name">Amatitlán</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_115" model="hr.municipio">
+            <field name="code">115</field>
+            <field name="name">Villa Nueva</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_116" model="hr.municipio">
+            <field name="code">116</field>
+            <field name="name">Villa Canales</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_117" model="hr.municipio">
+            <field name="code">117</field>
+            <field name="name">Petapa</field>
+            <field name="departamento_id" ref="hr_departamento_1"/>
+        </record>
+        <record id="hr_municipio_201" model="hr.municipio">
+            <field name="code">201</field>
+            <field name="name">Guastatoya</field>
+            <field name="departamento_id" ref="hr_departamento_2"/>
+        </record>
+        <record id="hr_municipio_202" model="hr.municipio">
+            <field name="code">202</field>
+            <field name="name">Morazán</field>
+            <field name="departamento_id" ref="hr_departamento_2"/>
+        </record>
+        <record id="hr_municipio_203" model="hr.municipio">
+            <field name="code">203</field>
+            <field name="name">San Agustín Acasaguastlán</field>
+            <field name="departamento_id" ref="hr_departamento_2"/>
+        </record>
+        <record id="hr_municipio_204" model="hr.municipio">
+            <field name="code">204</field>
+            <field name="name">San Cristóbal Acasaguastlán</field>
+            <field name="departamento_id" ref="hr_departamento_2"/>
+        </record>
+        <record id="hr_municipio_205" model="hr.municipio">
+            <field name="code">205</field>
+            <field name="name">El Jícaro</field>
+            <field name="departamento_id" ref="hr_departamento_2"/>
+        </record>
+        <record id="hr_municipio_206" model="hr.municipio">
+            <field name="code">206</field>
+            <field name="name">Sansare</field>
+            <field name="departamento_id" ref="hr_departamento_2"/>
+        </record>
+        <record id="hr_municipio_207" model="hr.municipio">
+            <field name="code">207</field>
+            <field name="name">Sanarate</field>
+            <field name="departamento_id" ref="hr_departamento_2"/>
+        </record>
+        <record id="hr_municipio_208" model="hr.municipio">
+            <field name="code">208</field>
+            <field name="name">San Antonio la Paz</field>
+            <field name="departamento_id" ref="hr_departamento_2"/>
+        </record>
+        <record id="hr_municipio_301" model="hr.municipio">
+            <field name="code">301</field>
+            <field name="name">Antigua Guatemala</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_302" model="hr.municipio">
+            <field name="code">302</field>
+            <field name="name">Jocotenango</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_303" model="hr.municipio">
+            <field name="code">303</field>
+            <field name="name">Pastores</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_304" model="hr.municipio">
+            <field name="code">304</field>
+            <field name="name">Sumpango</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_305" model="hr.municipio">
+            <field name="code">305</field>
+            <field name="name">Santo Domingo Xenacoj</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_306" model="hr.municipio">
+            <field name="code">306</field>
+            <field name="name">Santiago Sacatepéquez</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_307" model="hr.municipio">
+            <field name="code">307</field>
+            <field name="name">San Bartolomé Milpas Altas</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_308" model="hr.municipio">
+            <field name="code">308</field>
+            <field name="name">San Lucas Sacatepéquez</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_309" model="hr.municipio">
+            <field name="code">309</field>
+            <field name="name">Santa Lucía Milpas Altas</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_310" model="hr.municipio">
+            <field name="code">310</field>
+            <field name="name">Magdalena Milpas Altas</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_311" model="hr.municipio">
+            <field name="code">311</field>
+            <field name="name">Santa María de Jesús</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_312" model="hr.municipio">
+            <field name="code">312</field>
+            <field name="name">Ciudad Vieja</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_313" model="hr.municipio">
+            <field name="code">313</field>
+            <field name="name">San Miguel Dueñas</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_314" model="hr.municipio">
+            <field name="code">314</field>
+            <field name="name">San Juan Alotenango</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_315" model="hr.municipio">
+            <field name="code">315</field>
+            <field name="name">San Antonio Aguas Calientes</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_316" model="hr.municipio">
+            <field name="code">316</field>
+            <field name="name">Santa Catarina Barahona</field>
+            <field name="departamento_id" ref="hr_departamento_3"/>
+        </record>
+        <record id="hr_municipio_401" model="hr.municipio">
+            <field name="code">401</field>
+            <field name="name">Chimaltenango</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_402" model="hr.municipio">
+            <field name="code">402</field>
+            <field name="name">San José Poaquil</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_403" model="hr.municipio">
+            <field name="code">403</field>
+            <field name="name">San Martín Jilotepeque</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_404" model="hr.municipio">
+            <field name="code">404</field>
+            <field name="name">Comalapa</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_405" model="hr.municipio">
+            <field name="code">405</field>
+            <field name="name">Santa Apolonia</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_406" model="hr.municipio">
+            <field name="code">406</field>
+            <field name="name">Tecpán Guatemala</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_407" model="hr.municipio">
+            <field name="code">407</field>
+            <field name="name">Patzún</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_408" model="hr.municipio">
+            <field name="code">408</field>
+            <field name="name">San Miguel Pochuta</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_409" model="hr.municipio">
+            <field name="code">409</field>
+            <field name="name">Patzicía</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_410" model="hr.municipio">
+            <field name="code">410</field>
+            <field name="name">Santa Cruz Balanyá</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_411" model="hr.municipio">
+            <field name="code">411</field>
+            <field name="name">Acatenango</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_412" model="hr.municipio">
+            <field name="code">412</field>
+            <field name="name">San Pedro Yepocapa</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_413" model="hr.municipio">
+            <field name="code">413</field>
+            <field name="name">San Andrés Itzapa</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_414" model="hr.municipio">
+            <field name="code">414</field>
+            <field name="name">Parramos</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_415" model="hr.municipio">
+            <field name="code">415</field>
+            <field name="name">Zaragoza</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_416" model="hr.municipio">
+            <field name="code">416</field>
+            <field name="name">El Tejar</field>
+            <field name="departamento_id" ref="hr_departamento_4"/>
+        </record>
+        <record id="hr_municipio_501" model="hr.municipio">
+            <field name="code">501</field>
+            <field name="name">Escuintla</field>
+            <field name="departamento_id" ref="hr_departamento_5"/>
+        </record>
+        <record id="hr_municipio_502" model="hr.municipio">
+            <field name="code">502</field>
+            <field name="name">Santa Lucía Cotzumalguapa</field>
+            <field name="departamento_id" ref="hr_departamento_5"/>
+        </record>
+        <record id="hr_municipio_503" model="hr.municipio">
+            <field name="code">503</field>
+            <field name="name">La Democracia</field>
+            <field name="departamento_id" ref="hr_departamento_5"/>
+        </record>
+        <record id="hr_municipio_504" model="hr.municipio">
+            <field name="code">504</field>
+            <field name="name">Siquinalá</field>
+            <field name="departamento_id" ref="hr_departamento_5"/>
+        </record>
+        <record id="hr_municipio_505" model="hr.municipio">
+            <field name="code">505</field>
+            <field name="name">Masagua</field>
+            <field name="departamento_id" ref="hr_departamento_5"/>
+        </record>
+        <record id="hr_municipio_506" model="hr.municipio">
+            <field name="code">506</field>
+            <field name="name">Tiquisate</field>
+            <field name="departamento_id" ref="hr_departamento_5"/>
+        </record>
+        <record id="hr_municipio_507" model="hr.municipio">
+            <field name="code">507</field>
+            <field name="name">La Gomera</field>
+            <field name="departamento_id" ref="hr_departamento_5"/>
+        </record>
+        <record id="hr_municipio_508" model="hr.municipio">
+            <field name="code">508</field>
+            <field name="name">Guanagazapa</field>
+            <field name="departamento_id" ref="hr_departamento_5"/>
+        </record>
+        <record id="hr_municipio_509" model="hr.municipio">
+            <field name="code">509</field>
+            <field name="name">San José</field>
+            <field name="departamento_id" ref="hr_departamento_5"/>
+        </record>
+        <record id="hr_municipio_510" model="hr.municipio">
+            <field name="code">510</field>
+            <field name="name">Iztapa</field>
+            <field name="departamento_id" ref="hr_departamento_5"/>
+        </record>
+        <record id="hr_municipio_511" model="hr.municipio">
+            <field name="code">511</field>
+            <field name="name">Palín</field>
+            <field name="departamento_id" ref="hr_departamento_5"/>
+        </record>
+        <record id="hr_municipio_512" model="hr.municipio">
+            <field name="code">512</field>
+            <field name="name">San Vicente Pacaya</field>
+            <field name="departamento_id" ref="hr_departamento_5"/>
+        </record>
+        <record id="hr_municipio_513" model="hr.municipio">
+            <field name="code">513</field>
+            <field name="name">Nueva Concepción</field>
+            <field name="departamento_id" ref="hr_departamento_5"/>
+        </record>
+        <record id="hr_municipio_514" model="hr.municipio">
+            <field name="code">514</field>
+            <field name="name">Sipacate</field>
+            <field name="departamento_id" ref="hr_departamento_5"/>
+        </record>
+        <record id="hr_municipio_601" model="hr.municipio">
+            <field name="code">601</field>
+            <field name="name">Cuilapa</field>
+            <field name="departamento_id" ref="hr_departamento_6"/>
+        </record>
+        <record id="hr_municipio_602" model="hr.municipio">
+            <field name="code">602</field>
+            <field name="name">Barberena</field>
+            <field name="departamento_id" ref="hr_departamento_6"/>
+        </record>
+        <record id="hr_municipio_603" model="hr.municipio">
+            <field name="code">603</field>
+            <field name="name">Santa Rosa de Lima</field>
+            <field name="departamento_id" ref="hr_departamento_6"/>
+        </record>
+        <record id="hr_municipio_604" model="hr.municipio">
+            <field name="code">604</field>
+            <field name="name">Casillas</field>
+            <field name="departamento_id" ref="hr_departamento_6"/>
+        </record>
+        <record id="hr_municipio_605" model="hr.municipio">
+            <field name="code">605</field>
+            <field name="name">San Rafael Las Flores</field>
+            <field name="departamento_id" ref="hr_departamento_6"/>
+        </record>
+        <record id="hr_municipio_606" model="hr.municipio">
+            <field name="code">606</field>
+            <field name="name">Oratorio</field>
+            <field name="departamento_id" ref="hr_departamento_6"/>
+        </record>
+        <record id="hr_municipio_607" model="hr.municipio">
+            <field name="code">607</field>
+            <field name="name">San Juan Tecuaco</field>
+            <field name="departamento_id" ref="hr_departamento_6"/>
+        </record>
+        <record id="hr_municipio_608" model="hr.municipio">
+            <field name="code">608</field>
+            <field name="name">Chiquimulilla</field>
+            <field name="departamento_id" ref="hr_departamento_6"/>
+        </record>
+        <record id="hr_municipio_609" model="hr.municipio">
+            <field name="code">609</field>
+            <field name="name">Taxisco</field>
+            <field name="departamento_id" ref="hr_departamento_6"/>
+        </record>
+        <record id="hr_municipio_610" model="hr.municipio">
+            <field name="code">610</field>
+            <field name="name">Santa María Ixhuatán</field>
+            <field name="departamento_id" ref="hr_departamento_6"/>
+        </record>
+        <record id="hr_municipio_611" model="hr.municipio">
+            <field name="code">611</field>
+            <field name="name">Guazacapán</field>
+            <field name="departamento_id" ref="hr_departamento_6"/>
+        </record>
+        <record id="hr_municipio_612" model="hr.municipio">
+            <field name="code">612</field>
+            <field name="name">Santa Cruz Naranjo</field>
+            <field name="departamento_id" ref="hr_departamento_6"/>
+        </record>
+        <record id="hr_municipio_613" model="hr.municipio">
+            <field name="code">613</field>
+            <field name="name">Pueblo Nuevo Viñas</field>
+            <field name="departamento_id" ref="hr_departamento_6"/>
+        </record>
+        <record id="hr_municipio_614" model="hr.municipio">
+            <field name="code">614</field>
+            <field name="name">Nueva Santa Rosa</field>
+            <field name="departamento_id" ref="hr_departamento_6"/>
+        </record>
+        <record id="hr_municipio_701" model="hr.municipio">
+            <field name="code">701</field>
+            <field name="name">Sololá</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_702" model="hr.municipio">
+            <field name="code">702</field>
+            <field name="name">San José Chacayá</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_703" model="hr.municipio">
+            <field name="code">703</field>
+            <field name="name">Santa María Visitación</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_704" model="hr.municipio">
+            <field name="code">704</field>
+            <field name="name">Santa Lucía Utatlán</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_705" model="hr.municipio">
+            <field name="code">705</field>
+            <field name="name">Nahualá</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_706" model="hr.municipio">
+            <field name="code">706</field>
+            <field name="name">Santa Catarina Ixtahuacán</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_707" model="hr.municipio">
+            <field name="code">707</field>
+            <field name="name">Santa Clara La Laguna</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_708" model="hr.municipio">
+            <field name="code">708</field>
+            <field name="name">Concepción</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_709" model="hr.municipio">
+            <field name="code">709</field>
+            <field name="name">San Andrés Semetabaj</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_710" model="hr.municipio">
+            <field name="code">710</field>
+            <field name="name">Panajachel</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_711" model="hr.municipio">
+            <field name="code">711</field>
+            <field name="name">Santa Catarina Palopó</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_712" model="hr.municipio">
+            <field name="code">712</field>
+            <field name="name">San Antonio Palopó</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_713" model="hr.municipio">
+            <field name="code">713</field>
+            <field name="name">San Lucas Tolimán</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_714" model="hr.municipio">
+            <field name="code">714</field>
+            <field name="name">Santa Cruz La Laguna</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_715" model="hr.municipio">
+            <field name="code">715</field>
+            <field name="name">San Pablo La Laguna</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_716" model="hr.municipio">
+            <field name="code">716</field>
+            <field name="name">San Marcos La Laguna</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_717" model="hr.municipio">
+            <field name="code">717</field>
+            <field name="name">San Juan La Laguna</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_718" model="hr.municipio">
+            <field name="code">718</field>
+            <field name="name">San Pedro La Laguna</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_719" model="hr.municipio">
+            <field name="code">719</field>
+            <field name="name">Santiago Atitlán</field>
+            <field name="departamento_id" ref="hr_departamento_7"/>
+        </record>
+        <record id="hr_municipio_801" model="hr.municipio">
+            <field name="code">801</field>
+            <field name="name">Totonicapán</field>
+            <field name="departamento_id" ref="hr_departamento_8"/>
+        </record>
+        <record id="hr_municipio_802" model="hr.municipio">
+            <field name="code">802</field>
+            <field name="name">San Cristóbal Totonicapán</field>
+            <field name="departamento_id" ref="hr_departamento_8"/>
+        </record>
+        <record id="hr_municipio_803" model="hr.municipio">
+            <field name="code">803</field>
+            <field name="name">San Francisco El Alto</field>
+            <field name="departamento_id" ref="hr_departamento_8"/>
+        </record>
+        <record id="hr_municipio_804" model="hr.municipio">
+            <field name="code">804</field>
+            <field name="name">San Andrés Xecul</field>
+            <field name="departamento_id" ref="hr_departamento_8"/>
+        </record>
+        <record id="hr_municipio_805" model="hr.municipio">
+            <field name="code">805</field>
+            <field name="name">Momostenango</field>
+            <field name="departamento_id" ref="hr_departamento_8"/>
+        </record>
+        <record id="hr_municipio_806" model="hr.municipio">
+            <field name="code">806</field>
+            <field name="name">Santa María Chiquimula</field>
+            <field name="departamento_id" ref="hr_departamento_8"/>
+        </record>
+        <record id="hr_municipio_807" model="hr.municipio">
+            <field name="code">807</field>
+            <field name="name">Santa Lucía La Reforma</field>
+            <field name="departamento_id" ref="hr_departamento_8"/>
+        </record>
+        <record id="hr_municipio_808" model="hr.municipio">
+            <field name="code">808</field>
+            <field name="name">San Bartolo Aguas Calientes</field>
+            <field name="departamento_id" ref="hr_departamento_8"/>
+        </record>
+        <record id="hr_municipio_901" model="hr.municipio">
+            <field name="code">901</field>
+            <field name="name">Quetzaltenango</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_902" model="hr.municipio">
+            <field name="code">902</field>
+            <field name="name">Salcajá</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_903" model="hr.municipio">
+            <field name="code">903</field>
+            <field name="name">San Juan Olintepeque</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_904" model="hr.municipio">
+            <field name="code">904</field>
+            <field name="name">San Carlos Sija</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_905" model="hr.municipio">
+            <field name="code">905</field>
+            <field name="name">Sibilia</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_906" model="hr.municipio">
+            <field name="code">906</field>
+            <field name="name">Cabricán</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_907" model="hr.municipio">
+            <field name="code">907</field>
+            <field name="name">Cajolá</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_908" model="hr.municipio">
+            <field name="code">908</field>
+            <field name="name">San Miguel Siguilá</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_909" model="hr.municipio">
+            <field name="code">909</field>
+            <field name="name">San Juan Ostuncalco</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_910" model="hr.municipio">
+            <field name="code">910</field>
+            <field name="name">San Mateo</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_911" model="hr.municipio">
+            <field name="code">911</field>
+            <field name="name">Concepción Chiquirichapa</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_912" model="hr.municipio">
+            <field name="code">912</field>
+            <field name="name">San Martín Sacatepéquez</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_913" model="hr.municipio">
+            <field name="code">913</field>
+            <field name="name">Almolonga</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_914" model="hr.municipio">
+            <field name="code">914</field>
+            <field name="name">Cantel</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_915" model="hr.municipio">
+            <field name="code">915</field>
+            <field name="name">Huitán</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_916" model="hr.municipio">
+            <field name="code">916</field>
+            <field name="name">Zunil</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_917" model="hr.municipio">
+            <field name="code">917</field>
+            <field name="name">Colomba Costa Cuca</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_918" model="hr.municipio">
+            <field name="code">918</field>
+            <field name="name">San Francisco La Unión</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_919" model="hr.municipio">
+            <field name="code">919</field>
+            <field name="name">El Palmar</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_920" model="hr.municipio">
+            <field name="code">920</field>
+            <field name="name">Coatepeque</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_921" model="hr.municipio">
+            <field name="code">921</field>
+            <field name="name">Génova</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_922" model="hr.municipio">
+            <field name="code">922</field>
+            <field name="name">Flores Costa Cuca</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_923" model="hr.municipio">
+            <field name="code">923</field>
+            <field name="name">La Esperanza</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_924" model="hr.municipio">
+            <field name="code">924</field>
+            <field name="name">Palestina de Los Altos</field>
+            <field name="departamento_id" ref="hr_departamento_9"/>
+        </record>
+        <record id="hr_municipio_1001" model="hr.municipio">
+            <field name="code">1001</field>
+            <field name="name">Mazatenango</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1002" model="hr.municipio">
+            <field name="code">1002</field>
+            <field name="name">Cuyotenango</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1003" model="hr.municipio">
+            <field name="code">1003</field>
+            <field name="name">San Francisco Zapotitlán</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1004" model="hr.municipio">
+            <field name="code">1004</field>
+            <field name="name">San Bernardino</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1005" model="hr.municipio">
+            <field name="code">1005</field>
+            <field name="name">San José el Ídolo</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1006" model="hr.municipio">
+            <field name="code">1006</field>
+            <field name="name">Santo Domingo Suchitepéquez</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1007" model="hr.municipio">
+            <field name="code">1007</field>
+            <field name="name">San Lorenzo</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1008" model="hr.municipio">
+            <field name="code">1008</field>
+            <field name="name">Samayac</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1009" model="hr.municipio">
+            <field name="code">1009</field>
+            <field name="name">San Pablo Jocopilas</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1010" model="hr.municipio">
+            <field name="code">1010</field>
+            <field name="name">San Antonio Suchitepéquez</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1011" model="hr.municipio">
+            <field name="code">1011</field>
+            <field name="name">San Miguel Panán</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1012" model="hr.municipio">
+            <field name="code">1012</field>
+            <field name="name">San Gabriel</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1013" model="hr.municipio">
+            <field name="code">1013</field>
+            <field name="name">Chicacao</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1014" model="hr.municipio">
+            <field name="code">1014</field>
+            <field name="name">Patulul</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1015" model="hr.municipio">
+            <field name="code">1015</field>
+            <field name="name">Santa Bárbara</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1016" model="hr.municipio">
+            <field name="code">1016</field>
+            <field name="name">San Juan Bautista</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1017" model="hr.municipio">
+            <field name="code">1017</field>
+            <field name="name">Santo Tomas la Unión</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1018" model="hr.municipio">
+            <field name="code">1018</field>
+            <field name="name">Zunilito</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1019" model="hr.municipio">
+            <field name="code">1019</field>
+            <field name="name">Pueblo Nuevo</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1020" model="hr.municipio">
+            <field name="code">1020</field>
+            <field name="name">Río Bravo</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1021" model="hr.municipio">
+            <field name="code">1021</field>
+            <field name="name">San José La Máquina</field>
+            <field name="departamento_id" ref="hr_departamento_10"/>
+        </record>
+        <record id="hr_municipio_1101" model="hr.municipio">
+            <field name="code">1101</field>
+            <field name="name">Retalhuleu</field>
+            <field name="departamento_id" ref="hr_departamento_11"/>
+        </record>
+        <record id="hr_municipio_1102" model="hr.municipio">
+            <field name="code">1102</field>
+            <field name="name">San Sebastián</field>
+            <field name="departamento_id" ref="hr_departamento_11"/>
+        </record>
+        <record id="hr_municipio_1103" model="hr.municipio">
+            <field name="code">1103</field>
+            <field name="name">Santa Cruz Muluá</field>
+            <field name="departamento_id" ref="hr_departamento_11"/>
+        </record>
+        <record id="hr_municipio_1104" model="hr.municipio">
+            <field name="code">1104</field>
+            <field name="name">San Martín Zapotitlán</field>
+            <field name="departamento_id" ref="hr_departamento_11"/>
+        </record>
+        <record id="hr_municipio_1105" model="hr.municipio">
+            <field name="code">1105</field>
+            <field name="name">San Felipe</field>
+            <field name="departamento_id" ref="hr_departamento_11"/>
+        </record>
+        <record id="hr_municipio_1106" model="hr.municipio">
+            <field name="code">1106</field>
+            <field name="name">San Andrés Villa Seca</field>
+            <field name="departamento_id" ref="hr_departamento_11"/>
+        </record>
+        <record id="hr_municipio_1107" model="hr.municipio">
+            <field name="code">1107</field>
+            <field name="name">Champerico</field>
+            <field name="departamento_id" ref="hr_departamento_11"/>
+        </record>
+        <record id="hr_municipio_1108" model="hr.municipio">
+            <field name="code">1108</field>
+            <field name="name">Nuevo San Carlos</field>
+            <field name="departamento_id" ref="hr_departamento_11"/>
+        </record>
+        <record id="hr_municipio_1109" model="hr.municipio">
+            <field name="code">1109</field>
+            <field name="name">El Asintal</field>
+            <field name="departamento_id" ref="hr_departamento_11"/>
+        </record>
+        <record id="hr_municipio_1201" model="hr.municipio">
+            <field name="code">1201</field>
+            <field name="name">San Marcos</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1202" model="hr.municipio">
+            <field name="code">1202</field>
+            <field name="name">San Pedro Sacatepéquez</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1203" model="hr.municipio">
+            <field name="code">1203</field>
+            <field name="name">San Antonio Sacatepéquez</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1204" model="hr.municipio">
+            <field name="code">1204</field>
+            <field name="name">Comitancillo</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1205" model="hr.municipio">
+            <field name="code">1205</field>
+            <field name="name">San Miguel Ixtahuacán</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1206" model="hr.municipio">
+            <field name="code">1206</field>
+            <field name="name">Concepción Tutuapa</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1207" model="hr.municipio">
+            <field name="code">1207</field>
+            <field name="name">Tacaná</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1208" model="hr.municipio">
+            <field name="code">1208</field>
+            <field name="name">Sibinal</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1209" model="hr.municipio">
+            <field name="code">1209</field>
+            <field name="name">Tajumulco</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1210" model="hr.municipio">
+            <field name="code">1210</field>
+            <field name="name">Tejutla</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1211" model="hr.municipio">
+            <field name="code">1211</field>
+            <field name="name">San Rafael Pie de la Cuesta</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1212" model="hr.municipio">
+            <field name="code">1212</field>
+            <field name="name">Nuevo Progreso</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1213" model="hr.municipio">
+            <field name="code">1213</field>
+            <field name="name">El Tumbador</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1214" model="hr.municipio">
+            <field name="code">1214</field>
+            <field name="name">San José el Rodeo</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1215" model="hr.municipio">
+            <field name="code">1215</field>
+            <field name="name">Malacatán</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1216" model="hr.municipio">
+            <field name="code">1216</field>
+            <field name="name">Catarina</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1217" model="hr.municipio">
+            <field name="code">1217</field>
+            <field name="name">Ayutla</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1218" model="hr.municipio">
+            <field name="code">1218</field>
+            <field name="name">Ocós</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1219" model="hr.municipio">
+            <field name="code">1219</field>
+            <field name="name">San Pablo</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1220" model="hr.municipio">
+            <field name="code">1220</field>
+            <field name="name">El Quetzal</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1221" model="hr.municipio">
+            <field name="code">1221</field>
+            <field name="name">La Reforma</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1222" model="hr.municipio">
+            <field name="code">1222</field>
+            <field name="name">Pajapita</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1223" model="hr.municipio">
+            <field name="code">1223</field>
+            <field name="name">Ixchiguán</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1224" model="hr.municipio">
+            <field name="code">1224</field>
+            <field name="name">San José Ojetenam</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1225" model="hr.municipio">
+            <field name="code">1225</field>
+            <field name="name">San Cristóbal Cucho</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1226" model="hr.municipio">
+            <field name="code">1226</field>
+            <field name="name">Sipacapa</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1227" model="hr.municipio">
+            <field name="code">1227</field>
+            <field name="name">Esquipulas Palo Gordo</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1228" model="hr.municipio">
+            <field name="code">1228</field>
+            <field name="name">Río Blanco</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1229" model="hr.municipio">
+            <field name="code">1229</field>
+            <field name="name">San Lorenzo</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1230" model="hr.municipio">
+            <field name="code">1230</field>
+            <field name="name">La Blanca</field>
+            <field name="departamento_id" ref="hr_departamento_12"/>
+        </record>
+        <record id="hr_municipio_1301" model="hr.municipio">
+            <field name="code">1301</field>
+            <field name="name">Huehuetenango</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1302" model="hr.municipio">
+            <field name="code">1302</field>
+            <field name="name">Chiantla</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1303" model="hr.municipio">
+            <field name="code">1303</field>
+            <field name="name">Malacatancito</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1304" model="hr.municipio">
+            <field name="code">1304</field>
+            <field name="name">Cuilco</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1305" model="hr.municipio">
+            <field name="code">1305</field>
+            <field name="name">Nentón</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1306" model="hr.municipio">
+            <field name="code">1306</field>
+            <field name="name">San Pedro Necta</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1307" model="hr.municipio">
+            <field name="code">1307</field>
+            <field name="name">Jacaltenango</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1308" model="hr.municipio">
+            <field name="code">1308</field>
+            <field name="name">San Pedro Soloma</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1309" model="hr.municipio">
+            <field name="code">1309</field>
+            <field name="name">San Ildefonso Ixtahuacán</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1310" model="hr.municipio">
+            <field name="code">1310</field>
+            <field name="name">Santa Bárbara</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1311" model="hr.municipio">
+            <field name="code">1311</field>
+            <field name="name">La Libertad</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1312" model="hr.municipio">
+            <field name="code">1312</field>
+            <field name="name">La Democracia</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1313" model="hr.municipio">
+            <field name="code">1313</field>
+            <field name="name">San Miguel Acatán</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1314" model="hr.municipio">
+            <field name="code">1314</field>
+            <field name="name">San Rafael La Independencia</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1315" model="hr.municipio">
+            <field name="code">1315</field>
+            <field name="name">Todos Santos Cuchumatán</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1316" model="hr.municipio">
+            <field name="code">1316</field>
+            <field name="name">San Juan Atitán</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1317" model="hr.municipio">
+            <field name="code">1317</field>
+            <field name="name">Santa Eulalia</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1318" model="hr.municipio">
+            <field name="code">1318</field>
+            <field name="name">San Mateo Ixtatán</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1319" model="hr.municipio">
+            <field name="code">1319</field>
+            <field name="name">Colotenango</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1320" model="hr.municipio">
+            <field name="code">1320</field>
+            <field name="name">San Sebastián Huehuetenango</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1321" model="hr.municipio">
+            <field name="code">1321</field>
+            <field name="name">Tectitán</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1322" model="hr.municipio">
+            <field name="code">1322</field>
+            <field name="name">Concepción Huista</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1323" model="hr.municipio">
+            <field name="code">1323</field>
+            <field name="name">San Juan Ixcoy</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1324" model="hr.municipio">
+            <field name="code">1324</field>
+            <field name="name">San Antonio Huista</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1325" model="hr.municipio">
+            <field name="code">1325</field>
+            <field name="name">San Sebastián Coatán</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1326" model="hr.municipio">
+            <field name="code">1326</field>
+            <field name="name">Santa Cruz Barrillas</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1327" model="hr.municipio">
+            <field name="code">1327</field>
+            <field name="name">Aguacatán</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1328" model="hr.municipio">
+            <field name="code">1328</field>
+            <field name="name">San Rafael Petzal</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1329" model="hr.municipio">
+            <field name="code">1329</field>
+            <field name="name">San Gaspar Ixchil</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1330" model="hr.municipio">
+            <field name="code">1330</field>
+            <field name="name">Santiago Chimaltenango</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1331" model="hr.municipio">
+            <field name="code">1331</field>
+            <field name="name">Santa Ana Huista</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1332" model="hr.municipio">
+            <field name="code">1332</field>
+            <field name="name">Unión Cantinil</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1333" model="hr.municipio">
+            <field name="code">1333</field>
+            <field name="name">Petatán</field>
+            <field name="departamento_id" ref="hr_departamento_13"/>
+        </record>
+        <record id="hr_municipio_1401" model="hr.municipio">
+            <field name="code">1401</field>
+            <field name="name">Santa Cruz del Quiché</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1402" model="hr.municipio">
+            <field name="code">1402</field>
+            <field name="name">Chiché</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1403" model="hr.municipio">
+            <field name="code">1403</field>
+            <field name="name">Chinique</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1404" model="hr.municipio">
+            <field name="code">1404</field>
+            <field name="name">Zacualpa</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1405" model="hr.municipio">
+            <field name="code">1405</field>
+            <field name="name">Chajul</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1406" model="hr.municipio">
+            <field name="code">1406</field>
+            <field name="name">Santo Tomás Chichicastenango</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1407" model="hr.municipio">
+            <field name="code">1407</field>
+            <field name="name">Patzité</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1408" model="hr.municipio">
+            <field name="code">1408</field>
+            <field name="name">San Antonio Ilotenango</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1409" model="hr.municipio">
+            <field name="code">1409</field>
+            <field name="name">San Pedro Jocopilas</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1410" model="hr.municipio">
+            <field name="code">1410</field>
+            <field name="name">Cunén</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1411" model="hr.municipio">
+            <field name="code">1411</field>
+            <field name="name">San Juan Cotzal</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1412" model="hr.municipio">
+            <field name="code">1412</field>
+            <field name="name">Joyabaj</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1413" model="hr.municipio">
+            <field name="code">1413</field>
+            <field name="name">Santa María Nebaj</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1414" model="hr.municipio">
+            <field name="code">1414</field>
+            <field name="name">San Andrés Sajcabajá</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1415" model="hr.municipio">
+            <field name="code">1415</field>
+            <field name="name">San Miguel Uspantán</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1416" model="hr.municipio">
+            <field name="code">1416</field>
+            <field name="name">Sacapulas</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1417" model="hr.municipio">
+            <field name="code">1417</field>
+            <field name="name">San Bartolomé Jocotenango</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1418" model="hr.municipio">
+            <field name="code">1418</field>
+            <field name="name">Canillá</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1419" model="hr.municipio">
+            <field name="code">1419</field>
+            <field name="name">Chicamán</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1420" model="hr.municipio">
+            <field name="code">1420</field>
+            <field name="name">Ixcán</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1421" model="hr.municipio">
+            <field name="code">1421</field>
+            <field name="name">Pachalum</field>
+            <field name="departamento_id" ref="hr_departamento_14"/>
+        </record>
+        <record id="hr_municipio_1501" model="hr.municipio">
+            <field name="code">1501</field>
+            <field name="name">Salamá</field>
+            <field name="departamento_id" ref="hr_departamento_15"/>
+        </record>
+        <record id="hr_municipio_1502" model="hr.municipio">
+            <field name="code">1502</field>
+            <field name="name">San Miguel Chicaj</field>
+            <field name="departamento_id" ref="hr_departamento_15"/>
+        </record>
+        <record id="hr_municipio_1503" model="hr.municipio">
+            <field name="code">1503</field>
+            <field name="name">Rabinal</field>
+            <field name="departamento_id" ref="hr_departamento_15"/>
+        </record>
+        <record id="hr_municipio_1504" model="hr.municipio">
+            <field name="code">1504</field>
+            <field name="name">Cubulco</field>
+            <field name="departamento_id" ref="hr_departamento_15"/>
+        </record>
+        <record id="hr_municipio_1505" model="hr.municipio">
+            <field name="code">1505</field>
+            <field name="name">Granados</field>
+            <field name="departamento_id" ref="hr_departamento_15"/>
+        </record>
+        <record id="hr_municipio_1506" model="hr.municipio">
+            <field name="code">1506</field>
+            <field name="name">El Chol</field>
+            <field name="departamento_id" ref="hr_departamento_15"/>
+        </record>
+        <record id="hr_municipio_1507" model="hr.municipio">
+            <field name="code">1507</field>
+            <field name="name">San Jerónimo</field>
+            <field name="departamento_id" ref="hr_departamento_15"/>
+        </record>
+        <record id="hr_municipio_1508" model="hr.municipio">
+            <field name="code">1508</field>
+            <field name="name">Purulhá</field>
+            <field name="departamento_id" ref="hr_departamento_15"/>
+        </record>
+        <record id="hr_municipio_1601" model="hr.municipio">
+            <field name="code">1601</field>
+            <field name="name">Cobán</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1602" model="hr.municipio">
+            <field name="code">1602</field>
+            <field name="name">Santa Cruz Verapaz</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1603" model="hr.municipio">
+            <field name="code">1603</field>
+            <field name="name">San Cristóbal Verapaz</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1604" model="hr.municipio">
+            <field name="code">1604</field>
+            <field name="name">Tactic</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1605" model="hr.municipio">
+            <field name="code">1605</field>
+            <field name="name">Tamahú</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1606" model="hr.municipio">
+            <field name="code">1606</field>
+            <field name="name">Tucurú</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1607" model="hr.municipio">
+            <field name="code">1607</field>
+            <field name="name">Panzós</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1608" model="hr.municipio">
+            <field name="code">1608</field>
+            <field name="name">Senahú</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1609" model="hr.municipio">
+            <field name="code">1609</field>
+            <field name="name">San Pedro Carchá</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1610" model="hr.municipio">
+            <field name="code">1610</field>
+            <field name="name">San Juan Chamelco</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1611" model="hr.municipio">
+            <field name="code">1611</field>
+            <field name="name">San Agustín Lanquín</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1612" model="hr.municipio">
+            <field name="code">1612</field>
+            <field name="name">Santa María Cahabón</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1613" model="hr.municipio">
+            <field name="code">1613</field>
+            <field name="name">Chisec</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1614" model="hr.municipio">
+            <field name="code">1614</field>
+            <field name="name">Chahal</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1615" model="hr.municipio">
+            <field name="code">1615</field>
+            <field name="name">Fray Bartolomé de Las Casas</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1616" model="hr.municipio">
+            <field name="code">1616</field>
+            <field name="name">Santa Catarina La Tinta</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1617" model="hr.municipio">
+            <field name="code">1617</field>
+            <field name="name">Raxruhá</field>
+            <field name="departamento_id" ref="hr_departamento_16"/>
+        </record>
+        <record id="hr_municipio_1701" model="hr.municipio">
+            <field name="code">1701</field>
+            <field name="name">Flores</field>
+            <field name="departamento_id" ref="hr_departamento_17"/>
+        </record>
+        <record id="hr_municipio_1702" model="hr.municipio">
+            <field name="code">1702</field>
+            <field name="name">San José</field>
+            <field name="departamento_id" ref="hr_departamento_17"/>
+        </record>
+        <record id="hr_municipio_1703" model="hr.municipio">
+            <field name="code">1703</field>
+            <field name="name">San Benito</field>
+            <field name="departamento_id" ref="hr_departamento_17"/>
+        </record>
+        <record id="hr_municipio_1704" model="hr.municipio">
+            <field name="code">1704</field>
+            <field name="name">San Andrés</field>
+            <field name="departamento_id" ref="hr_departamento_17"/>
+        </record>
+        <record id="hr_municipio_1705" model="hr.municipio">
+            <field name="code">1705</field>
+            <field name="name">La Libertad</field>
+            <field name="departamento_id" ref="hr_departamento_17"/>
+        </record>
+        <record id="hr_municipio_1706" model="hr.municipio">
+            <field name="code">1706</field>
+            <field name="name">San Francisco</field>
+            <field name="departamento_id" ref="hr_departamento_17"/>
+        </record>
+        <record id="hr_municipio_1707" model="hr.municipio">
+            <field name="code">1707</field>
+            <field name="name">Santa Ana</field>
+            <field name="departamento_id" ref="hr_departamento_17"/>
+        </record>
+        <record id="hr_municipio_1708" model="hr.municipio">
+            <field name="code">1708</field>
+            <field name="name">Dolores</field>
+            <field name="departamento_id" ref="hr_departamento_17"/>
+        </record>
+        <record id="hr_municipio_1709" model="hr.municipio">
+            <field name="code">1709</field>
+            <field name="name">San Luis</field>
+            <field name="departamento_id" ref="hr_departamento_17"/>
+        </record>
+        <record id="hr_municipio_1710" model="hr.municipio">
+            <field name="code">1710</field>
+            <field name="name">Sayaxché</field>
+            <field name="departamento_id" ref="hr_departamento_17"/>
+        </record>
+        <record id="hr_municipio_1711" model="hr.municipio">
+            <field name="code">1711</field>
+            <field name="name">Melchor de Mencos</field>
+            <field name="departamento_id" ref="hr_departamento_17"/>
+        </record>
+        <record id="hr_municipio_1712" model="hr.municipio">
+            <field name="code">1712</field>
+            <field name="name">Poptún</field>
+            <field name="departamento_id" ref="hr_departamento_17"/>
+        </record>
+        <record id="hr_municipio_1713" model="hr.municipio">
+            <field name="code">1713</field>
+            <field name="name">Las Cruces</field>
+            <field name="departamento_id" ref="hr_departamento_17"/>
+        </record>
+        <record id="hr_municipio_1714" model="hr.municipio">
+            <field name="code">1714</field>
+            <field name="name">El Chal</field>
+            <field name="departamento_id" ref="hr_departamento_17"/>
+        </record>
+        <record id="hr_municipio_1801" model="hr.municipio">
+            <field name="code">1801</field>
+            <field name="name">Puerto Barrios</field>
+            <field name="departamento_id" ref="hr_departamento_18"/>
+        </record>
+        <record id="hr_municipio_1802" model="hr.municipio">
+            <field name="code">1802</field>
+            <field name="name">Livingston</field>
+            <field name="departamento_id" ref="hr_departamento_18"/>
+        </record>
+        <record id="hr_municipio_1803" model="hr.municipio">
+            <field name="code">1803</field>
+            <field name="name">El Estor</field>
+            <field name="departamento_id" ref="hr_departamento_18"/>
+        </record>
+        <record id="hr_municipio_1804" model="hr.municipio">
+            <field name="code">1804</field>
+            <field name="name">Morales</field>
+            <field name="departamento_id" ref="hr_departamento_18"/>
+        </record>
+        <record id="hr_municipio_1805" model="hr.municipio">
+            <field name="code">1805</field>
+            <field name="name">Los Amates</field>
+            <field name="departamento_id" ref="hr_departamento_18"/>
+        </record>
+        <record id="hr_municipio_1901" model="hr.municipio">
+            <field name="code">1901</field>
+            <field name="name">Zacapa</field>
+            <field name="departamento_id" ref="hr_departamento_19"/>
+        </record>
+        <record id="hr_municipio_1902" model="hr.municipio">
+            <field name="code">1902</field>
+            <field name="name">Estanzuela</field>
+            <field name="departamento_id" ref="hr_departamento_19"/>
+        </record>
+        <record id="hr_municipio_1903" model="hr.municipio">
+            <field name="code">1903</field>
+            <field name="name">Río Hondo</field>
+            <field name="departamento_id" ref="hr_departamento_19"/>
+        </record>
+        <record id="hr_municipio_1904" model="hr.municipio">
+            <field name="code">1904</field>
+            <field name="name">Gualán</field>
+            <field name="departamento_id" ref="hr_departamento_19"/>
+        </record>
+        <record id="hr_municipio_1905" model="hr.municipio">
+            <field name="code">1905</field>
+            <field name="name">Teculután</field>
+            <field name="departamento_id" ref="hr_departamento_19"/>
+        </record>
+        <record id="hr_municipio_1906" model="hr.municipio">
+            <field name="code">1906</field>
+            <field name="name">Usumatlán</field>
+            <field name="departamento_id" ref="hr_departamento_19"/>
+        </record>
+        <record id="hr_municipio_1907" model="hr.municipio">
+            <field name="code">1907</field>
+            <field name="name">Cabañas</field>
+            <field name="departamento_id" ref="hr_departamento_19"/>
+        </record>
+        <record id="hr_municipio_1908" model="hr.municipio">
+            <field name="code">1908</field>
+            <field name="name">San Diego</field>
+            <field name="departamento_id" ref="hr_departamento_19"/>
+        </record>
+        <record id="hr_municipio_1909" model="hr.municipio">
+            <field name="code">1909</field>
+            <field name="name">La Unión</field>
+            <field name="departamento_id" ref="hr_departamento_19"/>
+        </record>
+        <record id="hr_municipio_1910" model="hr.municipio">
+            <field name="code">1910</field>
+            <field name="name">Huité</field>
+            <field name="departamento_id" ref="hr_departamento_19"/>
+        </record>
+        <record id="hr_municipio_1911" model="hr.municipio">
+            <field name="code">1911</field>
+            <field name="name">San Jorge</field>
+            <field name="departamento_id" ref="hr_departamento_19"/>
+        </record>
+        <record id="hr_municipio_2001" model="hr.municipio">
+            <field name="code">2001</field>
+            <field name="name">Chiquimula</field>
+            <field name="departamento_id" ref="hr_departamento_20"/>
+        </record>
+        <record id="hr_municipio_2002" model="hr.municipio">
+            <field name="code">2002</field>
+            <field name="name">San José La Arada</field>
+            <field name="departamento_id" ref="hr_departamento_20"/>
+        </record>
+        <record id="hr_municipio_2003" model="hr.municipio">
+            <field name="code">2003</field>
+            <field name="name">San Juan Ermita</field>
+            <field name="departamento_id" ref="hr_departamento_20"/>
+        </record>
+        <record id="hr_municipio_2004" model="hr.municipio">
+            <field name="code">2004</field>
+            <field name="name">Jocotán</field>
+            <field name="departamento_id" ref="hr_departamento_20"/>
+        </record>
+        <record id="hr_municipio_2005" model="hr.municipio">
+            <field name="code">2005</field>
+            <field name="name">Camotán</field>
+            <field name="departamento_id" ref="hr_departamento_20"/>
+        </record>
+        <record id="hr_municipio_2006" model="hr.municipio">
+            <field name="code">2006</field>
+            <field name="name">Olopa</field>
+            <field name="departamento_id" ref="hr_departamento_20"/>
+        </record>
+        <record id="hr_municipio_2007" model="hr.municipio">
+            <field name="code">2007</field>
+            <field name="name">Esquipulas</field>
+            <field name="departamento_id" ref="hr_departamento_20"/>
+        </record>
+        <record id="hr_municipio_2008" model="hr.municipio">
+            <field name="code">2008</field>
+            <field name="name">Concepción las Minas</field>
+            <field name="departamento_id" ref="hr_departamento_20"/>
+        </record>
+        <record id="hr_municipio_2009" model="hr.municipio">
+            <field name="code">2009</field>
+            <field name="name">Quezaltepeque</field>
+            <field name="departamento_id" ref="hr_departamento_20"/>
+        </record>
+        <record id="hr_municipio_2010" model="hr.municipio">
+            <field name="code">2010</field>
+            <field name="name">San Jacinto</field>
+            <field name="departamento_id" ref="hr_departamento_20"/>
+        </record>
+        <record id="hr_municipio_2011" model="hr.municipio">
+            <field name="code">2011</field>
+            <field name="name">Ipala</field>
+            <field name="departamento_id" ref="hr_departamento_20"/>
+        </record>
+        <record id="hr_municipio_2011" model="hr.municipio">
+            <field name="code">2011</field>
+            <field name="name">Ipala</field>
+            <field name="departamento_id" ref="hr_departamento_20"/>
+        </record>
+        <record id="hr_municipio_2101" model="hr.municipio">
+            <field name="code">2101</field>
+            <field name="name">Jalapa</field>
+            <field name="departamento_id" ref="hr_departamento_21"/>
+        </record>
+        <record id="hr_municipio_2102" model="hr.municipio">
+            <field name="code">2102</field>
+            <field name="name">San Pedro Pinula</field>
+            <field name="departamento_id" ref="hr_departamento_21"/>
+        </record>
+        <record id="hr_municipio_2103" model="hr.municipio">
+            <field name="code">2103</field>
+            <field name="name">San Luis Jilotepeque</field>
+            <field name="departamento_id" ref="hr_departamento_21"/>
+        </record>
+        <record id="hr_municipio_2104" model="hr.municipio">
+            <field name="code">2104</field>
+            <field name="name">San Manuel Chaparrón</field>
+            <field name="departamento_id" ref="hr_departamento_21"/>
+        </record>
+        <record id="hr_municipio_2105" model="hr.municipio">
+            <field name="code">2105</field>
+            <field name="name">San Carlos Alzatate</field>
+            <field name="departamento_id" ref="hr_departamento_21"/>
+        </record>
+        <record id="hr_municipio_2106" model="hr.municipio">
+            <field name="code">2106</field>
+            <field name="name">Monjas</field>
+            <field name="departamento_id" ref="hr_departamento_21"/>
+        </record>
+        <record id="hr_municipio_2107" model="hr.municipio">
+            <field name="code">2107</field>
+            <field name="name">Mataquescuintla</field>
+            <field name="departamento_id" ref="hr_departamento_21"/>
+        </record>
+        <record id="hr_municipio_2201" model="hr.municipio">
+            <field name="code">2201</field>
+            <field name="name">Jutiapa</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2202" model="hr.municipio">
+            <field name="code">2202</field>
+            <field name="name">El Progreso</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2203" model="hr.municipio">
+            <field name="code">2203</field>
+            <field name="name">Santa Catarina Mita</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2204" model="hr.municipio">
+            <field name="code">2204</field>
+            <field name="name">Agua Blanca</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2205" model="hr.municipio">
+            <field name="code">2205</field>
+            <field name="name">Asunción Mita</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2206" model="hr.municipio">
+            <field name="code">2206</field>
+            <field name="name">Yupiltepeque</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2207" model="hr.municipio">
+            <field name="code">2207</field>
+            <field name="name">Atescatempa</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2208" model="hr.municipio">
+            <field name="code">2208</field>
+            <field name="name">Jerez</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2209" model="hr.municipio">
+            <field name="code">2209</field>
+            <field name="name">El Adelanto</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2210" model="hr.municipio">
+            <field name="code">2210</field>
+            <field name="name">Zapotitlán</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2211" model="hr.municipio">
+            <field name="code">2211</field>
+            <field name="name">Comapa</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2212" model="hr.municipio">
+            <field name="code">2212</field>
+            <field name="name">Jalpatagua</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2213" model="hr.municipio">
+            <field name="code">2213</field>
+            <field name="name">Conguaco</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2214" model="hr.municipio">
+            <field name="code">2214</field>
+            <field name="name">Moyuta</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2215" model="hr.municipio">
+            <field name="code">2215</field>
+            <field name="name">Pasaco</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2216" model="hr.municipio">
+            <field name="code">2216</field>
+            <field name="name">San José Acatempa</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+        <record id="hr_municipio_2217" model="hr.municipio">
+            <field name="code">2217</field>
+            <field name="name">Quesada</field>
+            <field name="departamento_id" ref="hr_departamento_22"/>
+        </record>
+    </data>
+</odoo>

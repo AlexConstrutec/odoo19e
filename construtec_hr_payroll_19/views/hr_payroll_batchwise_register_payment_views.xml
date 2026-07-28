@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_hr_payslip_batchwise_register_payment_wizard_form" model="ir.ui.view">
+        <field name="name">hr.payslip.batchwise.register.payment.wizard.form</field>
+        <field name="model">hr.payslip.batchwise.register.payment.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Registrar Pagos por Lote">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>Registrar Pagos por Lote</h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="batch_id" readonly="1"/>
+                            <field name="journal_id" widget="selection"/>
+                            <field name="payment_method_id" invisible="1"/>
+                            <field name="currency_id" options="{'no_create': True, 'no_open': True}" groups="base.group_multi_currency"/>
+                        </group>
+                        <group>
+                            <field name="payment_date"/>
+                            <field name="communication"/>
+                        </group>
+                    </group>
+                </sheet>
+                <footer>
+                    <button string="Generar Pagos" name="action_register_payments" type="object" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_hr_payslip_batchwise_register_payment_wizard" model="ir.actions.act_window">
+        <field name="name">Generar Pagos</field>
+        <field name="res_model">hr.payslip.batchwise.register.payment.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="slip_ids_form_inherit" model="ir.ui.view">
+            <field name="name">slip.ids.form.inherit</field>
+            <field name="model">account.move</field>
+            <field name="inherit_id" ref="account.view_move_form"/>
+            <field name="arch" type="xml">
+               <xpath expr="//page[@name='other_info']" position="after">
+                    <page string="Nominas Pagadas">
+                        <field name="slip_ids" readonly="1">
+                            <tree string="Nominas">
+                                <field name="number"/>
+                                <field name="employee_id"/>
+                                <field name="payslip_run_id"/>
+                                <field name="basic_wage"/>
+                                <field name="net_wage"/>
+                                <field name="state"/>
+                            </tree>
+                        </field>
+                    </page>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

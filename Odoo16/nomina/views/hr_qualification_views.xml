@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+        <record id="view_hr_qualification_form" model="ir.ui.view">
+            <field name="name">hr.qualification.form</field>
+            <field name="model">hr.qualification</field>
+            <field name="arch" type="xml">
+                <form string="Calificacion">
+                    <header>
+                        <button name="approve" string="Aprobar" type="object" states="draft" class="oe_highlight"/>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,done"/>
+                    </header>
+                	<sheet>
+<!--                        <div class="oe_title oe_left">-->
+<!--                            <h2>-->
+<!--                            <field name="name" class="oe_inline" readonly="1"/>-->
+<!--                            </h2>-->
+<!--                        </div>-->
+                		<group>
+	                		<group>
+	                		    <field name="name"  class="oe_inline" readonly="1"/>
+	                        	<field name="employee_id" attrs="{'readonly':[('state','in',['done'])]}"/>
+	                        	<field name="fecha_evaluacion" attrs="{'readonly':[('state','in',['done'])]}"/>
+	                        	<field name="contract_id" attrs="{'readonly':[('state','in',['done'])]}"/>
+	                        	<field name="company_id" attrs="{'readonly':[('state','in',['done'])]}"/>
+                                <field name="department_id" attrs="{'readonly':[('state','in',['done'])]}"/>
+		                    </group>
+		                    <group>
+                    			<field name="calificacion" attrs="{'readonly':[('state','in',['done'])]}" widget="percentage"/>
+                                <field name="bonificacion" readonly="1"/>
+                                <field name="total" readonly="1"/>
+	                    	</group>
+                    	</group>
+		            </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record model="ir.ui.view" id="view_hr_qualification_tree">
+            <field name="name">hr.qualification.tree</field>
+            <field name="model">hr.qualification</field>
+            <field name="arch" type="xml">
+                <tree string="Calificacion de Servicio">
+                    <field name="employee_id"/>
+                    <field name="fecha_evaluacion"/>
+                    <field name="state"/>
+                    <field name="calificacion" widget="percentage"/>
+                    <field name="bonificacion"/>
+                    <field name="total"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_hr_qualification_filter" model="ir.ui.view">
+            <field name="name">hr.qualification.select</field>
+            <field name="model">hr.qualification</field>
+            <field name="arch" type="xml">
+                <search string="Search">
+                    <field name="employee_id"/>
+                    <field name="fecha_evaluacion"/>
+                    <separator/>
+                        <filter string="Empleado" name="employee_id" domain="[]" context="{'group_by':'employee_id'}"/>
+                        <filter name="State" string="State" domain="[]" context="{'group_by':'state'}"/>
+                        <filter string="Fecha Evaluacion" domain="[]" name="fecha_evaluacion" context="{'group_by':'fecha_evaluacion'}"/>
+               </search>
+            </field>
+        </record>
+
+        <record id="action_hr_qualification" model="ir.actions.act_window">
+            <field name="name">Calificacion</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">hr.qualification</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+
+        <menuitem name="Calificaciones" action="action_hr_qualification" id="menu_hr_qualification" parent="hr.menu_hr_root" sequence="20"/>
+
+        <record id="ir_seq_hr_qualification" model="ir.sequence">
+			<field name="name">Calificaciones</field>
+			<field name="code">hr.qualification.seq</field>
+			<field name="prefix">NOTA</field>
+			<field name="padding">4</field>
+			<field name="number_increment">1</field>
+			<field name="number_next_actual">1</field>
+			<field name="implementation">standard</field>
+            <field name="company_id" eval="False"/>
+		</record>
+    </data>
+</odoo>

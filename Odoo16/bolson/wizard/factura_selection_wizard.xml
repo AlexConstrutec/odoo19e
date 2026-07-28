@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="view_factura_selection_wizard_form" model="ir.ui.view">
+        <field name="name">factura.selection.wizard.form</field>
+        <field name="model">factura.selection.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Seleccionar Facturas">
+                <group>
+                    <field name="factura_ids">
+                        <tree string="Facturas">
+                            <field name="name"/>
+                        </tree>
+                    </field>
+                </group>
+                <footer>
+                    <button string="Confirmar" type="object" name="action_add_facturas" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+    <record id="view_pago_selection_wizard_form" model="ir.ui.view">
+        <field name="name">pagos.selection.wizard.form</field>
+        <field name="model">pago.selection.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Seleccionar Pagos">
+                <group>
+                    <field name="pagos_ids">
+                        <tree string="Pagos">
+                            <field name="name"/>
+                        </tree>
+                    </field>
+                </group>
+                <footer>
+                    <button string="Confirmar" type="object" name="action_add_pagos" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
+

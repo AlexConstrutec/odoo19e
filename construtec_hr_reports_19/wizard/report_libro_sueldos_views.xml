@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_wizard_libro_sueldos_salarios_form" model="ir.ui.view">
+        <field name="name">wizard.libro.sueldos.salarios.form</field>
+        <field name="model">wizard.libro.sueldos.salarios</field>
+        <field name="arch" type="xml">
+            <form string="Libro de Sueldos y Salarios">
+                <field name="state" invisible="1"/>
+                <field name="name" invisible="1"/>
+                <group col="4" invisible="state != 'choose'">
+                    <field name="date_start" required="1"/>
+                    <field name="date_end" required="1"/>
+                    <field name="folio" required="1"/>
+                    <field name="company_id" readonly="1" groups="base.group_multi_company"/>
+                </group>
+                <div invisible="state != 'get'">
+                    <h2>Descargar Archivo - Libro de Sueldos y Salarios</h2>
+                    <p>Archivo: <field name="data" readonly="1" filename="name"/></p>
+                </div>
+                <footer>
+                    <button name="print_xls_libro_sueldos_salarios" string="Generar Reporte" type="object" class="oe_highlight" invisible="state != 'choose'"/>
+                    <button string="Cancelar" special="cancel" invisible="state != 'choose'"/>
+                    <button name="got_back" string="Atrás" type="object" class="oe_highlight" invisible="state != 'get'"/>
+                    <button string="Cerrar" special="cancel" invisible="state != 'get'"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_wizard_libro_sueldos_salarios" model="ir.actions.act_window">
+        <field name="name">Libro Sueldos y Salarios</field>
+        <field name="res_model">wizard.libro.sueldos.salarios</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

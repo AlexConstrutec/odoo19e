@@ -1,0 +1,51 @@
+/* Estilos generales */
+.header {
+    font-family: Arial, sans-serif;
+}
+
+.page {
+    font-family: Arial, sans-serif;
+    font-size: 18px;
+    text-align: center;
+}
+
+.header .col-3 img {
+    max-height: 100px;
+    width: auto;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.header .col-8 {
+    font-family: "Comic Sans MS", sans-serif;
+}
+
+.header h4 {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+/* Encabezado del recibo */
+.page h5 {
+    font-weight: bold;
+    text-decoration: underline;
+}
+
+/* Estilos de las filas de información */
+.info-row {
+    font-family: Arial, sans-serif;
+    font-size: 18px;
+    line-height: 1.5;
+}
+
+.info-row .col-4,
+.info-row .col-7,
+.info-row .col-5,
+.info-row .col-6 {
+    text-align: left;
+}
+
+/* Estilo para las etiquetas */
+.info-row span {
+    font-weight: bold;
+}

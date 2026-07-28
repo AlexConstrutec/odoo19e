@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_hr_payslip_form_inherit_construtec" model="ir.ui.view">
+        <field name="name">hr.payslip.form.inherit.construtec</field>
+        <field name="model">hr.payslip</field>
+        <field name="inherit_id" ref="hr_payroll.view_hr_payslip_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='action_payslip_paid']" position="after">
+                <button name="%(action_hr_payslip_register_payment_wizard)d" type="action" string="Generar Pago"
+                        class="oe_highlight" invisible="state != 'validated' or balance &lt;= 0"
+                        groups="hr.group_hr_manager,account.group_account_manager"/>
+            </xpath>
+            <xpath expr="//group[@name='top_left']" position="inside">
+                <field name="balance"/>
+                <field name="total_amount" invisible="1"/>
+            </xpath>
+            <xpath expr="//page[@name='account_info']" position="after">
+                <page string="Pago" name="construtec_pago">
+                    <field name="payment_ids">
+                        <list string="Pagos">
+                            <field name="name"/>
+                            <field name="date"/>
+                            <field name="partner_id"/>
+                            <field name="journal_id"/>
+                            <field name="amount"/>
+                            <field name="state"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

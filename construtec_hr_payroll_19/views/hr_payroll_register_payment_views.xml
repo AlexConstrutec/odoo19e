@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_hr_payslip_register_payment_wizard_form" model="ir.ui.view">
+        <field name="name">hr.payslip.register.payment.wizard.form</field>
+        <field name="model">hr.payslip.register.payment.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Registrar Pago">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>Registrar Pago</h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="partner_id" readonly="1"/>
+                            <field name="journal_id" widget="selection"/>
+                            <field name="payment_method_id" invisible="1"/>
+                            <label for="amount"/>
+                            <div class="o_row">
+                                <field name="amount"/>
+                                <field name="currency_id" options="{'no_create': True, 'no_open': True}" groups="base.group_multi_currency"/>
+                            </div>
+                        </group>
+                        <group>
+                            <field name="payment_date"/>
+                            <field name="communication"/>
+                        </group>
+                    </group>
+                </sheet>
+                <footer>
+                    <button string="Generar Pago" name="action_register_payment" type="object" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_hr_payslip_register_payment_wizard" model="ir.actions.act_window">
+        <field name="name">Registrar Pago</field>
+        <field name="res_model">hr.payslip.register.payment.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

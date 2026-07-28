@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <template id="custom_internal_layout" inherit_id="web.internal_layout">
+        <!-- Reemplazar el contenido del header -->
+        <xpath expr="//div[@class='header']" position="replace">
+        </xpath>
+    </template>
+
+<!--    reporte constancia laboral-->
+    <template id="constancia_laboral">
+        <t t-call="web.html_container">
+            <t t-call="gth_reports.custom_internal_layout">
+                <t t-foreach="docs" t-as="doc">
+                    <div class="page" t-attf-style="font-family: Arial;">
+                        <div style="text-align: left; margin-bottom: 1cm; ">
+                            <img t-if="doc.company_id.logo" t-att-src="image_data_uri(doc.company_id.logo)"
+                                 style="max-height: 75px; width: auto; margin-left: auto; margin-right: auto;" alt="Logo"/>
+                            <p style="font-size: 14px; font-style: italic; color: #B0B0B0;">
+                                <t t-esc="doc.company_id.name"/>
+                                <br/>
+                                <t t-esc="doc.company_id.street"/>
+                                <br/>
+                                gth.recepcion@dinamicae.com
+                                <br/>
+                            </p>
+                        </div>
+                        <!-- Fecha -->
+                        <div style="text-align: right; font-style: normal; font-size: 16px; ">
+                            <p>Quetzaltenango,
+                                <span t-esc="doc.get_current_date()"/>
+                            </p>
+                        </div>
+                        <br/>
+                        <br/>
+                        <!-- Saludo -->
+                        <div style="font-size: 16px; font-style: normal; ">
+                            <p>A quien interese:</p>
+                            <!-- Contenido de la carta -->
+                            <p style="text-align: justify; font-style: normal;">
+                                Por este medio hago constar que
+                                <span t-esc="doc.name"/> quien se identifica con número de DPI
+                                <span t-esc="doc.identification_id"/>; labora en esta empresa desde
+                                <span t-esc="doc.get_fecha_constancia_laboral()"/>
+                                hasta la fecha desempeñándose en el puesto de <span t-esc="doc.job_id.name"/>.
+                            </p>
+                            <p>
+                                Y a solicitud del interesado extiendo la presente constancia laboral.
+                            </p>
+                            <br/>
+                        </div>
+                        <br/>
+                        <!-- Firma -->
+                        <div style="text-align: left; font-size: 16px; font-style: normal;">
+                            <p>Atentamente,</p>
+                        </div>
+                        <br/>
+                        <br/>
+                        <div style=" text-align: center; font-size: 16px; font-style: normal;">
+                            <p>
+                                <span t-esc="doc.company_id.representante_legal"/>
+                                <br/>
+                                Representante Legal
+                                <br/>
+                                77208017
+                            </p>
+                        </div>
+                    </div>
+                    <div style="page-break-after: always;"/>
+
+                </t>
+            </t>
+        </t>
+    </template>
+
+<!--    reporte constancia laboral no vigente-->
+    <template id="constancia_laboral_no_vigente">
+        <t t-call="web.html_container">
+            <t t-call="gth_reports.custom_internal_layout">
+                <t t-foreach="docs" t-as="doc">
+                    <div class="page" t-attf-style="font-family: Arial;">
+                        <div style="text-align: left; margin-bottom: 1cm; ">
+                            <img t-if="doc.company_id.logo" t-att-src="image_data_uri(doc.company_id.logo)"
+                                 style="max-height: 75px; width: auto; margin-left: auto; margin-right: auto;" alt="Logo"/>
+                            <p style="font-size: 14px; font-style: italic; color: #B0B0B0;">
+                                <t t-esc="doc.company_id.name"/>
+                                <br/>
+                                <t t-esc="doc.company_id.street"/>
+                                <br/>
+                                gth.recepcion@dinamicae.com
+                                <br/>
+                            </p>
+                        </div>
+                        <!-- Fecha -->
+                        <div style="text-align: right; font-style: normal; font-size: 16px; ">
+                            <p>Quetzaltenango,
+                                <span t-esc="doc.get_current_date()"/>
+                            </p>
+                        </div>
+                        <br/>
+                        <br/>
+                        <!-- Saludo -->
+                        <div style="font-size: 16px; font-style: normal; ">
+                            <p>A quien interese:</p>
+                            <!-- Contenido de la carta -->
+                            <p style="text-align: justify; font-style: normal;">
+                                Por este medio hago constar que
+                                <span t-esc="doc.name"/>
+                                quien se identifica con número de DPI <span t-esc="doc.identification_id"/>; laboró en esta empresa desde
+                                <span t-esc="doc.get_fecha_constancia_laboral_no_vigente()"/>
+                                  <span t-esc="doc.get_format_date_contrat_end()"/>
+                                 desempeñándose en el puesto de <span t-esc="doc.job_id.name"/>.
+                            </p>
+                            <p>
+                                Y a solicitud del interesado extiendo la presente constancia laboral.
+                            </p>
+                            <br/>
+                        </div>
+                        <br/>
+                        <!-- Firma -->
+                        <div style="text-align: left; font-size: 16px; font-style: normal;">
+                            <p>Atentamente,</p>
+                        </div>
+                        <br/>
+                        <br/>
+                        <div style=" text-align: center; font-size: 16px; font-style: normal;">
+                            <p>
+                                <span t-esc="doc.company_id.representante_legal"/>
+                                <br/>
+                                Representante Legal
+                                <br/>
+                                77208017
+                            </p>
+                        </div>
+                    </div>
+                    <div style="page-break-after: always;"/>
+
+                </t>
+            </t>
+        </t>
+    </template>
+
+
+<!--    reporte constancia de ingresos-->
+    <template id="constancia_ingresos">
+        <t t-call="web.html_container">
+                <t t-call="gth_reports.custom_internal_layout">
+                                <t t-foreach="docs" t-as="doc">
+                <div class="page">
+                    <div style="text-align: left; margin-bottom: 1cm; ">
+                        <img t-if="doc.company_id.logo" t-att-src="image_data_uri(doc.company_id.logo)"
+                             style="max-height: 75px; width: auto; margin-left: auto; margin-right: auto;" alt="Logo"/>
+                        <p style="font-size: 14px; font-style: italic; color: #B0B0B0;">
+                            <t t-esc="doc.company_id.name"/>
+                            <br/>
+                            <t t-esc="doc.company_id.street"/>
+                            <br/>
+                            gth.recepcion@dinamicae.com
+                            <br/>
+                        </p>
+                    </div>
+                    <!-- Fecha -->
+                    <div style="text-align: right; font-style: normal; font-size: 16px; ">
+                        <p>Quetzaltenango,
+                            <span t-esc="doc.get_current_date()"/>
+                        </p>
+                    </div>
+                    <br/>
+                    <br/>
+                    <!-- Saludo -->
+                    <div style="font-size: 16px; font-style: normal; ">
+                        <p>A quien interese:</p>
+                        <!-- Contenido de la carta -->
+                        <p style="text-align: justify; font-style: normal;">
+                            Por este medio hago constar que
+                            <span t-esc="doc.name"/>
+                            quien se identifica con número de DPI
+                            <span t-esc="doc.identification_id"/>; labora en esta empresa desde
+                            <span t-esc="doc.get_fecha_constancia_laboral()"/>
+                            hasta la fecha y actualmente se desempeña en el puesto de <span t-esc="doc.job_id.name"/>,
+                            devengando un salario mensual de Q<span t-esc="doc.getSalario()"/> teniendo como deducciones de la cuota laboral
+                            del IGSS por Q<span t-esc="doc.getIGSS()"/>.
+                        </p>
+                        <p>
+                            Y a solicitud del interesado extiendo la presente constancia de ingresos.
+                        </p>
+                        <br/>
+                    </div>
+                    <br/>
+                    <!-- Firma -->
+                    <div style="text-align: left; font-size: 16px; font-style: normal;">
+                        <p>Atentamente,</p>
+                    </div>
+                    <br/>
+                    <br/>
+                    <div style=" text-align: center; font-size: 16px; font-style: normal;">
+                        <p>
+                            <span t-esc="doc.company_id.representante_legal"/>
+                            <br/>
+                            Representante Legal
+                            <br/>
+                            77208017
+                        </p>
+                    </div>
+                </div>
+                                    <div style="page-break-after: always;"/>
+
+            </t>
+            </t>
+        </t>
+    </template>
+
+
+<!--reporte historial laboral-->
+    <template id="historial_laboral">
+        <t t-call="web.html_container">
+                <t t-call="gth_reports.custom_internal_layout">
+                                <t t-foreach="docs" t-as="doc">
+                <div class="page">
+                    <div style="text-align: left; margin-bottom: 1cm; ">
+                        <img t-if="doc.company_id.logo" t-att-src="image_data_uri(doc.company_id.logo)"
+                             style="max-height: 75px; width: auto; margin-left: auto; margin-right: auto;" alt="Logo"/>
+                        <p style="font-size: 14px; font-style: italic; color: #B0B0B0;">
+                            <t t-esc="doc.company_id.name"/>
+                            <br/>
+                            <t t-esc="doc.company_id.street"/>
+                            <br/>
+                            gth.recepcion@dinamicae.com
+                            <br/>
+                        </p>
+                    </div>
+                    <br/>
+                    <!-- Fecha -->
+                    <div style="text-align: right; font-style: normal; font-size: 16px; ">
+                        <p>Quetzaltenango,
+                            <span t-esc="doc.get_current_date()"/>
+                        </p>
+                    </div>
+                    <br/>
+                    <br/>
+                    <!-- Saludo -->
+                    <div style="font-size: 16px; font-style: normal; ">
+                        <p>A quien interese:</p>
+                        <!-- Contenido de la carta -->
+                        <p style="text-align: justify; font-style: normal;">
+                            Por este medio hago constar que
+                            <span t-esc="doc.name"/> quien se identifica con número de DPI
+                            <span t-esc="doc.identification_id"/>; laboró en esta empresa
+                            desempeñándose en los puestos de:
+                            <br/>
+                              <ul>
+                                  <t t-foreach="doc.historial_laboral" t-as="line">
+                                    <t t-if="line.company == doc.company_id.name">
+                                      <li>Del <t t-esc="line.date_start"/> al <t t-esc="line.date_end"/> como <t t-esc="line.job"/></li>
+                                    </t>
+                                  </t>
+                              </ul>
+                            <br/>
+                        </p>
+                        <p>
+                            Y a solicitud del interesado extiendo la presente constancia laboral.
+                        </p>
+                        <br/>
+                    </div>
+                    <br/>
+                    <!-- Firma -->
+                    <div style="text-align: left; font-size: 16px; font-style: normal;">
+                        <p>Atentamente,</p>
+                    </div>
+                    <br/>
+                    <br/>
+                    <div style=" text-align: center; font-size: 16px; font-style: normal;">
+                        <p>
+                            <span t-esc="doc.company_id.representante_legal"/>
+                            <br/>
+                            Representante Legal
+                            <br/>
+                            77208017
+                        </p>
+                    </div>
+                </div>
+                                    <div style="page-break-after: always;"/>
+
+            </t>
+            </t>
+        </t>
+    </template>
+</odoo>

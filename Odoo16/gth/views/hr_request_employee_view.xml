@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+        <record id="request_employee_form_view" model="ir.ui.view">
+            <field name="name">hr.request.employee.form.view</field>
+            <field name="model">hr.request.employee</field>
+            <field name="arch" type="xml">
+                <form>
+                    <header>
+                        <button name="aprobar" type="object" string="Aprobar" states="por_aprobar" class="btn-primary" groups="gth.group_aprobar_requisicion_personal"/>
+                        <button name="rechazar" type="object" string="Rechazar" states="por_aprobar" class="btn-primary" groups="gth.group_aprobar_requisicion_personal"/>
+                        <button name="en_proceso" type="object" string="En Proceso" states="aprobado" class="btn-primary" groups="gth.group_aprobar_requisicion_personal"/>
+                        <button name="cubierto" type="object" string="Cubierto" states="en_proceso" class="btn-primary" groups="gth.group_aprobar_requisicion_personal"/>
+                        <button name="reiniciar" type="object" string="Retornar a Nuevo" states="rechazado" class="btn-primary" groups="gth.group_aprobar_requisicion_personal"/>
+                        <field name="state" widget="statusbar" string="Estado" statusbar_visible="por_aprobar,aprobado,rechazado,en_proceso,cubierto"/>
+                    </header>
+                    <sheet>
+                    <div class="oe_title">
+                        <div class="oe_title">
+                        <h1>
+                            <field name="name"/><br/>
+                            <field name="numero_solicitud" />
+                        </h1>
+                    </div>
+                    </div>
+                        <group>
+                                <group>
+                                    <field name="tipo_plaza" attrs="{'readonly': [('state', '!=', 'por_aprobar')]}"/>
+                                    <field name="puesto_id" attrs="{'readonly': [('state', '!=', 'por_aprobar')]}"/>
+                                    <field name="reemplazos_id" groups="base.group_multi_company" attrs="{'readonly': [('state', '!=', 'por_aprobar')]}"/>
+                                    <field name="responsable_id" attrs="{'readonly': [('state', '!=', 'por_aprobar')]}"/>
+                                    <field name="jornada" attrs="{'readonly': [('state', '!=', 'por_aprobar')]}"/>
+                                    <field name="departamento_id" attrs="{'readonly': [('state', '!=', 'por_aprobar')]}" />
+                                    <field name="fecha_inicio" attrs="{'invisible': [('fecha_inicio_visibility', '=', True)], 'readonly': [('fecha_inicio_readonly', '=', True)]}"/>
+                                    <field name="fecha_inicio_visibility" invisible="1"/>
+                                    <field name="fecha_inicio_readonly" invisible="1"/>
+                                    <field name="fecha_fin" attrs="{'invisible': [('fecha_inicio_visibility', '=', True)], 'readonly': [('fecha_inicio_readonly', '=', True)]}"/>
+
+                                </group>
+                                <group>
+                                    <field name="genero" attrs="{'readonly': [('state', '!=', 'por_aprobar')]}"/>
+                                    <field name="experiencias" attrs="{'readonly': [('state', '!=', 'por_aprobar')]}"/>
+                                    <field name="tipo_vehiculo" attrs="{'readonly': [('state', '!=', 'por_aprobar')]}"/>
+                                    <field name="licencia" attrs="{'readonly': [('state', '!=', 'por_aprobar')]}"/>
+                                    <field name="aplica_horas_extras" attrs="{'invisible': [('tipo_plaza', '=', 'reemplazo')], 'readonly': [('state', '!=', 'por_aprobar')]}"/>
+                                    <field name="sueldo" attrs="{'readonly': True}"/>
+
+                                </group>
+                             </group>
+                        <notebook>
+                            <page string="Sueldo">
+                                <field name="sueldo_ids" attrs="{'readonly': [('state', 'in', ['cancel','receive'])]}">
+                                    <tree editable="bottom">
+                                        <field name="name"/>
+                                        <field name="monto"/>
+                                        <field name="request_employee_id" invisible="1"/>
+                                    </tree>
+                                </field>
+                            </page>
+                            <page string="Portal Web">
+                                <group>
+                                <field name="requisitos" attrs="{'readonly': [('state', '!=', 'por_aprobar')]}"/>
+                                <field name="ofrecimientos" attrs="{'readonly': [('state', '!=', 'por_aprobar')]}"/>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids" widget="mail_followers"/>
+                        <field name="message_ids" widget="mail_thread"/>
+                    </div>
+                </form>
+            </field>
+        </record>
+        <record id="request_employee_tree_view" model="ir.ui.view">
+            <field name="name">hr.request.employee.view.tree</field>
+            <field name="model">hr.request.employee</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="puesto_id"/>
+                    <field name="tipo_plaza"/>
+                    <field name="create_date" string="Fecha Creación"/>
+                    <field name="responsable_id"/>
+                    <field name="state"/>
+                    <field name="sueldo"/>
+                </tree>
+            </field>
+        </record>
+        <record model="ir.actions.act_window" id="action_request_employee">
+            <field name="name">Solicitud de Talento</field>
+            <field name="res_model">hr.request.employee</field>
+            <!--<field name="view_type">form</field>-->
+            <field name="view_mode">tree,form</field>
+        </record>
+        <menuitem id="menu_request_employee" name="Solicitud de Talento" groups="base.group_user"  web_icon="gth,static/description/icon.png"/>
+        <menuitem id="menu_item_request_employee" name="Solicitud de Talento" parent="menu_request_employee"/>
+        <menuitem id="menu_action_request_employee" name="Solicitud de Talento" parent="menu_item_request_employee" action="action_request_employee"/>
+    </data>
+</odoo>

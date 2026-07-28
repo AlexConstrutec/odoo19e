@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_prestaciones_list" model="ir.ui.view">
+        <field name="name">hr.payslip.prestaciones.list</field>
+        <field name="model">hr.payslip.prestaciones</field>
+        <field name="arch" type="xml">
+            <list string="Prestaciones de Nómina" create="0" edit="0">
+                <field name="employee_id"/>
+                <field name="codigo_colaborador"/>
+                <field name="department_id"/>
+                <field name="date_start_contract"/>
+                <field name="date_end_contract"/>
+                <field name="version_is_current"/>
+                <field name="bono14"/>
+                <field name="aguinaldo"/>
+                <field name="vacaciones"/>
+                <field name="indemnizacion"/>
+                <field name="date_to"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_prestaciones_list" model="ir.actions.act_window">
+        <field name="name">Prestaciones de Nómina</field>
+        <field name="res_model">hr.payslip.prestaciones</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_prestaciones_list"/>
+    </record>
+
+    <record id="view_prestaciones_wizard_form" model="ir.ui.view">
+        <field name="name">hr.payslip.prestaciones.wizard.form</field>
+        <field name="model">hr.payslip.prestaciones.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Prestaciones de Nómina">
+                <group>
+                    <field name="date_to"/>
+                    <field name="company_id" readonly="1" groups="base.group_multi_company"/>
+                </group>
+                <footer>
+                    <button name="open_prestaciones_at_date" type="object" string="Consultar" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_prestaciones_wizard" model="ir.actions.act_window">
+        <field name="name">Consultar Prestaciones</field>
+        <field name="res_model">hr.payslip.prestaciones.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="view_id" ref="view_prestaciones_wizard_form"/>
+        <field name="binding_model_id" ref="model_hr_payslip_prestaciones"/>
+        <field name="binding_view_types">list</field>
+    </record>
+</odoo>

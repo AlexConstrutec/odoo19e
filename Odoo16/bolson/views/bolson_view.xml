@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+
+        <record id="view_bolson_bolson_form" model="ir.ui.view">
+            <field name="name">bolson.bolson.form</field>
+            <field name="model">bolson.bolson</field>
+            <field name="arch" type="xml">
+                <form string="Bolson">
+                    <header>
+                        <button name="conciliar" string="Conciliar" type="object" />
+                        <button name="cancelar" string="Cancelar" type="object" />
+                    </header>
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="name"/>
+                                <field name="no_liquidacion"/>
+                                <field name="diario"/>
+                            </group>
+                            <group>
+                                <field name="fecha"/>
+                                <field name="usuario_id"/>
+                                <field name="company_id"/>
+                            </group>
+                        </group>
+                        <!-- Facturas y Cheques directamente en el sheet sin group -->
+                        <div class="oe_title">
+                            <h2>Facturas</h2>
+                        </div>
+<!--                        <button name="agregar_factura" string="Agregar Factura" type="object" />-->
+                        <field name="facturas" widget="many2many" nolabel="1">
+                            <tree>
+                                <field name="made_sequence_hole" invisible="1"/>
+<!--                                <field name="bolson_id"/>-->
+                                <field name="no_liquidacion"/>
+                                <field name="name" decoration-bf="1" decoration-danger="made_sequence_hole"/>
+                                <field name="date"/>
+                                <field name="partner_id" string="Cliente"/>
+                                <field name="amount_untaxed_signed"/>
+                                <field name="amount_total_signed" sum="Total"/>
+                                <field name="payment_state" widget="badge" decoration-danger="payment_state == 'not_paid'" decoration-warning="payment_state in ('partial', 'in_payment')" decoration-success="payment_state in ('paid', 'reversed')" attrs="{'invisible': [('payment_state', 'in', ('invoicing_legacy'))]}" optional="show"/>
+                                <field name="state" widget="badge" decoration-success="state == 'posted'" decoration-info="state == 'draft'" optional="show"/>
+                            </tree>
+                        </field>
+
+                        <div class="oe_title">
+                            <h2>Cheques</h2>
+                        </div>
+<!--                        <button name="agregar_pago" string="Agregar Pago" type="object" />-->
+                        <field name="cheques" widget="many2many" nolabel="1">
+                            <tree>
+                                <field name="no_liquidacion"/>
+                                <field name="date"/>
+                                <field name="name"/>
+                                <field name="partner_id" string="Contacto"/>
+                                <field name="amount" widget="monetary" string="Amount" sum="Total"/>
+                                <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-success="state == 'posted'"/>
+                            </tree>
+                        </field>
+                        <group>
+                            <group>
+                                <field name="cuenta_desajuste"/>
+                            </group>
+                            <group>
+                                <field name="asiento" readonly="True"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_bolson_bolson_tree" model="ir.ui.view">
+            <field name="name">bolson.bolson.tree</field>
+            <field name="model">bolson.bolson</field>
+            <field name="arch" type="xml">
+                <tree string="Bolson">
+                    <field name="fecha"/>
+                    <field name="name"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="action_bolson_bolson" model="ir.actions.act_window">
+            <field name="name">Liquidaciones</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">bolson.bolson</field>
+        </record>
+
+        <menuitem action="action_bolson_bolson" id="menu_bolson_bolson" parent="account.menu_finance_payables"/>
+
+    </data>
+</openerp>

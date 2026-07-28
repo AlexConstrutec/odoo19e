@@ -1,0 +1,27 @@
+{
+    'name': 'Construtec Empleados',
+    'version': '19.0.1.0.0',
+    'category': 'Human Resources/Employees',
+    'summary': 'Ficha de empleado extendida: identidad, catálogos geográficos GT, historial laboral',
+    'author': 'Alex Martínez',
+    'website': 'https://www.linkedin.com/in/alex-martinez',
+    'license': 'LGPL-3',
+    'depends': [
+        'base',
+        'mail',
+        'hr',
+        'hr_payroll',
+        'construtec_hr_payroll_19',
+    ],
+    'data': [
+        'security/ir.model.access.csv',
+        'data/departamento_data.xml',
+        'data/municipio_data.xml',
+        'views/hr_version_views.xml',
+        'views/hr_employee_views.xml',
+        'views/hr_geo_views.xml',
+        'views/hr_employee_history_views.xml',
+    ],
+    'application': False,
+    'installable': True,
+}

@@ -1,0 +1,91 @@
+<odoo>
+    <record id="paperformat_constancia_laboral" model="report.paperformat">
+        <field name="name">Formato Carta para Constancia Laboral</field>
+        <field name="default" eval="False"/>
+        <field name="format">Letter</field> <!-- Formato carta -->
+        <field name="margin_top">25</field> <!-- Márgenes en milímetros -->
+        <field name="margin_bottom">25</field>
+        <field name="margin_left">30</field>
+        <field name="margin_right">30</field>
+        <field name="orientation">Portrait</field> <!-- Orientación vertical -->
+        <field name="disable_shrinking">True</field>
+    </record>
+    <record id="paperformat_constancia_ingresos" model="report.paperformat">
+        <field name="name">Formato Carta para Constancia Ingresoso</field>
+        <field name="default" eval="False"/>
+        <field name="format">Letter</field> <!-- Formato carta -->
+        <field name="margin_top">25</field> <!-- Márgenes en milímetros -->
+        <field name="margin_bottom">25</field>
+        <field name="margin_left">30</field>
+        <field name="margin_right">30</field>
+        <field name="orientation">Portrait</field> <!-- Orientación vertical -->
+        <field name="disable_shrinking">True</field>
+    </record>
+    <record id="report_constancia_laboral" model="ir.actions.report">
+        <field name="name">Constancia Laboral</field>
+        <field name="model">hr.employee</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">gth_reports.constancia_laboral</field>
+        <field name="report_file">gth_reports.constancia_laboral</field>
+        <field name="print_report_name">'Constancia_laboral - %s' % (object.name)</field>
+        <field name="paperformat_id" ref="paperformat_constancia_laboral"/>
+    </record>
+    <record id="report_constancia_laboral_no_vigente" model="ir.actions.report">
+        <field name="name">Constancia Laboral no Vigente</field>
+        <field name="model">hr.employee</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">gth_reports.constancia_laboral_no_vigente</field>
+        <field name="report_file">gth_reports.constancia_laboral_no_vigente</field>
+        <field name="print_report_name">'constancia_laboral_no_vigente - %s' % (object.name)</field>
+        <field name="paperformat_id" ref="paperformat_constancia_laboral"/>
+    </record>
+    <record id="report_constancia_ingresos" model="ir.actions.report">
+        <field name="name">Constancia Ingresos</field>
+        <field name="model">hr.employee</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">gth_reports.constancia_ingresos</field>
+        <field name="report_file">gth_reports.constancia_ingresos</field>
+        <field name="print_report_name">'Constancia_laboral - %s' % (object.name)</field>
+        <field name="paperformat_id" ref="paperformat_constancia_ingresos"/>
+    </record>
+    <record id="paperformat_historial_laboral" model="report.paperformat">
+        <field name="name">Formato Carta para Historial Laboral</field>
+        <field name="default" eval="False"/>
+        <field name="format">Letter</field> <!-- Formato carta -->
+        <field name="margin_top">25</field> <!-- Márgenes en milímetros -->
+        <field name="margin_bottom">25</field>
+        <field name="margin_left">30</field>
+        <field name="margin_right">30</field>
+        <field name="orientation">Portrait</field> <!-- Orientación vertical -->
+        <field name="disable_shrinking">True</field>
+    </record>
+    <record id="report_historial_laboral" model="ir.actions.report">
+        <field name="name">Historial Laboral</field>
+        <field name="model">hr.employee</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">gth_reports.historial_laboral</field>
+        <field name="report_file">gth_reports.historial_laboral</field>
+        <field name="print_report_name">'Constancia_laboral - %s' % (object.name)</field>
+        <field name="paperformat_id" ref="paperformat_constancia_laboral"/>
+    </record>
+    <record id="paperformat_irtra" model="report.paperformat">
+        <field name="name">Formato Carta para IRTRA</field>
+        <field name="default" eval="False"/>
+        <field name="format">Letter</field> <!-- Formato carta -->
+        <field name="margin_top">0</field> <!-- Márgenes en milímetros -->
+        <field name="margin_bottom">0</field>
+        <field name="margin_left">0</field>
+        <field name="margin_right">0</field>
+        <field name="orientation">Portrait</field> <!-- Orientación vertical -->
+        <field name="disable_shrinking">True</field>
+    </record>
+    <record id="report_irtra" model="ir.actions.report">
+        <field name="name">Solicitud Irtra</field>
+        <field name="model">hr.employee</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">gth_reports.solicitud_irtra</field>
+        <field name="report_file">gth_reports.solicitud_irtra</field>
+        <field name="print_report_name">'Solicitud - %s' % (object.name)</field>
+        <field name="paperformat_id" ref="paperformat_irtra"/>
+    </record>
+</odoo>

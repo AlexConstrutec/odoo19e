@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="tag_flujo_operacion" model="account.account.tag">
+            <field name="name">Flujo de Efectivo - Actividades de Operación</field>
+            <field name="applicability">accounts</field>
+        </record>
+        <record id="tag_flujo_inversion" model="account.account.tag">
+            <field name="name">Flujo de Efectivo - Actividades de Inversión</field>
+            <field name="applicability">accounts</field>
+        </record>
+        <record id="tag_flujo_financiamiento" model="account.account.tag">
+            <field name="name">Flujo de Efectivo - Actividades de Financiamiento</field>
+            <field name="applicability">accounts</field>
+        </record>
+
+        <record id="sequence_partida_contable" model="ir.sequence">
+            <field name="name">Partida Contable</field>
+            <field name="code">account.move.partida_contable</field>
+            <field name="padding">6</field>
+            <field name="company_id" eval="False"/>
+        </record>
+    </data>
+</odoo>

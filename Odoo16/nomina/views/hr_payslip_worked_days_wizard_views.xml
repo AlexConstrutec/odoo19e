@@ -1,0 +1,43 @@
+<odoo>
+    <record id="view_hr_payslip_worked_days_import_wizard_form" model="ir.ui.view">
+        <field name="name">hr.payslip.worked.days.import.wizard.form</field>
+        <field name="model">hr.payslip.worked.days.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Importar Otras Entradas de Trabajo">
+                <group>
+                    <field name="payslip_run_id" readonly="1"/>
+                    <field name="file" filename="filename"/>
+                </group>
+                <footer>
+                    <button type="object" string="Importar" class="btn-primary" name="import_file"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_hr_payslip_worked_days_import_wizard" model="ir.actions.act_window">
+        <field name="name">Importar Otras Entradas de Trabajo</field>
+        <field name="res_model">hr.payslip.worked.days.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="context">{'default_payslip_run_id': active_id}</field>
+    </record>
+    <!-- Heredar la vista de hr.payslip.run.form -->
+    <record id="view_hr_payslip_run_form_inherit" model="ir.ui.view">
+        <field name="name">hr.payslip.run.form.inherit</field>
+        <field name="model">hr.payslip.run</field>
+        <field name="inherit_id" ref="hr_payroll.hr_payslip_run_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button
+                    name="%(action_hr_payslip_worked_days_import_wizard)d"
+                    type="action"
+                    string="Importar XLSX"
+                    class="btn-primary"
+                    states="draft,verify"
+                    context="{'default_payslip_run_id': active_id}"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

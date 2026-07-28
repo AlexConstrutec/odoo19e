@@ -1,0 +1,92 @@
+<odoo>
+    <data>
+        <record id="hr_departamento_1" model="hr.departamento">
+            <field name="code">1</field>
+            <field name="name">Guatemala</field>
+        </record>
+        <record id="hr_departamento_2" model="hr.departamento">
+            <field name="code">2</field>
+            <field name="name">El Progreso</field>
+        </record>
+        <record id="hr_departamento_3" model="hr.departamento">
+            <field name="code">3</field>
+            <field name="name">Sacatepéquez</field>
+        </record>
+        <record id="hr_departamento_4" model="hr.departamento">
+            <field name="code">4</field>
+            <field name="name">Chimaltenango</field>
+        </record>
+        <record id="hr_departamento_5" model="hr.departamento">
+            <field name="code">5</field>
+            <field name="name">Escuintla</field>
+        </record>
+        <record id="hr_departamento_6" model="hr.departamento">
+            <field name="code">6</field>
+            <field name="name">Santa Rosa</field>
+        </record>
+        <record id="hr_departamento_7" model="hr.departamento">
+            <field name="code">7</field>
+            <field name="name">Sololá</field>
+        </record>
+        <record id="hr_departamento_8" model="hr.departamento">
+            <field name="code">8</field>
+            <field name="name">Totonicapán</field>
+        </record>
+        <record id="hr_departamento_9" model="hr.departamento">
+            <field name="code">9</field>
+            <field name="name">Quetzaltenango</field>
+        </record>
+        <record id="hr_departamento_10" model="hr.departamento">
+            <field name="code">10</field>
+            <field name="name">Suchitepéquez</field>
+        </record>
+        <record id="hr_departamento_11" model="hr.departamento">
+            <field name="code">11</field>
+            <field name="name">Retalhuleu</field>
+        </record>
+        <record id="hr_departamento_12" model="hr.departamento">
+            <field name="code">12</field>
+            <field name="name">San Marcos</field>
+        </record>
+        <record id="hr_departamento_13" model="hr.departamento">
+            <field name="code">13</field>
+            <field name="name">Huehuetenango</field>
+        </record>
+        <record id="hr_departamento_14" model="hr.departamento">
+            <field name="code">14</field>
+            <field name="name">Quiché</field>
+        </record>
+        <record id="hr_departamento_15" model="hr.departamento">
+            <field name="code">15</field>
+            <field name="name">Baja Verapaz</field>
+        </record>
+        <record id="hr_departamento_16" model="hr.departamento">
+            <field name="code">16</field>
+            <field name="name">Alta Verapaz</field>
+        </record>
+        <record id="hr_departamento_17" model="hr.departamento">
+            <field name="code">17</field>
+            <field name="name">Petén</field>
+        </record>
+        <record id="hr_departamento_18" model="hr.departamento">
+            <field name="code">18</field>
+            <field name="name">Izabal</field>
+        </record>
+        <record id="hr_departamento_19" model="hr.departamento">
+            <field name="code">19</field>
+            <field name="name">Zacapa</field>
+        </record>
+        <record id="hr_departamento_20" model="hr.departamento">
+            <field name="code">20</field>
+            <field name="name">Chiquimula</field>
+        </record>
+        <record id="hr_departamento_21" model="hr.departamento">
+            <field name="code">21</field>
+            <field name="name">Jalapa</field>
+        </record>
+        <record id="hr_departamento_22" model="hr.departamento">
+            <field name="code">22</field>
+            <field name="name">Jutiapa</field>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_wizard_informe_empleador_form" model="ir.ui.view">
+        <field name="name">wizard.informe.empleador.form</field>
+        <field name="model">wizard.informe.empleador</field>
+        <field name="arch" type="xml">
+            <form string="Informe del Empleador">
+                <field name="state" invisible="1"/>
+                <field name="name" invisible="1"/>
+                <group col="4" invisible="state != 'choose'">
+                    <field name="date_start" required="1"/>
+                    <field name="date_end" required="1"/>
+                </group>
+                <div invisible="state != 'get'">
+                    <h2>Descargar Archivo - Informe del Empleador</h2>
+                    <p>Archivo: <field name="data" readonly="1" filename="name"/></p>
+                </div>
+                <footer>
+                    <button name="print_xls_informe_empleador" string="Generar Reporte" type="object" class="oe_highlight" invisible="state != 'choose'"/>
+                    <button string="Cancelar" special="cancel" invisible="state != 'choose'"/>
+                    <button name="got_back" string="Atrás" type="object" class="oe_highlight" invisible="state != 'get'"/>
+                    <button string="Cerrar" special="cancel" invisible="state != 'get'"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_wizard_informe_empleador" model="ir.actions.act_window">
+        <field name="name">Informe del Empleador</field>
+        <field name="res_model">wizard.informe.empleador</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

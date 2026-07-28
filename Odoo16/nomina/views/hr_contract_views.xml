@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Heredar la vista hr.job.form -->
+        <record id="view_hr_contract_form_inherit" model="ir.ui.view">
+            <field name="name">hr.contract.form.inherit</field>
+            <field name="model">hr.contract</field>
+            <field name="inherit_id" ref="hr_contract.hr_contract_view_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='hr_responsible_id']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='work_entry_source']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='wage_type']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//group[@name='salary']" position="inside">
+                            <field name="bonificacion_incentivo"/>
+                            <field name="bonificacion_fija"/>
+                            <field name="bonificacion_productividad"/>
+<!--                            <field name="horas_extra_porcentaje"/>-->
+                            <field name="horas_extra_valor"/>
+<!--                            <field name="horas_extra_bonificacion"/>-->
+<!--                            <field name="isr"/>-->
+<!--                            <field name="ayuvi"/>-->
+                </xpath>
+                <xpath expr="//group[@name='top_info_right']" position="inside">
+                    <field name="tiempo_contrato"/>
+                    <field name="estado_contrato"/>
+                    <field name="frecuencia_pago"/>
+                    <field name="empresa_facturar"/>
+                </xpath>
+                <xpath expr="//page[@name='part_time']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

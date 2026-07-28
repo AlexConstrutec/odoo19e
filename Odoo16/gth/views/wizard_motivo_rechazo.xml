@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_wizard_motivo_rechazo_form" model="ir.ui.view">
+        <field name="name">wizard.motivo.rechazo.form</field>
+        <field name="model">wizard.motivo.rechazo</field>
+        <field name="arch" type="xml">
+            <form string="Motivo de Rechazo">
+                <group>
+                    <field name="motivo_rechazo" required = "1"/>
+                </group>
+                <footer>
+                    <button string="Guardar" type="object" class="btn-primary" name="action_wizard_rechazo"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+    <record model="ir.actions.act_window" id="action_wizard_rechazo">
+            <field name="name">Rechazo Solicitud de Talento</field>
+            <field name="res_model">wizard.motivo.rechazo</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="view_wizard_motivo_rechazo_form" />
+            <field name="target">new</field>
+        </record>
+</odoo>

@@ -1,0 +1,16 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_hr_dias_laborados_mes_user,hr.dias.laborados.mes.user,model_hr_dias_laborados_mes,hr.group_hr_user,1,0,0,0
+access_hr_dias_laborados_mes_manager,hr.dias.laborados.mes.manager,model_hr_dias_laborados_mes,hr.group_hr_manager,1,1,1,1
+access_wizard_report_facturacion,wizard.report.facturacion,model_wizard_report_facturacion,hr.group_hr_manager,1,1,1,1
+access_wizard_libro_sueldos_salarios,wizard.libro.sueldos.salarios,model_wizard_libro_sueldos_salarios,hr.group_hr_manager,1,1,1,1
+access_wizard_reporte_prestaciones_laborales,wizard.reporte.prestaciones.laborales,model_wizard_reporte_prestaciones_laborales,hr.group_hr_manager,1,1,1,1
+access_wizard_reporte_planilla_igss,wizard.reporte.planilla.igss,model_wizard_reporte_planilla_igss,hr.group_hr_manager,1,1,1,1
+access_wizard_informe_empleador,wizard.informe.empleador,model_wizard_informe_empleador,hr.group_hr_manager,1,1,1,1
+access_wizard_reporte_descuentos,wizard.reporte.descuentos,model_wizard_reporte_descuentos,hr.group_hr_manager,1,1,1,1
+access_wizard_planilla_sueldos,wizard.planilla.sueldos,model_wizard_planilla_sueldos,hr.group_hr_manager,1,1,1,1
+access_wizard_pasivo_laboral_consolidado,wizard.pasivo.laboral.consolidado,model_wizard_pasivo_laboral_consolidado,hr.group_hr_manager,1,1,1,1
+access_wizard_pasivo_laboral_empleado,wizard.pasivo.laboral.empleado,model_wizard_pasivo_laboral_empleado,hr.group_hr_manager,1,1,1,1
+access_wizard_reporte_liquidacion_empleados,wizard.reporte.liquidacion.empleados,model_wizard_reporte_liquidacion_empleados,hr.group_hr_manager,1,1,1,1
+access_wizard_report_facturacion_acc,wizard.report.facturacion.acc,model_wizard_report_facturacion,account.group_account_manager,1,1,1,1
+access_wizard_libro_sueldos_salarios_acc,wizard.libro.sueldos.salarios.acc,model_wizard_libro_sueldos_salarios,account.group_account_manager,1,1,1,1
+access_wizard_planilla_sueldos_acc,wizard.planilla.sueldos.acc,model_wizard_planilla_sueldos,account.group_account_manager,1,1,1,1

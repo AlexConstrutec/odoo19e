@@ -1,0 +1,446 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="wizard_report_facturacion_form_view" model="ir.ui.view">
+            <field name="name">wizard.report.facturacion.form.view</field>
+            <field name="model">wizard.report.facturacion</field>
+            <field name="arch" type="xml">
+                <form string="Reporte de Facturación">
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group col="4" states="choose">
+                        <field name="planillas" required="1" widget="many2many_tags"/>-->
+<!--                        <field name="date_start" required="1"/>-->
+<!--                        <field name="date_end" required="1"/>-->
+                    </group>
+                    <div states="get">
+                        <h2> Descargar Archivo - Reporte de Facturación</h2>
+                        <p>File: <field name="data" readonly="1" filename="name"/> </p>
+                    </div>
+                    <footer states="choose">
+                        <button name="print_xls_reporte_facturacion" string="Reporte de Facturación" type="object" class="oe_highlight"/>
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel"/>
+                    </footer>
+                    <footer states="get">
+                        <button name="got_back" string="Atras" type="object" class="oe_highlight"/>
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_libro_sueldos_salario_form_view" model="ir.ui.view">
+            <field name="name">wizard.libro.sueldos.salarios.form.view</field>
+            <field name="model">wizard.libro.sueldos.salarios</field>
+            <field name="arch" type="xml">
+                <form string="Libro de Sueldos y Salarios">
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+<!--                     <group states="choose">-->
+<!--                        <field name="company_id" required="1" groups="base.group_multi_company"-->
+<!--                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>-->
+<!--                    </group>-->
+                    <group col="4" states="choose">
+                        <field name="date_start" required="1"/>
+                        <field name="date_end" required="1"/>
+                        <field name="folio" required="1"/>
+                        <field name="company_id" readonly="1"/>
+<!--                        <field name="employee_id" required="1" widget="many2one_tags"/>-->
+                    </group>
+                    <div states="get">
+                        <h2> Descargar Archivo - Libro Sueldos y Salario</h2>
+                        <p>File: <field name="data" readonly="1" filename="name"/> </p>
+                    </div>
+                    <footer states="choose">
+                        <button name="print_xls_libro_sueldos_salarios" string="Libro de Sueldos y Salarios" type="object" class="oe_highlight"/>
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel"/>
+                    </footer>
+                    <footer states="get">
+                        <button name="got_back" string="Atras" type="object" class="oe_highlight"/>
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_reporte_prestaciones_laborales_form_view" model="ir.ui.view">
+            <field name="name">wizard.reporte.prestaciones.laborales.form.view</field>
+            <field name="model">wizard.reporte.prestaciones.laborales</field>
+            <field name="arch" type="xml">
+                <form string="Reporte de Prestaciones Laborales">
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+<!--                     <group states="choose">-->
+<!--                        <field name="company_id" required="1" groups="base.group_multi_company"-->
+<!--                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>-->
+<!--                    </group>-->
+                    <group col="4" states="choose">
+                        <field name="date_start" required="1"/>
+                        <field name="date_end" required="1"/>
+                        <field name="employee_id" required="1" widget="many2many_tags"/>
+                    </group>
+                    <div states="get">
+                        <h2> Descargar Archivo - Reporte de Prestaciones Laborales</h2>
+                        <p>File: <field name="data" readonly="1" filename="name"/> </p>
+                    </div>
+                    <footer states="choose">
+                        <button name="print_xls_reporte_prestaciones_laborales" string="Reporte de Prestaciones Laborales" type="object" class="oe_highlight"/>
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel"/>
+                    </footer>
+                    <footer states="get">
+                        <button name="got_back" string="Atras" type="object" class="oe_highlight"/>
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_reporte_planilla_igss_form_view" model="ir.ui.view">
+            <field name="name">wizard.reporte.planilla.igss.form.view</field>
+            <field name="model">wizard.reporte.planilla.igss</field>
+            <field name="arch" type="xml">
+                <form string="Reporte Planilla IGSS">
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+<!--                     <group states="choose">-->
+<!--                        <field name="company_id" required="1" groups="base.group_multi_company"-->
+<!--                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>-->
+<!--                    </group>-->
+                    <group col="4" states="choose">
+                        <field name="date_start" required="1"/>
+                        <field name="date_end" required="1"/>
+<!--                        <field name="employee_id" required="1" widget="many2one_tags"/>-->
+                    </group>
+                    <div states="get">
+                        <h2> Descargar Archivo - Reporte de Prestaciones Laborales</h2>
+                        <p>File: <field name="data" readonly="1" filename="name"/> </p>
+                    </div>
+                    <footer states="choose">
+                        <button name="print_xls_reporte_planilla_igss" string="Reporte Planilla IGSS" type="object" class="oe_highlight"/>
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel"/>
+                    </footer>
+                    <footer states="get">
+                        <button name="got_back" string="Atras" type="object" class="oe_highlight"/>
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_informe_empleador_form_view" model="ir.ui.view">
+            <field name="name">wizard.informe.empleador.form.view</field>
+            <field name="model">wizard.informe.empleador</field>
+            <field name="arch" type="xml">
+                <form string="Informe del Empleador">
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+<!--                     <group states="choose">-->
+<!--                        <field name="company_id" required="1" groups="base.group_multi_company"-->
+<!--                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>-->
+<!--                    </group>-->
+                    <group col="4" states="choose">
+                        <field name="date_start" required="1"/>
+                        <field name="date_end" required="1"/>
+                    </group>
+                    <div states="get">
+                        <h2> Descargar Archivo - Informe del Empleador</h2>
+                        <p>File: <field name="data" readonly="1" filename="name"/> </p>
+                    </div>
+                    <footer states="choose">
+                        <button name="print_xls_informe_empleador" string="Informe del Empleador" type="object" class="oe_highlight"/>
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel"/>
+                    </footer>
+                    <footer states="get">
+                        <button name="got_back" string="Atras" type="object" class="oe_highlight"/>
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_reporte_descuentos_form_view" model="ir.ui.view">
+            <field name="name">wizard.reporte.descuentos.form.view</field>
+            <field name="model">wizard.reporte.descuentos</field>
+            <field name="arch" type="xml">
+                <form string="Reporte de Descuentos ">
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+<!--                     <group states="choose">-->
+<!--                        <field name="company_id" required="1" groups="base.group_multi_company"-->
+<!--                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>-->
+<!--                    </group>-->
+                    <group col="4" states="choose">
+                        <field name="date_start" required="1"/>
+                        <field name="date_end" required="1"/>
+                    </group>
+                    <div states="get">
+                        <h2> Descargar Archivo - Reporte de Descuentos</h2>
+                        <p>File: <field name="data" readonly="1" filename="name"/> </p>
+                    </div>
+                    <footer states="choose">
+                        <button name="print_xls_reporte_descuentos" string="Reporte de Descuentos" type="object" class="oe_highlight"/>
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel"/>
+                    </footer>
+                    <footer states="get">
+                        <button name="got_back" string="Atras" type="object" class="oe_highlight"/>
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_planilla_sueldos_form_view" model="ir.ui.view">
+            <field name="name">wizard.planilla.sueldos.form.view</field>
+            <field name="model">wizard.planilla.sueldos</field>
+            <field name="arch" type="xml">
+                <form string="Planilla de Sueldos">
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+<!--                     <group states="choose">-->
+<!--                        <field name="company_id" required="1" groups="base.group_multi_company"-->
+<!--                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>-->
+<!--                    </group>-->
+                    <group col="4" states="choose">
+                        <field name="planillas" required="1" widget="many2many_tags"/>-->
+<!--                        <field name="date_start" required="1"/>-->
+<!--                        <field name="date_end" required="1"/>-->
+                    </group>
+                    <div states="get">
+                        <h2> Descargar Archivo - Planilla de Sueldos</h2>
+                        <p>File: <field name="data" readonly="1" filename="name"/> </p>
+                    </div>
+                    <footer states="choose">
+                        <button name="print_xls_planilla_sueldos" string="Planilla de Sueldos" type="object" class="oe_highlight"/>
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel"/>
+                    </footer>
+                    <footer states="get">
+                        <button name="got_back" string="Atras" type="object" class="oe_highlight"/>
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_pasivo_laboral_consolidado_form_view" model="ir.ui.view">
+            <field name="name">wizard.pasivo.laboral.consolidado.form.view</field>
+            <field name="model">wizard.pasivo.laboral.consolidado</field>
+            <field name="arch" type="xml">
+                <form string="Pasivo Laboral Consolidado">
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+<!--                     <group states="choose">-->
+<!--                        <field name="company_id" required="1" groups="base.group_multi_company"-->
+<!--                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>-->
+<!--                    </group>-->
+                    <group col="4" states="choose">
+                        <field name="date_start" required="1"/>
+                        <field name="date_end" required="1"/>
+                    </group>
+                    <div states="get">
+                        <h2> Descargar Archivo - Pasivo Laboral Consolidado</h2>
+                        <p>File: <field name="data" readonly="1" filename="name"/> </p>
+                    </div>
+                    <footer states="choose">
+                        <button name="print_xls_pasivo_laboral_consolidado" string="Pasivo Laboral Consolidado" type="object" class="oe_highlight"/>
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel"/>
+                    </footer>
+                    <footer states="get">
+                        <button name="got_back" string="Atras" type="object" class="oe_highlight"/>
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_pasivo_laboral_empleado_form_view" model="ir.ui.view">
+            <field name="name">wizard.pasivo.laboral.empleado.form.view</field>
+            <field name="model">wizard.pasivo.laboral.empleado</field>
+            <field name="arch" type="xml">
+                <form string="Pasivo Laboral Empleado">
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+<!--                     <group states="choose">-->
+<!--                        <field name="company_id" required="1" groups="base.group_multi_company"-->
+<!--                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>-->
+<!--                    </group>-->
+                    <group col="4" states="choose">
+                        <field name="date_start" required="1"/>
+                        <field name="date_end" required="1"/>
+                        <field name="employee_id" widget="many2one_tags" required="1"/>
+                    </group>
+                    <div states="get">
+                        <h2> Descargar Archivo - Pasivo Laboral Empleado</h2>
+                        <p>File: <field name="data" readonly="1" filename="name"/> </p>
+                    </div>
+                    <footer states="choose">
+                        <button name="print_xls_pasivo_laboral_empleado" string="Pasivo Laboral Empleado" type="object" class="oe_highlight"/>
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel"/>
+                    </footer>
+                    <footer states="get">
+                        <button name="got_back" string="Atras" type="object" class="oe_highlight"/>
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_reporte_liquidacion_empleados_form_view" model="ir.ui.view">
+            <field name="name">wizard.reporte.liquidacion.empleados.form.view</field>
+            <field name="model">wizard.reporte.liquidacion.empleados</field>
+            <field name="arch" type="xml">
+                <form string="Reporte Liquidación Empleados">
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+<!--                     <group states="choose">-->
+<!--                        <field name="company_id" required="1" groups="base.group_multi_company"-->
+<!--                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>-->
+<!--                    </group>-->
+                    <group col="4" states="choose">
+                        <field name="date_start" required="1"/>
+                        <field name="date_end" required="1"/>
+                        <field name="employee_id" widget="many2many_tags" required="1"/>
+                    </group>
+                    <div states="get">
+                        <h2> Descargar Archivo - Reporte Liquidación Empleados</h2>
+                        <p>File: <field name="data" readonly="1" filename="name"/> </p>
+                    </div>
+                    <footer states="choose">
+                        <button name="print_xls_reporte_liquidacion_empleados" string="Reporte Liquidación Empleados" type="object" class="oe_highlight"/>
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel"/>
+                    </footer>
+                    <footer states="get">
+                        <button name="got_back" string="Atras" type="object" class="oe_highlight"/>
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_report_facturacion">
+            <field name="name">Reporte de Facturación</field>
+            <field name="res_model">wizard.report.facturacion</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_report_facturacion_form_view"/>
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_libro_sueldos_salarios">
+            <field name="name">Libro Sueldos y Salarios</field>
+            <field name="res_model">wizard.libro.sueldos.salarios</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_libro_sueldos_salario_form_view"/>
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_reporte_prestaciones_laborales">
+            <field name="name">Reporte de Prestaciones Laborales</field>
+            <field name="res_model">wizard.reporte.prestaciones.laborales</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_reporte_prestaciones_laborales_form_view"/>
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_reporte_planilla_igss">
+            <field name="name">Reporte Planilla IGSS</field>
+            <field name="res_model">wizard.reporte.planilla.igss</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_reporte_planilla_igss_form_view"/>
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_infrome_empleador">
+            <field name="name">Informe del Empleador</field>
+            <field name="res_model">wizard.informe.empleador</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_informe_empleador_form_view"/>
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_reporte_descuentos">
+            <field name="name">Reporte de Descuentos</field>
+            <field name="res_model">wizard.reporte.descuentos</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_reporte_descuentos_form_view"/>
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_planilla_sueldos">
+            <field name="name">Planilla de Sueldos</field>
+            <field name="res_model">wizard.planilla.sueldos</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_planilla_sueldos_form_view"/>
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_pasivo_laboral_consolidado">
+            <field name="name">Pasivo Laboral Consolidado</field>
+            <field name="res_model">wizard.pasivo.laboral.consolidado</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_pasivo_laboral_consolidado_form_view"/>
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_pasivo_laboral_empleado">
+            <field name="name">Pasivo Laboral Empleado</field>
+            <field name="res_model">wizard.pasivo.laboral.empleado</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_pasivo_laboral_empleado_form_view"/>
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_reporte_liquidacion_empleados">
+            <field name="name">Reporte Liquidación Empleados</field>
+            <field name="res_model">wizard.reporte.liquidacion.empleados</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_reporte_liquidacion_empleados_form_view"/>
+            <field name="target">new</field>
+        </record>
+
+        <menuitem action="action_wizard_planilla_sueldos" id="menu_wizard_planilla_sueldos"
+        parent="hr_payroll.menu_hr_payroll_report" sequence="1"/>
+
+        <menuitem action="action_wizard_pasivo_laboral_empleado" id="menu_wizard_pasivo_laboral_empleado"
+        parent="hr_payroll.menu_hr_payroll_report" sequence="2"/>
+
+        <menuitem action="action_wizard_pasivo_laboral_consolidado" id="menu_wizard_pasivo_laboral_consolidado"
+        parent="hr_payroll.menu_hr_payroll_report" sequence="3"/>
+
+        <menuitem action="action_wizard_reporte_descuentos" id="menu_wizard_reporte_descuentos"
+        parent="hr_payroll.menu_hr_payroll_report" sequence="4"/>
+
+        <menuitem action="action_wizard_libro_sueldos_salarios" id="menu_wizard_libro_sueldos_salarios"
+        parent="hr_payroll.menu_hr_payroll_report" sequence="5"/>
+
+        <menuitem action="action_wizard_report_facturacion" id="menu_wizard_report_facturacion"
+        parent="hr_payroll.menu_hr_payroll_report" sequence="6"/>
+
+        <menuitem action="action_wizard_infrome_empleador" id="menu_wizard_informe_empleador"
+        parent="hr_payroll.menu_hr_payroll_report" sequence="7"/>
+
+        <menuitem action="action_wizard_reporte_planilla_igss" id="menu_wizard_reporte_planilla_igss"
+                  parent="hr_payroll.menu_hr_payroll_report" sequence="8"/>
+
+        <menuitem action="action_wizard_reporte_liquidacion_empleados" id="menu_wizard_reporte_liquidacion_empleados"
+                  parent="hr_payroll.menu_hr_payroll_report" sequence="9"/>
+    </data>
+</odoo>

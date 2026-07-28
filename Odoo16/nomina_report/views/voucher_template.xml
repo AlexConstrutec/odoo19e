@@ -1,0 +1,795 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+<!--        <template id="custom_external_report_nomina" >-->
+<!--            <t t-name="web.external_report_nomina">-->
+<!--            <div t-attf-class="header o_company_#{company.id}_layout" t-att-style="report_header_style">-->
+<!--                <div class="row">-->
+<!--                    <div class="col-3 text-center">-->
+<!--                        <img t-if="company.logo" t-att-src="image_data_uri(company.logo)" style="max-height: 100px; width: auto; margin-left: auto; margin-right: auto;" alt="Logo"/>-->
+<!--                    </div>-->
+<!--                    <div class="col-1 text"/>-->
+<!--                    <div class="col-8 text-center" style="font-family: Comic Sans MS;">-->
+<!--                        <h4 t-field="company.name"/>-->
+<!--                        Nit: <span t-field="company.vat"/>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--        </div>-->
+
+<!--        <div t-attf-class="article o_report_layout_standard o_company_#{company.id}_layout {{  'o_report_layout_background' if company.layout_background in ['Geometric', 'Custom']  else  '' }}" t-attf-style="background-image: url({{ 'data:image/png;base64,%s' % company.layout_background_image.decode('utf-8') if company.layout_background_image and company.layout_background == 'Custom' else '/base/static/img/bg_background_template.jpg' if company.layout_background == 'Geometric' else ''}});" t-att-data-oe-model="o and o._name" t-att-data-oe-id="o and o.id" t-att-data-oe-lang="o and o.env.context.get('lang')">-->
+<!--            <div class="pt-5">-->
+<!--                &lt;!&ndash; This div ensures that the address is not cropped by the header. &ndash;&gt;-->
+<!--                <t t-call="web.address_layout"/>-->
+<!--            </div>-->
+<!--            <t t-out="0"/>-->
+<!--        </div>-->
+<!--    </t>-->
+<!--    </template>-->
+<!--        <template id="custom_external_layout_nomina" >-->
+<!--        <t t-name="web.external_layout_nomina">-->
+<!--            <t t-if="not o" t-set="o" t-value="doc"/>-->
+<!--    -->
+<!--            <t t-if="not company">-->
+<!--                &lt;!&ndash; Multicompany &ndash;&gt;-->
+<!--                <t t-if="company_id">-->
+<!--                    <t t-set="company" t-value="company_id"/>-->
+<!--                </t>-->
+<!--                <t t-elif="o and 'company_id' in o and o.company_id.sudo()">-->
+<!--                    <t t-set="company" t-value="o.company_id.sudo()"/>-->
+<!--                </t>-->
+<!--                <t t-else="else">-->
+<!--                    <t t-set="company" t-value="res_company"/>-->
+<!--                </t>-->
+<!--            </t>-->
+<!--    -->
+<!--        <t t-call="nomina_report.custom_external_report_nomina"/>-->
+<!--    -->
+<!--        </t>-->
+<!--        </template>-->
+
+
+<!--     <template id="custom_internal_layout" inherit_id="web.internal_layout">-->
+<!--        &lt;!&ndash; Reemplazar el contenido del header &ndash;&gt;-->
+<!--        <xpath expr="//div[@class='header']" position="replace">-->
+<!--        </xpath>-->
+<!--    </template>-->
+    <template id="salary_voucher">
+        <t t-call="web.html_container">
+                <t t-call="gth_reports.custom_internal_layout">
+<!--                    <t t-set="company" t-value="docs.company_id"/>-->
+                    <div t-attf-class="header" t-att-style="report_header_style">
+                        <div class="row">
+                            <div class="col-3 text-center">
+                                <img t-if="docs.company_id.logo" t-att-src="image_data_uri(docs.company_id.logo)" style="max-height: 100px; width: auto; margin-left: auto; margin-right: auto;" alt="Logo"/>
+                            </div>
+                            <div class="col-1 text"/>
+                            <div class="col-8 text-center" style="font-family: Arial;">
+                                <h4 t-field="docs.company_id.name"/>
+                                Nit: <span t-field="docs.company_id.vat"/>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="page" t-attf-style="font-family: Arial; font-size: 16px; padding-top: 150px; ">
+                        <div style="text-align: center;">
+                            <h5><strong><u>RECIBO DE PAGO</u></strong></h5>
+                        </div>
+<!--                        Párrafo del recibo de pago datos informativos del empleado inicia-->
+                        <div class="row" style="font-family: Arial; font-size: 16px; !important;">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-4 text-left">
+                                        <span>Mes: </span>
+                                    </div>
+                                    <div class="col-7 text-left">
+                                        <t t-esc="docs.date_from.strftime('%m')"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span> </span>
+                                    </div>
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row" style="font-family: Arial; font-size: 16px; !important;">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-4 text-left">
+                                        <span>Periodo del: </span>
+                                    </div>
+                                    <div class="col-7 text-left">
+                                        <t t-esc="docs.fechaDel()"/> al <t t-esc="docs.fechaAl()"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-7 text-left">
+                                        <span>NIT del Empleado: </span>
+                                    </div>
+                                    <div class="col-5 text-left">
+                                        <t t-esc="docs.employee_id.nit"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row" style="font-family: Arial; font-size: 16px; !important;">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-4 text-left">
+                                        <span>Fecha de pago: </span>
+                                    </div>
+                                    <div class="col-7 text-left">
+                                        <t t-esc="docs.date_to"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-7 text-left">
+                                        <span>Cuenta Bancaria Acreditada: </span>
+                                    </div>
+                                    <div class="col-5 text-left">
+                                    <t t-foreach="docs.employee_id.work_contact_id.bank_ids" t-as="bank">
+                                        <t t-if="bank.allow_out_payment">
+                                            <div><t t-esc="bank.acc_number"/></div>
+                                        </t>
+                                    </t>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row" style="font-family: Arial; font-size: 16px; !important;">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-4 text-left">
+                                        <span>Empleado: </span>
+                                    </div>
+                                    <div class="col-7 text-left">
+                                        <t t-esc="docs.employee_id.name"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-7 text-left">
+                                        <span>Departamento: </span>
+                                    </div>
+                                    <div class="col-5 text-left">
+                                        <t t-esc="docs.contract_id.department_id.parent_id.name"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row" style="font-family: Arial; font-size: 16px; !important;">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-4 text-left">
+                                        <span>Correo Electrónico:</span>
+                                    </div>
+                                    <div class="col-7 text-left">
+                                        <t t-esc="docs.employee_id.work_email"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-7 text-left">
+                                        <span>Área:</span>
+                                    </div>
+                                    <div class="col-5 text-left">
+                                        <t t-esc="docs.contract_id.department_id.name"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+<!--                        Finalizan los datos infomativos dle empleado -->
+<!--                        inicia el detalle del recibo de pago -->
+                        <div class="row">
+                            <div class="col-6" style="text-align: center;">
+                                <h5><strong>Ingresos</strong></h5>
+                            </div>
+                            <div class="col-6" style=" text-align: center;">
+                                <h5><strong>Deducciones</strong></h5>
+                            </div>
+                        </div>
+<!--                        Fila 1-->
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-8" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Sueldo Base: </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'BASIC'">
+                                                    <t t-set="total" t-value="line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span> IGSS Laboral: </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'IGSSLABR' or line.code == 'CIGSSLAB'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                    <div class="col-2"/>
+                                </div>
+                            </div>
+                        </div>
+<!--                        fila 2-->
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-8" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Bonificación Incentivo: </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>ISR Asalariados: </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'ISRASA'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                    <div class="col-2"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-2"/>
+                                    <div class="col-5" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Decreto 78-89: </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'BONIN'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                    <div class="col-2"/>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Anticipo de Sueldo 1:  </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'ANT1'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                    <div class="col-2"/>
+                                </div>
+                            </div>
+                        </div>
+<!--                        fila 3-->
+                        <div class="row">
+                            <div class="col-6">
+                                <dvi class="row">
+                                    <div class="col-2"/>
+                                    <div class="col-5" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Fija:</span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'BOFIJ'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                    <div class="col-2"/>
+                                </dvi>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Anticipo de Sueldo 2:  </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'ANT2'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                    <div class="col-2"/>
+                                </div>
+                            </div>
+                        </div>
+<!--                        fila 4-->
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-2"/>
+                                    <div class="col-5" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Por Ajuste: </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'MDOA'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                    <div class="col-2"/>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Anticipo de Sueldo 3:  </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'ANT3'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                    <div class="col-2"/>
+                                </div>
+                            </div>
+                        </div>
+<!--                        fila 5-->
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-2"/>
+                                    <div class="col-5" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Por Asueto: </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'MDOAS'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                    <div class="col-2"/>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                            </div>
+                        </div>
+<!--                        fila 6-->
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-2"/>
+                                    <div class="col-5" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Por Productividad: </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'BONPRO' or line.code == 'MDOP'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                    <div class="col-2"/>
+                                </div>
+                            </div>
+                        </div>
+<!--                        fila 7-->
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-2"/>
+                                    <div class="col-5" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Extra: </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+<!--                                        Edvin 13-07-2024 pendiente porque esto en odoo 13 es un calculo de la bonificación extra-->
+                                        <u>
+                                            <t t-set="total" t-value="0"/>
+                                                <t t-foreach="docs.line_ids" t-as="line">
+                                                    <t t-if="line.code == 'BHE' or line.code == 'OTREN' or line.code == 'MDOALIM'">
+                                                        <t t-set="total" t-value="total + line.total"/>
+                                                    </t>
+                                                </t>
+                                            <t t-esc="'{:,.2f}'.format(total)"/>
+                                        </u>
+                                    </div>
+                                    <div class="col-2"/>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span> </span>
+                                    </div>
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-8" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Total Bonificación Incentivo: </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+<!--                                        Edvin 13-07-2024 pendiente porque esto en odoo 13 es un calculo de la bonificación extra-->
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'BHE' or line.code == 'OTREN' or line.code == 'MDOALIM' or line.code == 'BONPRO' or line.code == 'MDOP' or line.code == 'MDOAS' or line.code == 'MDOA' or line.code == 'BOFIJ' or line.code == 'BONIN'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span> </span>
+                                    </div>
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+<!--                        fila 8-->
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-8" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Horas Extras: </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'VHEB'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span> </span>
+                                    </div>
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+<!--                        fila 9-->
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-8" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Bono anual Decreto 42-92: </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'BONO14P'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                     <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span> </span>
+                                    </div>
+                                    <div class="col-5" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+<!--                        fila 10-->
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-8" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Aguinaldo Decreto 76-78: </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'AGUINALDOP'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                 </div>
+                            </div>
+                                <div class="col-6">
+                                    <div class="row">
+                                        <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                            <span> </span>
+                                        </div>
+                                        <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        </div>
+                                </div>
+                            </div>
+                        </div>
+<!--                        fila 11-->
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-8" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Vacaciones Art. 137 Código de trabajo: </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'VACACPAG'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span> </span>
+                                    </div>
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+<!--                        fila 12-->
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-8" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Indemnización: </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'INDEMP'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span> </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+<!--                        fila 13-->
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-8" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span>Gratificación:  </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'OTRGRATIF'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                        <span> </span>
+                                    </div>
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+<!--                        fila 14-->
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-8" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; border-bottom: 1px solid black;">
+                                        <span>Devolución de ISR:  </span>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right; border-bottom: 1px solid black;">
+                                        <t t-set="total" t-value="0"/>
+                                            <t t-foreach="docs.line_ids" t-as="line">
+                                                <t t-if="line.code == 'DEVISR'">
+                                                    <t t-set="total" t-value="total + line.total"/>
+                                                </t>
+                                            </t>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                 </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-11" style="font-family: Arial; font-size: 18px !important; line-height: 1.5;">
+                                        <span> </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+<!--                        fila 15-->
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-8" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5;">
+                                         <strong>Total Bruto:</strong>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right;">
+                                        <strong>
+                                            <t t-set="total" t-value="0"/>
+                                                <t t-foreach="docs.line_ids" t-as="line">
+                                                    <t t-if="line.code == 'GROSS'">
+                                                        <t t-set="total" t-value="total + line.total"/>
+                                                    </t>
+                                                </t>
+                                            <t t-esc="'{:,.2f}'.format(total)"/>
+                                        </strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row">
+                                    <div class="col-1"/>
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; border-top: 1px solid black;">
+                                        <strong>Total Deducciones: </strong>
+                                    </div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; !important; line-height: 1.5; text-align: right; border-top: 1px solid black;">
+                                        <strong>
+                                            <t t-set="total" t-value="0"/>
+                                                <t t-foreach="docs.line_ids" t-as="line">
+                                                    <t t-if="line.code == 'DEDU'">
+                                                        <t t-set="total" t-value="total + line.total"/>
+                                                    </t>
+                                                </t>
+                                            <t t-esc="'{:,.2f}'.format(total)"/>
+                                        </strong>
+                                    </div>
+                                    <div class="col-2"/>
+                                </div>
+                            </div>
+                        </div>
+                        <br/>
+                        <div class="row" style="text-align: center; font-family: Arial; font-size: 18px !important; line-height: 1.5;">
+                            <div class="col-12">
+                                <strong><u> Monto Líquido a Recibir:
+                                    <t t-set="total" t-value="0"/>
+                                    <t t-foreach="docs.line_ids" t-as="line">
+                                        <t t-if="line.code == 'NET'">
+                                            <t t-set="total" t-value="total + line.total"/>
+                                        </t>
+                                    </t>
+                                    <t t-esc="'{:,.2f}'.format(total)"/>
+                                </u>
+                                </strong>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12" >
+                                <p style="font-family: Arial; font-size: 16px; !important; text-align: justify;"><strong>Nota:</strong> Revisar cuidadosamente la información contenida en este documento. En caso de tener alguna
+                            objeción o discrepancia, le solicitamos la comunique por escrito dentro de los próximos 5 días hábiles a
+                            la recepción del mismo. De no recibir ninguna notificación en este plazo, se considerará que el monto
+                            acreditado es correcto y conforme a lo acordado.</p>
+                                <h6 style="text-align: center; "><strong>LA NOTA DE CRÉDITO EN SU CUENTA CORRIENTE/AHORROS/CHEQUE CONSTITUYE EVIDENCIA DE HABER RECIBIDO EL SALARIO AQUÍ DETALLADO</strong> </h6>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </t>
+    </template>
+
+<!--    <template id="custom_external_layout_standar" inherit_id="web.external_layout_standard">-->
+<!--        <xpath expr="//div[@t-attf-class='header o_company_#{company.id}_layout']" position="replace">-->
+<!--            <div t-attf-class="header o_company_#{company.id}_layout" t-att-style="report_header_style">-->
+
+<!--                <div class="row">-->
+<!--                    <div class="col-3 text-center">-->
+<!--                        <img t-if="company.logo" t-att-src="image_data_uri(company.logo)" style="max-height: 100px; width: auto; margin-left: auto; margin-right: auto;" alt="Logo"/>-->
+<!--                    </div>-->
+<!--                    <div class="col-1 text"/>-->
+<!--                    <div class="col-8 text-center" style="font-family: Comic Sans MS;">-->
+<!--                        <h4 t-field="company.name"/>-->
+<!--                        <span t-field="company.street"/>-->
+<!--                        <br/>-->
+<!--                        <span t-field="company.email"/>-->
+<!--                        <br/>-->
+<!--                        Nit: <span t-field="company.vat"/>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </xpath>-->
+<!--        <xpath expr="//div[@t-attf-class='footer o_standard_footer o_company_#{company.id}_layout']" position="replace">-->
+<!--            <br/>-->
+<!--        </xpath>-->
+<!--    </template>-->
+</odoo>

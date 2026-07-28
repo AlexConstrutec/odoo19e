@@ -1,0 +1,3 @@
+id,name,model_id/id,group_id/id,perm_read,perm_write,perm_create,perm_unlink
+acc_payment_payslip,acceso_payment_payslip,model_hr_payslip_register_payment_wizard,gth.nominas_admin,1,1,1,1
+acc_batch_payment_payslip,acceso_batch_payment_payslip,model_hr_payslip_batchwise_register_payment_wizard,gth.nominas_admin,1,1,1,1

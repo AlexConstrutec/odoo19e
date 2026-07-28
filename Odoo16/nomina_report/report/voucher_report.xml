@@ -1,0 +1,30 @@
+<odoo>
+        <record id="paperformat_recibo_pago" model="report.paperformat">
+        <field name="name">Recibo voucher</field>
+        <field name="default" eval="False"/>
+        <field name="format">Legal</field> <!-- Formato carta -->
+        <field name="margin_top">3</field> <!-- Márgenes en milímetros -->
+        <field name="margin_bottom">0</field>
+        <field name="margin_left">0</field>
+        <field name="margin_right">0</field>
+        <field name="orientation">Portrait</field> <!-- Orientación vertical -->
+        <field name="disable_shrinking">True</field>
+        <field name="header_spacing">0</field>
+        <field name="dpi">0</field>
+    </record>
+    <record id="report_voucher" model="ir.actions.report">
+        <field name="name">Voucher Salary</field>
+        <field name="model">hr.payslip</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">nomina_report.salary_voucher</field>
+        <field name="report_file">nomina_report.salary_voucher</field>
+        <field name="print_report_name">'Salary Voucher - %s' % (object.employee_id.name)</field>
+        <field name="paperformat_id" ref="paperformat_recibo_pago"/>
+
+<!--        <field name="attachment_use" eval="True"/>-->
+<!--        <field name="attachment">(object.state in ('open','paid')) and-->
+<!--            ('INV'+(object.number or '').replace('/','')+'.pdf')</field>-->
+<!--        <field name="binding_model_id" ref="model_account_invoice"/>-->
+<!--        <field name="binding_type">report</field>-->
+    </record>
+</odoo>

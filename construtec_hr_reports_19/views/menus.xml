@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_wizard_planilla_sueldos" action="action_wizard_planilla_sueldos"
+              parent="hr_payroll.menu_hr_payroll_report" sequence="1"/>
+    <menuitem id="menu_wizard_pasivo_laboral_empleado" action="action_wizard_pasivo_laboral_empleado"
+              parent="hr_payroll.menu_hr_payroll_report" sequence="2"/>
+    <menuitem id="menu_wizard_pasivo_laboral_consolidado" action="action_wizard_pasivo_laboral_consolidado"
+              parent="hr_payroll.menu_hr_payroll_report" sequence="3"/>
+    <menuitem id="menu_wizard_reporte_descuentos" action="action_wizard_reporte_descuentos"
+              parent="hr_payroll.menu_hr_payroll_report" sequence="4"/>
+    <menuitem id="menu_wizard_libro_sueldos_salarios" action="action_wizard_libro_sueldos_salarios"
+              parent="hr_payroll.menu_hr_payroll_report" sequence="5"/>
+    <menuitem id="menu_wizard_report_facturacion" action="action_wizard_report_facturacion"
+              parent="hr_payroll.menu_hr_payroll_report" sequence="6"/>
+    <menuitem id="menu_wizard_informe_empleador" action="action_wizard_informe_empleador"
+              parent="hr_payroll.menu_hr_payroll_report" sequence="7"/>
+    <menuitem id="menu_wizard_reporte_planilla_igss" action="action_wizard_reporte_planilla_igss"
+              parent="hr_payroll.menu_hr_payroll_report" sequence="8"/>
+    <menuitem id="menu_wizard_reporte_liquidacion_empleados" action="action_wizard_reporte_liquidacion_empleados"
+              parent="hr_payroll.menu_hr_payroll_report" sequence="9"/>
+    <menuitem id="menu_wizard_reporte_prestaciones_laborales" action="action_wizard_reporte_prestaciones_laborales"
+              parent="hr_payroll.menu_hr_payroll_report" sequence="10"/>
+</odoo>

@@ -1,0 +1,11 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_wizard_report_facturacion_user,wizard.report.facturacion,model_wizard_report_facturacion,base.group_user,1,1,1,1
+access_wizard_libro_sueldos_salarios_user,wizard.libro.sueldos.salarios,model_wizard_libro_sueldos_salarios,base.group_user,1,1,1,1
+access_wizard_reporte_prestaciones_laborales_user,wizard.reporte.prestaciones.laborales,model_wizard_reporte_prestaciones_laborales,base.group_user,1,1,1,1
+access_wizard_reporte_planilla_igss_user,wizard.reporte.planilla.igss,model_wizard_reporte_planilla_igss,base.group_user,1,1,1,1
+access_wizard_informe_empleador_user,wizard.informe.empleador,model_wizard_informe_empleador,base.group_user,1,1,1,1
+access_wizar_reporte_descuentos_user,wizard.reporte.descuentos,model_wizard_reporte_descuentos,base.group_user,1,1,1,1
+access_wizar_planilla_sueldos_user,wizard.planilla.sueldos,model_wizard_planilla_sueldos,base.group_user,1,1,1,1
+access_wizar_pasivo_laboral_consolidado_user,wizard.pasivo.laboral.consolidado,model_wizard_pasivo_laboral_consolidado,base.group_user,1,1,1,1
+access_wizar_pasivo_laboral_empleado_user,wizard.pasivo.laboral.empleado,model_wizard_pasivo_laboral_empleado,base.group_user,1,1,1,1
+access_wizar_reporte_liquidacion_empleados_user,wizard.reporte.liquidacion.empleados,model_wizard_reporte_liquidacion_empleados,base.group_user,1,1,1,1

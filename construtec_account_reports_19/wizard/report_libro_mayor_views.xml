@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_wizard_reporte_mayor_form" model="ir.ui.view">
+        <field name="name">wizard.reporte.mayor.form</field>
+        <field name="model">wizard.reporte.mayor</field>
+        <field name="arch" type="xml">
+            <form string="Libro Mayor">
+                <field name="state" invisible="1"/>
+                <field name="name" invisible="1"/>
+                <group col="4" invisible="state != 'choose'">
+                    <field name="company_id" groups="base.group_multi_company"/>
+                    <field name="anio" required="1"/>
+                    <field name="mes_de" required="1"/>
+                    <field name="mes_a" required="1"/>
+                    <field name="folio" required="1"/>
+                </group>
+                <div invisible="state != 'get'">
+                    <h2>Descargar Archivo - Libro Mayor</h2>
+                    <p>Archivo: <field name="data" readonly="1" filename="name"/></p>
+                </div>
+                <footer>
+                    <button name="print_xls_libro_mayor" string="Generar Reporte" type="object" class="oe_highlight" invisible="state != 'choose'"/>
+                    <button string="Cancelar" special="cancel" invisible="state != 'choose'"/>
+                    <button name="got_back" string="Atrás" type="object" class="oe_highlight" invisible="state != 'get'"/>
+                    <button string="Cerrar" special="cancel" invisible="state != 'get'"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_wizard_reporte_mayor" model="ir.actions.act_window">
+        <field name="name">Libro Mayor</field>
+        <field name="res_model">wizard.reporte.mayor</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

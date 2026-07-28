@@ -1,0 +1,11 @@
+id,name,model_id/id,group_id/id,perm_read,perm_write,perm_create,perm_unlink
+access_qualification,acc_qualification,model_hr_qualification,gth.nominas_admin,1,1,1,1
+access_import,acc_import,model_hr_payslip_worked_days_import_wizard,gth.nominas_admin,1,1,1,1
+access_status,acc_status,model_hr_contract_status,informatica.informatica_admin,1,1,1,1
+access_frequency,acc_frequency,model_hr_contract_payment_frequency,informatica.informatica_admin,1,1,1,1
+access,access,model_hr_contract_status,base.group_user,1,1,1,1
+access,access,model_hr_contract_payment_frequency,base.group_user,1,1,1,1
+acc_empr_fact,acc_empr_fact,model_hr_empresa_facturar,gth.nominas_admin,1,1,1,1
+cre_empr_fact,cre_empr_fact,model_hr_empresa_facturar,informatica.informatica_admin,1,1,1,1
+acc_empr_pres_nom,acc_empr_pres_nom,model_hr_payslip_prestaciones,gth.nominas_admin,1,1,1,1
+acc_empr_pres_nom_w,acc_empr_pres_nom_w,model_hr_payslip_prestaciones_wizard,gth.nominas_admin,1,1,1,1

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data noupdate="0">
+        <record id="hr_qualification_input" model="hr.payslip.input.type">
+            <field name="code">QUALY</field>
+            <field name="name">Calificacion</field>
+        </record>
+        <record id="hr_salario_base_input" model="hr.payslip.input.type">
+            <field name="code">SAL_BASE</field>
+            <field name="name">Salario Base</field>
+        </record>
+        <record id="hr_bonification_input" model="hr.payslip.input.type">
+            <field name="code">BON_PRO</field>
+            <field name="name">Bonificación por productividad</field>
+        </record>
+        <record id="hr_otras_bonif_input" model="hr.payslip.input.type">
+            <field name="code">OTRASBONIF</field>
+            <field name="name">OTRAS BONIFICACIONES</field>
+        </record>
+        <record id="hr_gratificacion_input" model="hr.payslip.input.type">
+            <field name="code">GRATIF</field>
+            <field name="name">Gratificacion</field>
+        </record>
+        <record id="hr_vacaciones_pagos_input" model="hr.payslip.input.type">
+            <field name="code">PAGOVACACIONES</field>
+            <field name="name">Vacaciones Pago</field>
+        </record>
+        <record id="hr_mdo_bonin_inc_input" model="hr.payslip.input.type">
+            <field name="code">BON_INC</field>
+            <field name="name">Bonificacion Incentivo</field>
+        </record>
+        <record id="hr_mdo_ajuste_input" model="hr.payslip.input.type">
+            <field name="code">AJUSTE</field>
+            <field name="name">Ajuste</field>
+        </record>
+        <record id="hr_mdo_asueto_input" model="hr.payslip.input.type">
+            <field name="code">ASUETO</field>
+            <field name="name">Asueto</field>
+        </record>
+        <record id="hr_alimentacion_fijo_input" model="hr.payslip.input.type">
+            <field name="code">ALIMENTACION</field>
+            <field name="name">Alimentacion Fijo</field>
+        </record>
+        <record id="hr_mdo_bonif_extra_input" model="hr.payslip.input.type">
+            <field name="code">BONIFEXTRA</field>
+            <field name="name">Bonificacion Extra</field>
+        </record>
+        <record id="hr_dev_isr_input" model="hr.payslip.input.type">
+            <field name="code">DEV_ISR</field>
+            <field name="name">Devolucion ISR</field>
+        </record>
+        <record id="hr_carga_bono_anual_input" model="hr.payslip.input.type">
+            <field name="code">CARG_BONO14</field>
+            <field name="name">Carga Bono 14</field>
+        </record>
+        <record id="hr_carga_aguinaldo_input" model="hr.payslip.input.type">
+            <field name="code">CARG_AGUINALDO</field>
+            <field name="name">Carga Aguinaldo</field>
+        </record>
+        <record id="hr_carga_vacaciones_input" model="hr.payslip.input.type">
+            <field name="code">CARG_VACAC</field>
+            <field name="name">Carga Vacaciones</field>
+        </record>
+        <record id="hr_carga_indemnizacion_input" model="hr.payslip.input.type">
+            <field name="code">CARG_INDM</field>
+            <field name="name">Carga Indemnizacion</field>
+        </record>
+        <record id="hr_salario_base_es_input" model="hr.payslip.input.type">
+            <field name="code">SAL_BASE_ES</field>
+            <field name="name">Salario Base - Estatico</field>
+        </record>
+        <record id="hr_bonification_es_input" model="hr.payslip.input.type">
+            <field name="code">BON_PRO_ES</field>
+            <field name="name">Bonificación por productividad - Estatico</field>
+        </record>
+        <record id="hr_mdo_bonin_inc_es_input" model="hr.payslip.input.type">
+            <field name="code">BON_INC_ES</field>
+            <field name="name">Bonificacion Incentivo - Estatico</field>
+        </record>
+        <record id="hr_bon_fij_es_input" model="hr.payslip.input.type">
+            <field name="code">BON_FIJ_ES</field>
+            <field name="name">Bonificacion Fija - Estatico</field>
+        </record>
+	</data>
+</odoo>

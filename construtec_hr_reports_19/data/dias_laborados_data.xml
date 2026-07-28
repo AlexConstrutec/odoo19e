@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Valores heredados tal cual del módulo original (nomina_report). Verificar cada año: asuetos/días
+         calendario cambian según el calendario oficial de Guatemala de cada año. -->
+    <data noupdate="0">
+        <record id="dias_laborados_2026_01" model="hr.dias.laborados.mes">
+            <field name="anio">2026</field><field name="mes">1</field>
+            <field name="dias_calendario">31</field><field name="descanso_semanal">4</field>
+            <field name="asueto">1</field><field name="total_ausencia">5</field><field name="dias_laborados">26</field>
+        </record>
+        <record id="dias_laborados_2026_02" model="hr.dias.laborados.mes">
+            <field name="anio">2026</field><field name="mes">2</field>
+            <field name="dias_calendario">28</field><field name="descanso_semanal">4</field>
+            <field name="asueto">0</field><field name="total_ausencia">4</field><field name="dias_laborados">24</field>
+        </record>
+        <record id="dias_laborados_2026_03" model="hr.dias.laborados.mes">
+            <field name="anio">2026</field><field name="mes">3</field>
+            <field name="dias_calendario">31</field><field name="descanso_semanal">4</field>
+            <field name="asueto">3</field><field name="total_ausencia">7</field><field name="dias_laborados">24</field>
+        </record>
+        <record id="dias_laborados_2026_04" model="hr.dias.laborados.mes">
+            <field name="anio">2026</field><field name="mes">4</field>
+            <field name="dias_calendario">30</field><field name="descanso_semanal">4</field>
+            <field name="asueto">0</field><field name="total_ausencia">4</field><field name="dias_laborados">26</field>
+        </record>
+        <record id="dias_laborados_2026_05" model="hr.dias.laborados.mes">
+            <field name="anio">2026</field><field name="mes">5</field>
+            <field name="dias_calendario">31</field><field name="descanso_semanal">4</field>
+            <field name="asueto">1</field><field name="total_ausencia">5</field><field name="dias_laborados">26</field>
+        </record>
+        <record id="dias_laborados_2026_06" model="hr.dias.laborados.mes">
+            <field name="anio">2026</field><field name="mes">6</field>
+            <field name="dias_calendario">30</field><field name="descanso_semanal">4</field>
+            <field name="asueto">1</field><field name="total_ausencia">5</field><field name="dias_laborados">25</field>
+        </record>
+        <record id="dias_laborados_2026_07" model="hr.dias.laborados.mes">
+            <field name="anio">2026</field><field name="mes">7</field>
+            <field name="dias_calendario">31</field><field name="descanso_semanal">4</field>
+            <field name="asueto">0</field><field name="total_ausencia">4</field><field name="dias_laborados">27</field>
+        </record>
+        <record id="dias_laborados_2026_08" model="hr.dias.laborados.mes">
+            <field name="anio">2026</field><field name="mes">8</field>
+            <field name="dias_calendario">31</field><field name="descanso_semanal">4</field>
+            <field name="asueto">0</field><field name="total_ausencia">4</field><field name="dias_laborados">27</field>
+        </record>
+        <record id="dias_laborados_2026_09" model="hr.dias.laborados.mes">
+            <field name="anio">2026</field><field name="mes">9</field>
+            <field name="dias_calendario">30</field><field name="descanso_semanal">4</field>
+            <field name="asueto">1</field><field name="total_ausencia">5</field><field name="dias_laborados">25</field>
+        </record>
+        <record id="dias_laborados_2026_10" model="hr.dias.laborados.mes">
+            <field name="anio">2026</field><field name="mes">10</field>
+            <field name="dias_calendario">31</field><field name="descanso_semanal">4</field>
+            <field name="asueto">1</field><field name="total_ausencia">5</field><field name="dias_laborados">26</field>
+        </record>
+        <record id="dias_laborados_2026_11" model="hr.dias.laborados.mes">
+            <field name="anio">2026</field><field name="mes">11</field>
+            <field name="dias_calendario">30</field><field name="descanso_semanal">4</field>
+            <field name="asueto">1</field><field name="total_ausencia">5</field><field name="dias_laborados">25</field>
+        </record>
+        <record id="dias_laborados_2026_12" model="hr.dias.laborados.mes">
+            <field name="anio">2026</field><field name="mes">12</field>
+            <field name="dias_calendario">31</field><field name="descanso_semanal">4</field>
+            <field name="asueto">2</field><field name="total_ausencia">6</field><field name="dias_laborados">25</field>
+        </record>
+    </data>
+</odoo>

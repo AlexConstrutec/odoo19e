@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <template id="salary_voucher">
+        <t t-call="web.html_container">
+            <t t-call="construtec_hr_reports_19.custom_internal_layout">
+                <div t-attf-class="header" t-att-style="report_header_style">
+                    <div class="row">
+                        <div class="col-3 text-center">
+                            <img t-if="docs.company_id.logo" t-att-src="image_data_uri(docs.company_id.logo)" style="max-height: 100px; width: auto; margin-left: auto; margin-right: auto;" alt="Logo"/>
+                        </div>
+                        <div class="col-1 text"/>
+                        <div class="col-8 text-center" style="font-family: Arial;">
+                            <h4 t-field="docs.company_id.name"/>
+                            Nit: <span t-field="docs.company_id.vat"/>
+                        </div>
+                    </div>
+                </div>
+                <div class="page" t-attf-style="font-family: Arial; font-size: 16px; padding-top: 150px;">
+                    <div style="text-align: center;">
+                        <h5><strong><u>RECIBO DE PAGO</u></strong></h5>
+                    </div>
+                    <div class="row" style="font-family: Arial; font-size: 16px;">
+                        <div class="col-6">
+                            <div class="row">
+                                <div class="col-1"/>
+                                <div class="col-4 text-left"><span>Mes: </span></div>
+                                <div class="col-7 text-left"><t t-esc="docs.date_from.strftime('%m')"/></div>
+                            </div>
+                        </div>
+                        <div class="col-6"/>
+                    </div>
+                    <div class="row" style="font-family: Arial; font-size: 16px;">
+                        <div class="col-6">
+                            <div class="row">
+                                <div class="col-1"/>
+                                <div class="col-4 text-left"><span>Periodo del: </span></div>
+                                <div class="col-7 text-left"><t t-esc="docs.fecha_del()"/> al <t t-esc="docs.fecha_al()"/></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="row">
+                                <div class="col-7 text-left"><span>NIT del Empleado: </span></div>
+                                <div class="col-5 text-left"><t t-esc="docs.employee_id.nit"/></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row" style="font-family: Arial; font-size: 16px;">
+                        <div class="col-6">
+                            <div class="row">
+                                <div class="col-1"/>
+                                <div class="col-4 text-left"><span>Fecha de pago: </span></div>
+                                <div class="col-7 text-left"><t t-esc="docs.date_to"/></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="row">
+                                <div class="col-7 text-left"><span>Cuenta Bancaria Acreditada: </span></div>
+                                <div class="col-5 text-left">
+                                    <t t-foreach="docs.employee_id.work_contact_id.bank_ids" t-as="bank">
+                                        <t t-if="bank.allow_out_payment">
+                                            <div><t t-esc="bank.acc_number"/></div>
+                                        </t>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row" style="font-family: Arial; font-size: 16px;">
+                        <div class="col-6">
+                            <div class="row">
+                                <div class="col-1"/>
+                                <div class="col-4 text-left"><span>Empleado: </span></div>
+                                <div class="col-7 text-left"><t t-esc="docs.employee_id.name"/></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="row">
+                                <div class="col-7 text-left"><span>Departamento: </span></div>
+                                <div class="col-5 text-left"><t t-esc="docs.version_id.department_id.parent_id.name"/></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row" style="font-family: Arial; font-size: 16px;">
+                        <div class="col-6">
+                            <div class="row">
+                                <div class="col-1"/>
+                                <div class="col-4 text-left"><span>Correo Electrónico:</span></div>
+                                <div class="col-7 text-left"><t t-esc="docs.employee_id.work_email"/></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="row">
+                                <div class="col-7 text-left"><span>Área:</span></div>
+                                <div class="col-5 text-left"><t t-esc="docs.version_id.department_id.name"/></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6" style="text-align: center;"><h5><strong>Ingresos</strong></h5></div>
+                        <div class="col-6" style="text-align: center;"><h5><strong>Deducciones</strong></h5></div>
+                    </div>
+
+                    <t t-set="rows" t-value="[
+                        ('Sueldo Base:', ['BASIC'], 'IGSS Laboral:', ['IGSSLABR', 'CIGSSLAB']),
+                        ('Bonificación Incentivo:', [], 'ISR Asalariados:', ['ISRASA']),
+                        ('Decreto 78-89:', ['BONIN'], 'Anticipo de Sueldo 1:', ['ANT1']),
+                        ('Fija:', ['BOFIJ'], 'Anticipo de Sueldo 2:', ['ANT2']),
+                        ('Por Ajuste:', ['MDOA'], 'Anticipo de Sueldo 3:', ['ANT3']),
+                        ('Por Asueto:', ['MDOAS'], '', []),
+                        ('Por Productividad:', ['BONPRO', 'MDOP'], '', []),
+                        ('Extra:', ['BHE', 'OTREN', 'MDOALIM'], '', []),
+                        ('Total Bonificación Incentivo:', ['BHE', 'OTREN', 'MDOALIM', 'BONPRO', 'MDOP', 'MDOAS', 'MDOA', 'BOFIJ', 'BONIN'], '', []),
+                        ('Horas Extras:', ['VHEB'], '', []),
+                        ('Bono anual Decreto 42-92:', ['BONO14P'], '', []),
+                        ('Aguinaldo Decreto 76-78:', ['AGUINALDOP'], '', []),
+                        ('Vacaciones Art. 137 Código de trabajo:', ['VACACPAG'], '', []),
+                        ('Indemnización:', ['INDEMP'], '', []),
+                        ('Gratificación:', ['OTRGRATIF'], '', []),
+                        ('Devolución de ISR:', ['DEVISR'], '', []),
+                    ]"/>
+                    <t t-foreach="rows" t-as="pair">
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="row" t-if="pair[0]">
+                                    <div class="col-1"/>
+                                    <div class="col-8" style="font-family: Arial; font-size: 16px; line-height: 1.5;"><span t-esc="pair[0]"/></div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="sum(l.total for l in docs.line_ids if l.code in pair[1])"/>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="row" t-if="pair[2]">
+                                    <div class="col-1"/>
+                                    <div class="col-6" style="font-family: Arial; font-size: 16px; line-height: 1.5;"><span t-esc="pair[2]"/></div>
+                                    <div class="col-3" style="font-family: Arial; font-size: 16px; line-height: 1.5; text-align: right;">
+                                        <t t-set="total" t-value="sum(l.total for l in docs.line_ids if l.code in pair[3])"/>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="row">
+                                <div class="col-1"/>
+                                <div class="col-8" style="font-family: Arial; font-size: 16px; line-height: 1.5;"><strong>Total Bruto:</strong></div>
+                                <div class="col-3" style="font-family: Arial; font-size: 16px; line-height: 1.5; text-align: right;">
+                                    <strong>
+                                        <t t-set="total" t-value="sum(l.total for l in docs.line_ids if l.code == 'GROSS')"/>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="row">
+                                <div class="col-1"/>
+                                <div class="col-6" style="font-family: Arial; font-size: 16px; line-height: 1.5; border-top: 1px solid black;"><strong>Total Deducciones: </strong></div>
+                                <div class="col-3" style="font-family: Arial; font-size: 16px; line-height: 1.5; text-align: right; border-top: 1px solid black;">
+                                    <strong>
+                                        <t t-set="total" t-value="sum(l.total for l in docs.line_ids if l.code == 'DEDU')"/>
+                                        <t t-esc="'{:,.2f}'.format(total)"/>
+                                    </strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <br/>
+                    <div class="row" style="text-align: center; font-family: Arial; font-size: 18px; line-height: 1.5;">
+                        <div class="col-12">
+                            <strong><u> Monto Líquido a Recibir:
+                                <t t-set="total" t-value="sum(l.total for l in docs.line_ids if l.code == 'NET')"/>
+                                <t t-esc="'{:,.2f}'.format(total)"/>
+                            </u></strong>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <p style="font-family: Arial; font-size: 16px; text-align: justify;"><strong>Nota:</strong> Revisar cuidadosamente la información contenida en este documento. En caso de tener alguna
+                                objeción o discrepancia, le solicitamos la comunique por escrito dentro de los próximos 5 días hábiles a
+                                la recepción del mismo. De no recibir ninguna notificación en este plazo, se considerará que el monto
+                                acreditado es correcto y conforme a lo acordado.</p>
+                            <h6 style="text-align: center;"><strong>LA NOTA DE CRÉDITO EN SU CUENTA CORRIENTE/AHORROS/CHEQUE CONSTITUYE EVIDENCIA DE HABER RECIBIDO EL SALARIO AQUÍ DETALLADO</strong></h6>
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+</odoo>

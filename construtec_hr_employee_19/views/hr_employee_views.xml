@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_employee_form_inherit_construtec" model="ir.ui.view">
+        <field name="name">hr.employee.form.inherit.construtec</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='registration_number']" position="attributes">
+                <attribute name="groups">hr.group_hr_user</attribute>
+                <attribute name="string">Código</attribute>
+            </xpath>
+
+            <xpath expr="//page[@name='personal_information']/group" position="before">
+                <group string="Identificación">
+                    <field name="primer_nombre"/>
+                    <field name="segundo_nombre"/>
+                    <field name="tercer_nombre"/>
+                    <field name="primer_apellido"/>
+                    <field name="segundo_apellido"/>
+                    <field name="apellido_casada"/>
+                    <field name="nit"/>
+                    <field name="igss"/>
+                    <button name="generar_codigo" type="object" string="Generar Código" class="oe_highlight"/>
+                </group>
+            </xpath>
+
+            <xpath expr="//group[@name='citizenship']/field[@name='identification_id']" position="attributes">
+                <attribute name="required">1</attribute>
+            </xpath>
+            <xpath expr="//group[@name='citizenship']" position="inside">
+                <field name="departamento_id"/>
+                <field name="municipio_id"/>
+            </xpath>
+            <xpath expr="//group[@name='hr_birth_group']" position="inside">
+                <field name="edad"/>
+                <field name="mes_cumpleanios"/>
+            </xpath>
+            <xpath expr="//group[@name='hr_education_group']" position="inside">
+                <field name="study_school"/>
+                <field name="discapacidad"/>
+            </xpath>
+            <xpath expr="//group[@name='hr_family_group']" position="inside">
+                <field name="imprimir_nombre_conyuge" invisible="marital not in ('married', 'cohabitant')"/>
+            </xpath>
+
+            <xpath expr="//notebook" position="inside">
+                <page string="Record Laboral">
+                    <group string="Historial laboral">
+                        <label for="historial_laboral" string=""/>
+                        <field name="historial_laboral" nolabel="1">
+                            <list>
+                                <field name="contrato_registrado"/>
+                                <field name="date_start"/>
+                                <field name="date_end"/>
+                                <field name="company"/>
+                                <field name="job"/>
+                                <field name="salary"/>
+                                <field name="write_uid" string="Última actualización por"/>
+                            </list>
+                        </field>
+                        <button name="registrar_historial_puestos" type="object" string="Registrar Historial" class="oe_highlight"/>
+                    </group>
+                </page>
+                <page string="Información Complementaria">
+                    <group string="Vehículo">
+                        <label for="employee_licencia" string=""/>
+                        <field name="employee_licencia" nolabel="1">
+                            <list editable="bottom">
+                                <field name="tipo_vehiculo"/>
+                                <field name="tipo_licencia"/>
+                                <field name="numero_licencia"/>
+                            </list>
+                        </field>
+                    </group>
+                    <group string="Círculo Familiar">
+                        <label for="employee_family" string=""/>
+                        <field name="employee_family" nolabel="1">
+                            <list editable="bottom">
+                                <field name="nombre"/>
+                                <field name="parentesco"/>
+                                <field name="genero"/>
+                                <field name="fecha_nacimiento"/>
+                                <field name="edad"/>
+                                <field name="ocupacion"/>
+                            </list>
+                        </field>
+                    </group>
+                    <group string="Educación">
+                        <label for="employee_educational" string=""/>
+                        <field name="employee_educational" nolabel="1">
+                            <list editable="bottom">
+                                <field name="establecimiento"/>
+                                <field name="titulo"/>
+                                <field name="nivel_academico"/>
+                                <field name="año"/>
+                            </list>
+                        </field>
+                    </group>
+                    <group string="Datos Laborales">
+                        <label for="employee_work_history" string=""/>
+                        <field name="employee_work_history" nolabel="1">
+                            <list editable="bottom">
+                                <field name="empresa"/>
+                                <field name="año_inicio"/>
+                                <field name="año_fin"/>
+                                <field name="puesto"/>
+                                <field name="motivo_retiro"/>
+                                <field name="jefe_inmediato"/>
+                                <field name="telefono"/>
+                                <field name="ubicacion_empresa"/>
+                                <field name="tiempo_laborado"/>
+                            </list>
+                        </field>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

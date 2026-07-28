@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="view_employee_form_inherit" model="ir.ui.view">
+            <field name="name">view.employee.form.inherit</field>
+            <field name="model">hr.employee</field>
+            <field name="inherit_id" ref="hr.view_employee_form"/>
+            <field name="arch" type="xml">
+                <!-- Aquí puedes agregar o modificar los campos que necesites -->
+                <xpath expr="//field[@name='name']" position="attributes">
+                    <attribute name="readonly">0</attribute>
+                    <attribute name="placeholder">Employee's Name</attribute>
+                    <attribute name="style">font-size: min(4vw, 2.6rem);</attribute>
+                </xpath>
+                <xpath expr="//group[group[field[@name='mobile_phone']]]" position="replace">
+                    <group>
+                    <group>
+                        <field name="identification_id" />
+                        <field name="primer_nombre" widget="char"/>
+                        <field name="segundo_nombre" widget="char"/>
+                        <field name="tercer_nombre" widget="char"/>
+                        <field name="primer_apellido" widget="char"/>
+                        <field name="segundo_apellido" widget="char"/>
+                        <field name="apellido_casada" widget="char"/>
+                        <button name="generar_codigo" type="object" string="Generar Código" class="oe_highlight"/>
+                    </group>
+                    <group>
+                        <field name="mobile_phone" widget="phone"/>
+                        <field name="work_email" widget="email" string="Correo Personal (Voucher)"/>
+                        <field name="company_id" groups="base.group_multi_company"/>
+                        <field name="company_country_code" invisible="1"/>
+                        <field name="department_id" required="1"/>
+                        <field name="job_id"/>
+                        <field name="parent_id" invisible="1"/>
+                        <field name="coach_id" invisible="1"/>
+                    </group>
+                    </group>
+                </xpath>
+                <xpath expr="//field[@name='job_id']" position="after">
+                    <field name="registration_number" string="Código"/>
+                </xpath>
+<!--Grupo de campos para ocultar en la vista de empleado de la pagina de Información del trabajo -->
+<!--                inicia-->
+                <xpath expr="//page[@name='public']" position="attributes">
+<!--                    <attribute name="attrs">{'invisible': [('id', '!=', False)]}</attribute>-->
+                      <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//page[@name='personal_information']/group" position="replace">
+                    <group>
+                        <group string="CONTACTO PRIVADO">
+                            <field name="address_home_id" string="Contacto"/>
+                            <field name="private_email" string="Correo electrónico"/>
+                            <field name="phone" string="Teléfono"/>
+                            <field name="bank_account_id"/>
+                            <field name="calle"/>
+<!--                            <field name="lang" />-->
+<!--                            <field name="km_home_work" />-->
+                        </group>
+                        <group string="CIUDADANÍA">
+                            <field name="gender" />
+                            <field name="birthday" />
+                            <field name="edad" />
+                            <field name="mes_cumpleanios" />
+                            <field name="country_of_birth" />
+                            <field name="departamento_id" />
+                            <field name="municipio_id" />
+                        </group>
+                        <group string="EDUCACIÓN">
+                            <field name="certificate" />
+                            <field name="study_field" />
+                            <field name="study_school" />
+
+                        </group>
+                        <group string="SITUACIÓN FAMILIAR">
+                            <field name="marital" />
+                            <field name="spouse_complete_name" attrs="{'invisible': [('marital', 'not in', ['married', 'cohabitant'])]}"/>
+                            <field name="pritn_name_coabitant" attrs="{'invisible': [('marital', 'not in', ['married', 'cohabitant'])]}"/>
+                            <field name="spouse_birthdate" attrs="{'invisible': [('marital', 'not in', ['married', 'cohabitant'])]}"/>
+                            <field name="children" />
+                        </group>
+                        <group string="EMERGENCIA">
+                            <field name="emergency_contact" />
+                            <field name="emergency_phone" />
+                        </group>
+                        <group string="OTROS">
+                            <field name="discapacidad" />
+                            <field name="nit" />
+                            <field name="igss" />
+                        </group>
+                    </group>
+                </xpath>
+                <xpath expr="//group/group[@name='identification_group']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//group/group[@name='application_group']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//page[@name='hr_settings']/group/group[@name='active_group']" position="replace">
+                  <group string="Estado">
+                    <field name="employee_type"/>
+                    <field name="user_id" string="Usuario Relacionado" domain="[('share', '=', False)]" context="{'allow_create_employee': False, 'default_create_employee': False}"/>
+                  </group>
+                </xpath>
+                <xpath expr="//page[@name='hr_settings']/group/group[@name='identification_group']" position="replace">
+                </xpath>
+                <xpath expr="//page[@name='hr_settings']/group/group[@name='payroll_group']" position="replace">
+                  <group string="Nómina">
+                    <field name="job_id"/>
+                    <field name="jornada_trabajo"/>
+                    <field name="ocupacion_puesto_id"/>
+                  </group>
+                </xpath>
+                <xpath expr="//notebook" position="inside">
+                    <page string="Record Laboral">
+                        <group string="Historial laboral">
+                            <label for="historial_laboral" string=""/>
+                            <field name="historial_laboral" nolabel="1">
+                                <tree>
+                                    <field name="contrato_registrado"/>
+                                    <field name="date_start"/>
+                                    <field name="date_end"/>
+                                    <field name="company"/>
+                                    <field name="job"/>
+                                    <field name="salary"/>
+                                    <field name="write_uid" string="Ultima actualización por"/>
+                                </tree>
+                            </field>
+                            <button name="registrar_historial_puestos" type="object" string="Registrar Historial" class="oe_highlight"/>
+                        </group>
+                    </page>
+                </xpath>
+
+                <xpath expr="//notebook" position="inside">
+                    <page string="Información complementaria">
+                        <group string="Vehículo">
+                            <label for="employee_licencia" string=""/>
+                            <field name="employee_licencia" nolabel="1">
+                                <tree editable="bottom">
+                                    <field name="tipo_vehiculo"/>
+                                    <field name="tipo_licencia"/>
+                                    <field name="numero_licencia"/>
+                                </tree>
+                            </field>
+                        </group>
+                        <group string="Circulo Familiar">
+                            <label for="x_employee_family" string=""/>
+                            <field name="x_employee_family" nolabel="1">
+                                <tree editable="bottom">
+                                    <field name="x_nombre"/>
+                                    <field name="x_parentesco"/>
+                                    <field name="x_genero"/>
+                                    <field name="x_fecha_nacimiento"/>
+                                    <field name="x_edad"/>
+                                    <field name="x_ocupacion"/>
+                                </tree>
+                            </field>
+                        </group>
+                        <group string="Educación">
+                            <label for="employee_educational" string=""/>
+                            <field name="employee_educational" nolabel="1">
+                                <tree editable="bottom">
+                                    <field name="establecimiento"/>
+                                    <field name="titulo"/>
+                                    <field name="nivel_academico"/>
+                                    <field name="año"/>
+<!--                                    <field name="fecha_fin"/>-->
+                                </tree>
+                            </field>
+                        </group>
+                        <group string="Datos Laborales">
+                            <label for="employee_work_history" string=""/>
+                            <field name="employee_work_history" nolabel="1">
+                                <tree editable="bottom">
+                                    <field name="empresa"/>
+                                    <field name="año_inicio"/>
+                                    <field name="año_fin" />
+                                    <field name="puesto"/>
+                                    <field name="motivo_retiro"/>
+                                    <field name="jefe_inmediato"/>
+<!--                                    <field name="funcion"/>-->
+                                    <field name="telefono"/>
+                                    <field name="ubicacion_empresa"/>
+                                    <field name="tiempo_laborado"/>
+                                </tree>
+                            </field>
+                        </group>
+                    </page>
+                </xpath>
+            </field>
+        </record>
+        <record id="view_employee_form_inherit_registration_number" model="ir.ui.view">
+            <field name="name">view.employee.form.inherit.registration.number</field>
+            <field name="model">hr.employee</field>
+            <field name="inherit_id" ref="hr_payroll.payroll_hr_employee_view_form"/>
+            <field name="arch" type="xml">
+                <!-- Localizar el campo registration_number y cambiar sus propiedades -->
+                <xpath expr="//field[@name='registration_number']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+            </field>
+        </record>
+        <record id="view_employee_form_inherit_contract" model="ir.ui.view">
+            <field name="name">view.employee.form.inherit.contract</field>
+            <field name="model">hr.employee</field>
+            <field name="inherit_id" ref="hr_contract.hr_hr_employee_view_form2"/>
+            <field name="arch" type="xml">
+                <!-- Localizar el campo registration_number y cambiar sus propiedades -->
+                <xpath expr="//field[@name='contract_id']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+            </field>
+        </record>
+
+<!--        catalogo de ocupaciones-->
+
+        <record id="view_ocupaciones_puestos_tree" model="ir.ui.view">
+            <field name="name">ocupaciones.puestos.view.tree</field>
+            <field name="model">hr.ocupacion.puesto</field>
+            <field name="arch" type="xml">
+                <tree create="true">
+                    <field name="code"/>
+                    <field name="name"/>
+                </tree>
+            </field>
+        </record>
+        <record model="ir.actions.act_window" id="action_ocupaciones_puestos">
+            <field name="name">Ocupaciones Puesto</field>
+            <field name="res_model">hr.ocupacion.puesto</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+
+        <menuitem id="menu_action_ocupaciones_puestos" name="Puesto" parent="hr.menu_config_employee" action="action_ocupaciones_puestos"/>
+
+
+    </data>
+</odoo>

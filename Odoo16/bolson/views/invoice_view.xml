@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+        <record id="invoice_supplier_form_bolson" model="ir.ui.view">
+            <field name="name">bolson.move.form</field>
+            <field name="model">account.move</field>
+            <field name="inherit_id" ref="account.view_move_form"/>
+            <field name="arch" type="xml">
+                <field name="ref" position="after">
+                    <field name="no_liquidacion"/>
+                    <field name="bolson_id"/>
+                </field>
+            </field>
+        </record>
+    </data>
+</openerp>

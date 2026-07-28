@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="hr_loan_sequence" model="ir.sequence">
+            <field name="name">Préstamos</field>
+            <field name="code">hr.loan.seq</field>
+            <field name="prefix">LO/</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <record id="salary_advance_sequence" model="ir.sequence">
+            <field name="name">Anticipos</field>
+            <field name="code">salary.advance.seq</field>
+            <field name="prefix">SAR</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <record id="hr_qualification_sequence" model="ir.sequence">
+            <field name="name">Calificaciones</field>
+            <field name="code">hr.qualification.seq</field>
+            <field name="prefix">NOTA</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
+    </data>
+</odoo>

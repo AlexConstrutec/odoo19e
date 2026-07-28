@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <template id="custom_external_report_irtra" >
+        <t t-name="web.external_report_irtra">
+            <div t-attf-class="article o_report_layout_standard o_company_#{company.id}_layout {{  'o_report_layout_background' if company.layout_background in ['Geometric', 'Custom']  else  '' }}" t-attf-style="background-image: url({{ 'data:image/png;base64,%s' % company.layout_background_image.decode('utf-8') if company.layout_background_image and company.layout_background == 'Custom' else '/base/static/img/bg_background_template.jpg' if company.layout_background == 'Geometric' else ''}});" t-att-data-oe-model="o and o._name" t-att-data-oe-id="o and o.id" t-att-data-oe-lang="o and o.env.context.get('lang')">
+                <div class="pt-5">
+                    <t t-call="web.address_layout"/>
+                </div>
+                <t t-out="0"/>
+            </div>
+        </t>
+    </template>
+    <template id="custom_external_layout_irtra" >
+    <t t-name="web.external_layout_irtra">
+        <t t-if="not o" t-set="o" t-value="doc"/>
+
+        <t t-if="not company">
+            <!-- Multicompany -->
+            <t t-if="company_id">
+                <t t-set="company" t-value="company_id"/>
+            </t>
+            <t t-elif="o and 'company_id' in o and o.company_id.sudo()">
+                <t t-set="company" t-value="o.company_id.sudo()"/>
+            </t>
+            <t t-else="else">
+                <t t-set="company" t-value="res_company"/>
+            </t>
+        </t>
+
+    <t t-call="nomina_report.custom_external_report_irtra"/>
+
+    </t>
+    </template>
+
+    <template id="solicitud_irtra">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-call="gth_reports.custom_internal_layout">
+                    <div class="page" t-attf-style="font-family: Arial;  font-size: 10px; ">
+                        <div class="container">
+                            <br/>
+                            <div class="row">
+                                <div class="col-3 text-center">
+                                    <img src="gth_reports/static/irtra.png" style="max-height: 50px; width: auto; margin-left: auto; margin-right: auto;" alt="Logo"/>
+                                </div>
+                                <div class="col-6 text-center" style="font-size: 11px;">
+                                  <p> <b> INSTITUTO DE RECREACIÓN DE LOS TRABAJADORES
+                                        DE LA EMPRESA PRIVADA DE GUATEMALA
+                                        <br/>
+                                        7ma. Avenida 7-24, Zona 9, Ciudad de Guatemala
+                                        <br/>
+                                        PBX: 1501 Ext 321
+                                        <br/>
+                                        e-mail:</b>  <span style="color: blue; text-decoration: underline;">afiliaciones@irtra.org.gt</span>
+                                    </p>
+                                </div>
+                                <div class="col-3 text-center ">
+                                    <div style="border: 1px solid black; color: red; padding: 4px; width: 50%; margin: 0 auto;">
+                                        <h6><b>AFI-02</b></h6>
+                                    </div>
+                                    Ver. 202108
+                                </div>
+                            </div>
+                            <br/>
+                            <div class="row">
+                                <div class="col-12 text-center">
+                                    <span style="color: purple; ">LLENAR A COMPUTADORA --- NO LLENAR A MANO</span>
+                                </div>
+                            </div>
+                            <hr style="border: 1px solid black; background-color: black; margin: 2px 0;"/>
+                            <div class="row">
+                              <div class="col-12">
+                                  <p style=" font-weight: bold; padding: 0px; text-align: justify; font-size: 10px;">
+                                      LE AGRADECEMOS SE SIRVA PROPORCIONARNOS LA INFORMACIÓN SOLICITADA
+                                      <span style="font-weight: bold; background-color: yellow;">* SI DESEA QUE SU ESPOSO(A) PUEDA INGRESAR NUESTROS PARQUES CON SU CARNET, ANÓTELO(A) EN ESTA BOLETA *</span>
+                                  </p>
+                              </div>
+                            </div>
+                            <br/>
+                            <div class="row">
+                                <div class="col-12">
+                                    <b>Nombre Empresa:</b>
+                              <span style="display: inline-block; border-bottom: 1px solid black; width: 240px; padding: 0 5px;">
+                                <t t-esc="doc.company_id.name"/>
+                              </span>
+                              <span><b>No. Patronal IGSS:</b></span>
+                              <span style="display: inline-block; border-bottom: 1px solid black; width: 80px; padding: 0 5px; text-align: center;">
+                                <t t-esc="doc.company_id.company_registry"/>
+                              </span>
+                              <span><b> No. Afiliación IGSS: </b></span>
+                              <span style="display: inline-block; border-bottom: 1px solid black; width: 100px; padding: 0 5px; text-align: center;">
+                                <t t-esc="doc.igss"/>
+                              </span>
+                                </div>
+                          </div>
+                          <br/>
+                          <div class="row">
+                              <div class="col-12">
+                                <!--DPI: <t t-esc="doc.identification_id"/> Fecha de Nacimiento; Año: <t t-esc="doc.birthday.strftime('%Y')"/>Mes: <t t-esc="doc.birthday.strftime('%m')"/> Día: <t t-esc="doc.birthday.strftime('%d')"/>-->
+                                  <span><b>DPI:</b></span>
+                                  <span style="display: inline-block; border-bottom: 1px solid black; width: 170px; padding: 0 5px; text-align: center;">
+                                       <t t-esc="doc.identification_id"/>
+                                  </span>
+                                  <span style="margin-left: 5px;"><b>Fecha de Nacimiento; Año:</b></span>
+                                  <span style="display: inline-block; border-bottom: 1px solid black; width: 100px; text-align: center;">
+                                       <t t-if="doc.birthday">
+                                            <t t-esc="doc.birthday.strftime('%Y')"/>
+                                        </t>
+                                        <t t-else=""/>
+                                  </span>
+                                  <span style="margin-left: 5px;"><b>Mes:</b></span>
+                                  <span style="display: inline-block; border-bottom: 1px solid black; width: 100px;  text-align: center;">
+                                       <t t-esc="doc.birthday.strftime('%m')"/>
+                                  </span>
+                                  <span style="margin-left: 5px;"><b>Día:</b></span>
+                                  <span style="display: inline-block; border-bottom: 1px solid black; width: 105px;  text-align: center;">
+                                       <t t-esc="doc.birthday.strftime('%d')"/>
+                                  </span>
+                              </div>
+                          </div>
+                          <br/>
+                          <div class="row">
+                                <div class="col-12">
+                                    <b>Nombre del Trabajador: Primer Nombre:</b>
+                              <span style="display: inline-block; border-bottom: 1px solid black; width: 200px; padding: 0 5px; text-align: center;">
+                                   <t t-esc="doc.primer_nombre"/>
+                              </span>
+                              <span style="margin-left: 5px;"><b>Segundo Nombre:</b></span>
+                                <span style="display: inline-block; border-bottom: 1px solid black; width: 210px; padding: 0 5px; text-align: center;">
+                                   <t t-esc="doc.segundo_nombre"/>
+                              </span>
+                                </div>
+                          </div>
+                          <br/>
+                          <div class="row">
+                              <div class="col-12">
+                                  <b>Primer Apellido:</b>
+                              <span style="display: inline-block; border-bottom: 1px solid black; width: 165px; padding: 0 5px; text-align: center;">
+                                   <t t-esc="doc.primer_apellido"/>
+                              </span>
+                              <span style="margin-left: 5px;"><b>Segundo Apellido:</b></span>
+                                <span style="display: inline-block; border-bottom: 1px solid black; width: 160px; padding: 0 5px; text-align: center;">
+                                   <t t-esc="doc.segundo_apellido"/>
+                              </span>
+                              <span style="margin-left: 5px;"><b>De Casada:</b></span>
+                                <span style="display: inline-block; border-bottom: 1px solid black; width: 130px; padding: 0 5px; text-align: center;">
+                                   <t t-esc="doc.apellido_casada"/>
+                              </span>
+                                </div>
+
+                          </div>
+                          <br/>
+                          <div class="row">
+                              <div class="col-12">
+                                  <b>Sexo:</b>
+                              <span style="margin-left: 15px;"><b>M</b></span>
+                                <span style="margin-left: 15px; display: inline-block; border: 2px solid black; border-radius: 50%; width: 30px; height: 30px; text-align: center; line-height: 30px; vertical-align: middle;">
+                                    <b>
+                                        <t t-if="doc.gender == 'male'">
+                                            X
+                                        </t>
+                                    </b>
+                                </span>
+                              <span style="margin-left: 15px;"><b>F</b></span>
+                              <span style="margin-left: 15px; display: inline-block; border: 2px solid black; border-radius: 50%; width: 30px; height: 30px; text-align: center; line-height: 30px; vertical-align: middle;">
+                                  <b>
+                                      <t t-if="doc.gender == 'female'">
+                                          X
+                                      </t>
+                                  </b>
+                              </span>
+                              <span style="margin-left: 15px;"><b>Estado Civil:</b> </span>
+                              <span style="margin-left: 15px;"><b>Soltero(a)</b></span>
+                                <span style="margin-left: 15px; display: inline-block; border: 2px solid black; border-radius: 50%; width: 30px; height: 30px; text-align: center; line-height: 30px; vertical-align: middle;">
+                                    <b>
+                                        <t t-if="doc.marital == 'single'">
+                                            X
+                                        </t>
+                                    </b>
+                                </span>
+                              <span style="margin-left: 15px;"><b>Casado(a)</b></span>
+                              <span style="margin-left: 15px; display: inline-block; border: 2px solid black; border-radius: 50%; width: 30px; height: 30px; text-align: center; line-height: 30px; vertical-align: middle;">
+                                  <b>
+                                      <t t-if="doc.marital == 'married'">
+                                          X
+                                      </t>
+                                  </b>
+                              </span>
+                                </div>
+
+                          </div>
+                          <br/>
+                          <div class="row">
+                            <div class="col-1 ">
+                                  <b>(Menores de Edad) Libro NO.</b>
+                                  </div>
+                              <div class="col-11">
+
+                              <span style="display: inline-block; border-bottom: 1px solid black; width: 95px; padding: 0 5px; text-align: center;">
+                              </span>
+                              <span style="margin-left: 5px;"><b>Folio:</b></span>
+                              <span style="display: inline-block; border-bottom: 1px solid black; width: 60px; padding: 0 5px; text-align: center;">
+                              </span>
+                              <span style="margin-left: 5px;"><b>Partida:</b></span>
+                              <span style="display: inline-block; border-bottom: 1px solid black; width: 85px; padding: 0 5px; text-align: center;">
+                              </span>
+                              <span style="margin-left: 5px;"><b>Pasaporte:</b></span>
+                              <span style="display: inline-block; border-bottom: 1px solid black; width: 85px; padding: 0 5px; text-align: center;">
+                              </span>
+                              <span style="margin-left: 5px;"><b>Extendido en:</b></span>
+                              <span style="display: inline-block; border-bottom: 1px solid black; width: 90px; padding: 0 5px; text-align: center;">
+                              </span>
+                                </div>
+
+                          </div>
+                          <br/>
+                          <div class="row">
+                              <div class="col-12">
+                                  <b>Dirección</b>
+                              <span style="display: inline-block; border-bottom: 1px solid black; width: 515px; padding: 0 5px; text-align: center;">
+                                   <t t-esc="doc.address_home_id.street"/>
+                              </span>
+                              <span style="margin-left: 5px;"><b>Zona:</b></span>
+                              <span style="display: inline-block; border-bottom: 1px solid black; width: 100px; padding: 0 5px; text-align: center;">
+                                   <t t-esc="doc.address_home_id.zip"/>
+                              </span>
+                                </div>
+
+                          </div>
+                          <br/>
+                          <div class="row">
+                              <div class="col-12">
+                                  <b>Departamento:</b>
+                              <span style="display: inline-block; border-bottom: 1px solid black; width: 190px; padding: 0 5px; text-align: center;">
+                                   <t t-esc="doc.address_home_id.state_id.name"/>
+                              </span>
+                              <span style="margin-left: 5px;"><b>Municipio:</b></span>
+                              <span style="display: inline-block; border-bottom: 1px solid black; width: 175px; padding: 0 5px; text-align: center;">
+                                   <t t-esc="doc.address_home_id.city"/>
+                              </span>
+                              <span style="margin-left: 5px;"><b>Teléfono emergencia:</b></span>
+                              <span style="display: inline-block; border-bottom: 1px solid black; width: 85px; padding: 0 5px; text-align: center;">
+                                   <t t-esc="doc.emergency_phone"/>
+                              </span>
+                                </div>
+
+                          </div>
+                          <br/>
+                          <div class="row">
+                              <div class="col-12">
+                                  <b>Nombre Completo del Cónyuge:</b>
+                                  <span style="display: inline-block; border-bottom: 1px solid black; width: 545px; padding: 0 5px; text-align: center;">
+                                      <t t-if="doc.pritn_name_coabitant == True">
+                                            <t t-esc="doc.spouse_complete_name"/>
+                                        </t>
+                                  </span>
+                                </div>
+                          </div>
+                          <br/>
+                          <div class="row">
+                              <div class="col-12">
+                                  <b>Proporcionenos su Correo Electrónico:</b>
+                                  <span style="display: inline-block; border-bottom: 1px solid black; width: 510px; padding: 0 5px; text-align: center;">
+                                       <t t-esc="doc.work_email"/>
+                                  </span>
+                                </div>
+                          </div>
+                            <div class="row" style="margin-top: 20px;">
+                                <!-- Cuadro de Firma -->
+                                <div class="col" style="width: 50%; text-align: center;">
+                                    <div style="border: 2px solid black; height: 75px; margin: 0 auto; width: 65%;"/>
+                                    <div style="font-size: 12px; font-weight: bold; margin-top: 5px;">
+                                        (FIRMA)
+                                    </div>
+                                    <div style="font-size: 10px;">
+                                        FAVOR DE FIRMAR CON TINTA NEGRA O AZUL SIN<br/>SALIRSE DEL MARCO DE REFERENCIA
+                                    </div>
+                                </div>
+
+                                <!-- Cuadro de Fotografía (Vertical) -->
+                            <div class="col" style="width: 50%; text-align: center;">
+                                <div style="border: 2px solid black; height: 122px; width: 127px; margin: 0 auto; position: relative; display: flex; align-items: center; justify-content: center;">
+                                    <div style="text-align: center; font-size: 10px; color: gray; line-height: 1.5;">
+                                        <div>FOTOGRAFÍA</div>
+                                        <div>RECIENTE</div>
+                                        <div>TAMAÑO</div>
+                                        <div>CÉDULA</div>
+                                    </div>
+                                </div>
+                            </div>
+
+
+                            </div>
+
+                            <!-- Línea punteada y texto de corte -->
+                            <hr style="border: 4px dotted purple; width: 100%; margin-top: 16px;"/>
+                            <div style="text-align: center; font-size: 12px; color: purple; margin-bottom: 1px;">
+                                <span style="font-family: 'Courier New', Courier, monospace; font-size: 16px;">✄</span> RECORTAR LÍNEA PUNTEADA <span style="font-family: 'Courier New', Courier, monospace; font-size: 16px;">✄</span> RECORTAR LÍNEA PUNTEADA <span style="font-family: 'Courier New', Courier, monospace; font-size: 16px;">✄</span> RECORTAR LÍNEA PUNTEADA
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

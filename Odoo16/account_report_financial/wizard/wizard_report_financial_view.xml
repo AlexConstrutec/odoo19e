@@ -1,0 +1,752 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="wizard_report_financial_form_view" model="ir.ui.view">
+            <field name="name">wizard.report.financial.form.view</field>
+            <field name="model">wizard.report.financial</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group states="choose">
+                        <field name="company_id" required="1" groups="base.group_multi_company"
+                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group col="4" states="choose">
+                        <field name="anio" required="1"/>
+                        <field name="mes_de" required="1"/>
+                        <field name="mes_a" required="1"/>
+                        <field name="folio" required="1"/>
+                    </group>
+
+                    <div states="get">
+                            <h2>Descargar Archivo - Libro Diario</h2>
+                            <p>File : <field name="data" readonly="1" filename="name"/></p>
+                    </div>
+                    <footer states ="choose">
+                        <button name="print_xls_report_financial" string="Libro Diario Excel" type="object" class="oe_highlight" />
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel" />
+                    </footer>
+                    <footer states="get">
+                        <button name="go_back" string="Atras" type="object" class="oe_highlight" />
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+        <record id="wizard_report_financial_diario_form_view" model="ir.ui.view">
+            <field name="name">wizard.report.financial.diario.form.view</field>
+            <field name="model">wizard.report.financial</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group states="choose">
+                        <field name="company_id" required="1" groups="base.group_multi_company"
+                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group col="4" states="choose">
+                        <field name="anio" required="1"/>
+                        <field name="mes_de" required="1"/>
+                        <field name="mes_a" required="1"/>
+                        <field name="folio" required="1"/>
+                    </group>
+
+                    <div states="get">
+                            <h2>Descargar Archivo - Libro Diario </h2>
+                            <p>File : <field name="data" readonly="1" filename="name"/></p>
+                    </div>
+                    <footer states ="choose">
+                        <button name="print_xls_report_financial_diario" string="Libro Diario Excel V2" type="object" class="oe_highlight" />
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel" />
+                    </footer>
+                    <footer states="get">
+                        <button name="go_back" string="Atras" type="object" class="oe_highlight" />
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_report_mayor_financial_form_view" model="ir.ui.view">
+            <field name="name">wizard.report.mayor.financial.form.view</field>
+            <field name="model">wizard.report.mayor.financial</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group states="choose">
+                        <field name="company_id" required="1" groups="base.group_multi_company"
+                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group col="4" states="choose">
+                        <field name="anio" required="1"/>
+                        <field name="mes_de" required="1"/>
+                        <field name="mes_a" required="1"/>
+                        <field name="folio" required="1"/>
+                    </group>
+                    <div states="get">
+                            <h2>Descargar Archivo - Libro Mayor</h2>
+                            <p>File : <field name="data" readonly="1" filename="name"/></p>
+                    </div>
+                    <footer states ="choose">
+                        <button name="print_xls_report_financial_mayor" string="Libro Mayor Excel" type="object" class="oe_highlight" />
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel" />
+                    </footer>
+                    <footer states="get">
+                        <button name="go_back_mayor" string="Atras" type="object" class="oe_highlight" />
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_report_balance_saldo_form_view" model="ir.ui.view">
+            <field name="name">wizard.report.balance.saldo.form.view</field>
+            <field name="model">wizard.report.balance.saldo</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group states="choose">
+                        <field name="company_id" required="1" groups="base.group_multi_company"
+                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group col="4" states="choose">
+                        <field name="anio" required="1"/>
+                        <field name="mes_a" required="1"/>
+                        <field name="folio" required="1"/>
+                    </group>
+                    <div states="get">
+                            <h2>Descargar Archivo - Balance de Saldos</h2>
+                            <p>File : <field name="data" readonly="1" filename="name"/></p>
+                    </div>
+                    <footer states ="choose">
+                        <button name="print_xls_report_balance_saldo" string="Balance de Saldos Excel" type="object" class="oe_highlight" />
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel" />
+                    </footer>
+                    <footer states="get">
+                        <button name="go_back_balance_saldo" string="Atras" type="object" class="oe_highlight" />
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_estado_resultados_form_view" model="ir.ui.view">
+            <field name="name">wizard.estado.resultados.form.view</field>
+            <field name="model">wizard.estado.resultados</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group states="choose">
+                        <field name="company_id" required="1" groups="base.group_multi_company"
+                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group col="4" states="choose">
+                        <field name="start_date" required="1"/>
+                        <field name="end_date" required="1"/>
+                        <field name="folio" required="1"/>
+                        <field name="certificacion" required="1"/>
+                        <field name="representante" required="1"/>
+                        <field name="contador" required="1"/>
+                    </group>
+                    <div states="get">
+                            <h2>Descargar Archivo - Estado de Resultados</h2>
+                            <p>File : <field name="data" readonly="1" filename="name"/></p>
+                    </div>
+                    <footer states ="choose">
+                        <button name="print_xls_estado_resultados" string="Estado de Resultados Excel" type="object" class="oe_highlight" />
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel" />
+                    </footer>
+                    <footer states="get">
+                        <button name="go_back" string="Atras" type="object" class="oe_highlight" />
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_costo_ventas_form_view" model="ir.ui.view">
+            <field name="name">wizard.costo.ventas.form.view</field>
+            <field name="model">wizard.costo.ventas</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group states="choose">
+                        <field name="company_id" required="1" groups="base.group_multi_company"
+                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group col="4" states="choose">
+                        <field name="start_date" required="1"/>
+                        <field name="end_date" required="1"/>
+                        <field name="folio" required="1"/>
+                        <field name="certificacion" required="1"/>
+                        <field name="representante" required="1"/>
+                        <field name="contador" required="1"/>
+                    </group>
+                    <div states="get">
+                            <h2>Descargar Archivo - Costo de Ventas</h2>
+                            <p>File : <field name="data" readonly="1" filename="name"/></p>
+                    </div>
+                    <footer states ="choose">
+                        <button name="print_xls_costo_ventas" string="Costo de Ventas Excel" type="object" class="oe_highlight" />
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel" />
+                    </footer>
+                    <footer states="get">
+                        <button name="go_back" string="Atras" type="object" class="oe_highlight" />
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_costo_produccion_form_view" model="ir.ui.view">
+            <field name="name">wizard.costo.produccion.form.view</field>
+            <field name="model">wizard.costo.produccion</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group states="choose">
+                        <field name="company_id" required="1" groups="base.group_multi_company"
+                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group col="4" states="choose">
+                        <field name="start_date" required="1"/>
+                        <field name="end_date" required="1"/>
+                        <field name="folio" required="1"/>
+                        <field name="certificacion" required="1"/>
+                        <field name="representante" required="1"/>
+                        <field name="contador" required="1"/>
+                    </group>
+                    <div states="get">
+                            <h2>Descargar Archivo - Costo de Producción</h2>
+                            <p>File : <field name="data" readonly="1" filename="name"/></p>
+                    </div>
+                    <footer states ="choose">
+                        <button name="print_xls_costo_produccion" string="Costo de Producción Excel" type="object" class="oe_highlight" />
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel" />
+                    </footer>
+                    <footer states="get">
+                        <button name="go_back" string="Atras" type="object" class="oe_highlight" />
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_balance_general_form_view" model="ir.ui.view">
+            <field name="name">wizard.balance.general.form.view</field>
+            <field name="model">wizard.balance.general</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group states="choose">
+                        <field name="company_id" required="1" groups="base.group_multi_company"
+                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group col="4" states="choose">
+                        <field name="end_date" required="1"/>
+                        <field name="folio" required="1"/>
+                        <field name="certificacion" required="1"/>
+                        <field name="representante" required="1"/>
+                        <field name="contador" required="1"/>
+                    </group>
+                    <div states="get">
+                            <h2>Descargar Archivo - Balance General</h2>
+                            <p>File : <field name="data" readonly="1" filename="name"/></p>
+                    </div>
+                    <footer states ="choose">
+                        <button name="print_xls_balance_general" string="Balance General Excel" type="object" class="oe_highlight" />
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel" />
+                    </footer>
+                    <footer states="get">
+                        <button name="go_back" string="Atras" type="object" class="oe_highlight" />
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_libro_compras_form_view" model="ir.ui.view">
+            <field name="name">wizard.libro.compras.form.view</field>
+            <field name="model">wizard.libro.compras</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group states="choose">
+                        <field name="company_id" required="1" groups="base.group_multi_company"
+                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group col="4" states="choose">
+                        <field name="start_date" required="1"/>
+                        <field name="end_date" required="1"/>
+                        <field name="folio" required="1"/>
+                        <field name="journal_ids" required="1" widget="many2many_tags"/>
+                        <field name="invoice_ids" widget="many2many_tags" readonly="0"/>
+                    </group>
+                    <div states="get">
+                            <h2>Descargar Archivo - Libro de Compras</h2>
+                            <p>File : <field name="data" readonly="1" filename="name"/></p>
+                    </div>
+                    <footer states ="choose">
+                        <button name="print_xls_libro_compras" string="Libro de Compras Excel" type="object" class="oe_highlight" />
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel" />
+                    </footer>
+                    <footer states="get">
+                        <button name="go_back" string="Atras" type="object" class="oe_highlight" />
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_libro_ventas_form_view" model="ir.ui.view">
+            <field name="name">wizard.libro.ventas.form.view</field>
+            <field name="model">wizard.libro.ventas</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group states="choose">
+                        <field name="company_id" required="1" groups="base.group_multi_company"
+                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group col="4" states="choose">
+                        <field name="start_date" required="1"/>
+                        <field name="end_date" required="1"/>
+                        <field name="folio" required="1"/>
+                        <field name="journal_ids" required="1" widget="many2many_tags"/>
+                    </group>
+                    <div states="get">
+                            <h2>Descargar Archivo - Libro de Ventas</h2>
+                            <p>File : <field name="data" readonly="1" filename="name"/></p>
+                    </div>
+                    <footer states ="choose">
+                        <button name="print_xls_libro_ventas" string="Libro de Ventas Excel" type="object" class="oe_highlight" />
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel" />
+                    </footer>
+                    <footer states="get">
+                        <button name="go_back" string="Atras" type="object" class="oe_highlight" />
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_flujo_efectivo_form_view" model="ir.ui.view">
+            <field name="name">wizard.flujo.efectivo.form.view</field>
+            <field name="model">wizard.flujo.efectivo</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group states="choose">
+                        <field name="company_id" required="1" groups="base.group_multi_company"
+                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group col="4" states="choose">
+                        <field name="start_date" required="1"/>
+                        <field name="end_date" required="1"/>
+                        <field name="folio" required="1"/>
+                        <field name="certificacion" required="1"/>
+                        <field name="representante" required="1"/>
+                        <field name="contador" required="1"/>
+                    </group>
+                    <div states="get">
+                            <h2>Descargar Archivo - Flujo de Efectivo</h2>
+                            <p>File : <field name="data" readonly="1" filename="name"/></p>
+                    </div>
+                    <footer states ="choose">
+                        <button name="print_xls_flujo_efectivo" string="Flujo de Efectivo Excel" type="object" class="oe_highlight" />
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel" />
+                    </footer>
+                    <footer states="get">
+                        <button name="go_back" string="Atras" type="object" class="oe_highlight" />
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_cambio_patrimonio_form_view" model="ir.ui.view">
+            <field name="name">wizard.cambio.patrimonio.form.view</field>
+            <field name="model">wizard.cambio.patrimonio</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group states="choose">
+                        <field name="company_id" required="1" groups="base.group_multi_company"
+                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group col="4" states="choose">
+                        <field name="end_date" required="1"/>
+                        <field name="IsrPagar" required="1"/>
+                        <field name="ReservaLegal" required="1"/>
+                        <field name="folio" required="1"/>
+                        <field name="representante" required="1"/>
+                        <field name="contador" required="1"/>
+                        <field name="nit_contador" required="1"/>
+                    </group>
+                    <div states="get">
+                            <h2>Descargar Archivo - Estado de Cambios de Movimientos al Patrimonio</h2>
+                            <p>File : <field name="data" readonly="1" filename="name"/></p>
+                    </div>
+                    <footer states ="choose">
+                        <button name="print_xls_cambio_patrimonio" string="Cambios al Patrimonio Excel" type="object" class="oe_highlight" />
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel" />
+                    </footer>
+                    <footer states="get">
+                        <button name="go_back" string="Atras" type="object" class="oe_highlight" />
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_libro_inventario_form_view" model="ir.ui.view">
+            <field name="name">wizard.libro.inventario.form.view</field>
+            <field name="model">wizard.libro.inventario</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group states="choose">
+                        <field name="company_id" required="1" groups="base.group_multi_company"
+                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group col="4" states="choose">
+                        <field name="end_date" required="1"/>
+                        <field name="folio" required="1"/>
+                        <field name="representante" required="1"/>
+                        <field name="contador" required="1"/>
+                        <field name="certificacion" required="1"/>
+                    </group>
+                    <div states="get">
+                            <h2>Descargar Archivo - Libro de Inventario</h2>
+                            <p>File : <field name="data" readonly="1" filename="name"/></p>
+                    </div>
+                    <footer states ="choose">
+                        <button name="print_xls_libro_inventario" string="Libro de Inventario Excel" type="object" class="oe_highlight" />
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel" />
+                    </footer>
+                    <footer states="get">
+                        <button name="go_back" string="Atras" type="object" class="oe_highlight" />
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="wizard_reporte_bancarizacion_form_view" model="ir.ui.view">
+            <field name="name">wizard.reporte.bancarizacion.form.view</field>
+            <field name="model">wizard.reporte.bancarizacion</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group states="choose">
+                        <field name="company_id" required="1" groups="base.group_multi_company"
+                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group col="4" states="choose">
+                        <field name="start_date" required="1"/>
+                        <field name="end_date" required="1"/>
+                        <field name="journal_ids" widget="many2many_tags"/>
+                    </group>
+                    <div states="get">
+                            <h2>Descargar Archivo - Reporte de Bancarización</h2>
+                            <p>File : <field name="data" readonly="1" filename="name"/></p>
+                    </div>
+                    <footer states ="choose">
+                        <button name="print_xls_reporte_bancarizacion" string="Reporte Bancarización Excel" type="object" class="oe_highlight" />
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel" />
+                    </footer>
+                    <footer states="get">
+                        <button name="go_back" string="Atras" type="object" class="oe_highlight" />
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+         </record>
+
+        <record id="wizard_conciliacion_bancaria2_form_view" model="ir.ui.view">
+            <field name="name">wizard.conciliacion.bancaria2.form.view</field>
+            <field name="model">wizard.conciliacion.bancaria2</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+                    <group states="choose">
+                        <field name="company_id" required="1"
+                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group col="4" states="choose">
+                        <field name="journal" required="1"/>
+                        <field name="anio" required="1"/>
+                        <field name="mes_de" required="1"/>.
+                        <field name="saldo_inicial" required="1"/>
+                        <field name="folio" required="1"/>
+                    </group>
+                    <div states="get">
+                            <h2>Descargar Archivo - Conciliación Bancaria</h2>
+                            <p>File : <field name="data" readonly="1" filename="name"/></p>
+                    </div>
+                    <footer states ="choose">
+                        <button name="print_xls_conciliacion_bancaria2" string="Conciliación Bancaria Excel" type="object" class="oe_highlight" />
+                        or
+                        <button string="Cancelar" class="oe_link" special="cancel" />
+                    </footer>
+                    <footer states="get">
+                        <button name="go_back" string="Atras" type="object" class="oe_highlight" />
+                        or
+                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>
+                    </footer>
+                </form>
+            </field>
+         </record>
+<!--        <record id="wizard_conciliacion_bancaria3_form_view" model="ir.ui.view">-->
+<!--            <field name="name">wizard.conciliacion.bancaria3.form.view</field>-->
+<!--            <field name="model">wizard.conciliacion.bancaria3</field>-->
+<!--            <field name="arch" type="xml">-->
+<!--                <form>-->
+<!--                    <field name="state" invisible="1"/>-->
+<!--                    <field name="name" invisible="1"/>-->
+<!--                    <group states="choose">-->
+<!--                        <field name="company_id" required="1"-->
+<!--                               options="{'no_open': True, 'no_create': True, 'no_create_edit': True}" readonly="1"/>-->
+<!--                    </group>-->
+<!--                    <group col="4" states="choose">-->
+<!--                        <field name="journal" required="1"/>-->
+<!--                        <field name="anio" required="1"/>-->
+<!--                        <field name="mes_de" required="1"/>-->
+<!--                        <field name="folio" required="1"/>-->
+<!--                    </group>-->
+<!--                    <div states="get">-->
+<!--                            <h2>Descargar Archivo - Conciliación Bancaria</h2>-->
+<!--                            <p>File : <field name="data" readonly="1" filename="name"/></p>-->
+<!--                    </div>-->
+<!--                    <footer states ="choose">-->
+<!--                        <button name="print_xls_conciliacion_bancaria3" string="Conciliación Bancaria Excel" type="object" class="oe_highlight" />-->
+<!--                        or-->
+<!--                        <button string="Cancelar" class="oe_link" special="cancel" />-->
+<!--                    </footer>-->
+<!--                    <footer states="get">-->
+<!--                        <button name="go_back" string="Atras" type="object" class="oe_highlight" />-->
+<!--                        or-->
+<!--                        <button special="cancel" string="Cerrar" type="object" class="btn-primary"/>-->
+<!--                    </footer>-->
+<!--                </form>-->
+<!--            </field>-->
+<!--         </record>-->
+
+<!--        <record model="ir.actions.act_window" id="action_wizard_report_financial">-->
+<!--            <field name="name">Libro Diario - Excel (Ocultar)</field>-->
+<!--            <field name="res_model">wizard.report.financial</field>-->
+<!--            <field name="view_mode">form</field>-->
+<!--            <field name="view_id" ref="wizard_report_financial_form_view" />-->
+<!--            <field name="target">new</field>-->
+<!--        </record>-->
+        <record model="ir.actions.act_window" id="action_wizard_report_diario_financial">
+            <field name="name">Libro Diario - Excel</field>
+            <field name="res_model">wizard.report.financial</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_report_financial_diario_form_view" />
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_report_mayor_financial">
+            <field name="name">Libro Mayor - Excel</field>
+            <field name="res_model">wizard.report.mayor.financial</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_report_mayor_financial_form_view" />
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_report_balance_saldo">
+            <field name="name">Balance de Saldos - Excel</field>
+            <field name="res_model">wizard.report.balance.saldo</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_report_balance_saldo_form_view" />
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_estado_resultados">
+            <field name="name">Estado de Resultados - Excel</field>
+            <field name="res_model">wizard.estado.resultados</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_estado_resultados_form_view" />
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_balance_general">
+            <field name="name">Balance General - Excel</field>
+            <field name="res_model">wizard.balance.general</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_balance_general_form_view" />
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_libro_compras">
+            <field name="name">Libro de Compras - Excel</field>
+            <field name="res_model">wizard.libro.compras</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_libro_compras_form_view" />
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_libro_ventas">
+            <field name="name">Libro de Ventas - Excel</field>
+            <field name="res_model">wizard.libro.ventas</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_libro_ventas_form_view" />
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_costo_ventas">
+            <field name="name">Costo de Ventas - Excel</field>
+            <field name="res_model">wizard.costo.ventas</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_costo_ventas_form_view" />
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_costo_produccion">
+            <field name="name">Costo de Producción - Excel</field>
+            <field name="res_model">wizard.costo.produccion</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_costo_produccion_form_view" />
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_flujo_efectivo">
+            <field name="name">Flujo de Efectivo - Excel</field>
+            <field name="res_model">wizard.flujo.efectivo</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_flujo_efectivo_form_view" />
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_cambio_patrimonio">
+            <field name="name">Cambios al Patrimonio - Excel</field>
+            <field name="res_model">wizard.cambio.patrimonio</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_cambio_patrimonio_form_view" />
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_libro_inventario">
+            <field name="name">Libro de Inventario - Excel</field>
+            <field name="res_model">wizard.libro.inventario</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_libro_inventario_form_view" />
+            <field name="target">new</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_wizard_conciliacion_bancaria2">
+            <field name="name">Conciliacion Bancaria - Excel</field>
+            <field name="res_model">wizard.conciliacion.bancaria2</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_conciliacion_bancaria2_form_view" />
+            <field name="target">new</field>
+        </record>
+
+<!--        <record model="ir.actions.act_window" id="action_wizard_conciliacion_bancaria3">-->
+<!--            <field name="name">Conciliacion Bancaria - Excel</field>-->
+<!--            <field name="res_model">wizard.conciliacion.bancaria3</field>-->
+<!--            <field name="view_mode">form</field>-->
+<!--            <field name="view_id" ref="wizard_conciliacion_bancaria3_form_view" />-->
+<!--            <field name="target">new</field>-->
+<!--        </record>-->
+
+        <record model="ir.actions.act_window" id="action_wizard_reporte_bancarizacion">
+            <field name="name">Reporte Bancarización - Excel</field>
+            <field name="res_model">wizard.reporte.bancarizacion</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="wizard_reporte_bancarizacion_form_view" />
+            <field name="target">new</field>
+        </record>
+
+<!--        <menuitem action="action_wizard_report_financial" id="menu_report_financial_menu"-->
+<!--                  parent="account_reports.account_reports_audit_reports_menu" sequence="1"/>-->
+
+        <menuitem action="action_wizard_report_diario_financial" id="menu_report_financial_diario_menu"
+                  parent="account_reports.account_reports_audit_reports_menu" sequence="2"/>
+
+        <menuitem action="action_wizard_report_mayor_financial" id="menu_report_mayor_financial_menu"
+                  parent="account_reports.account_reports_audit_reports_menu" sequence="3"/>
+
+        <menuitem action="action_wizard_report_balance_saldo" id="menu_report_balance_saldo_menu"
+                  parent="account_reports.account_reports_audit_reports_menu" sequence="4"/>
+
+        <menuitem action="action_wizard_estado_resultados" id="menu_estado_resultados_menu"
+                  parent="account_reports.account_reports_audit_reports_menu" sequence="5"/>
+
+        <menuitem action="action_wizard_balance_general" id="menu_balance_general_menu"
+                  parent="account_reports.account_reports_audit_reports_menu" sequence="6"/>
+
+        <menuitem action="action_wizard_libro_compras" id="menu_libro_compras_menu"
+                  parent="account_reports.account_reports_audit_reports_menu" sequence="7"/>
+
+        <menuitem action="action_wizard_libro_ventas" id="menu_libro_ventas_menu"
+                  parent="account_reports.account_reports_audit_reports_menu" sequence="8"/>
+
+        <menuitem action="action_wizard_costo_ventas" id="menu_costo_ventas_menu"
+                  parent="account_reports.account_reports_audit_reports_menu" sequence="9"/>
+
+        <menuitem action="action_wizard_costo_produccion" id="menu_costo_produccion_menu"
+                  parent="account_reports.account_reports_audit_reports_menu" sequence="10"/>
+
+        <menuitem action="action_wizard_flujo_efectivo" id="menu_flujo_efectivo_menu"
+                  parent="account_reports.account_reports_audit_reports_menu" sequence="11"/>
+
+        <menuitem action="action_wizard_cambio_patrimonio" id="menu_cambio_patrimonio_menu"
+                  parent="account_reports.account_reports_audit_reports_menu" sequence="12"/>
+
+        <menuitem action="action_wizard_libro_inventario" id="menu_libro_inventario_menu"
+                  parent="account_reports.account_reports_audit_reports_menu" sequence="13"/>
+
+        <menuitem action="action_wizard_conciliacion_bancaria2" id="menu_conciliacion_bancaria_menu2"
+                  parent="account_reports.account_reports_audit_reports_menu" sequence="14"/>
+
+        <menuitem action="action_wizard_reporte_bancarizacion" id="menu_reporte_bancarizacion_menu"
+                  parent="account_reports.account_reports_audit_reports_menu" sequence="15"/>
+
+<!--         <menuitem action="action_wizard_conciliacion_bancaria3" id="menu_conciliacion_bancaria_menu3"-->
+<!--                  parent="account_reports.account_reports_audit_reports_menu" sequence="16"/>-->
+    </data>
+</odoo>
