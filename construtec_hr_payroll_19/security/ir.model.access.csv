@@ -31,3 +31,9 @@ access_hr_overtime_rate_manager,hr.overtime.rate.manager,model_hr_overtime_rate,
 access_hr_overtime_user,hr.overtime.user,model_hr_overtime,base.group_user,1,0,0,0
 access_hr_overtime_hr_user,hr.overtime.hr_user,model_hr_overtime,hr.group_hr_user,1,1,1,1
 access_hr_overtime_manager,hr.overtime.manager,model_hr_overtime,hr.group_hr_manager,1,1,1,1
+access_hr_absence_line_user,hr.absence.line.user,model_hr_absence_line,base.group_user,1,0,0,0
+access_hr_absence_line_hr_user,hr.absence.line.hr_user,model_hr_absence_line,hr.group_hr_user,1,1,1,1
+access_hr_absence_line_manager,hr.absence.line.manager,model_hr_absence_line,hr.group_hr_manager,1,1,1,1
+access_hr_payslip_input_employee_user,hr.payslip.input.employee.user,model_hr_payslip_input_employee,base.group_user,1,0,0,0
+access_hr_payslip_input_employee_hr_user,hr.payslip.input.employee.hr_user,model_hr_payslip_input_employee,hr.group_hr_user,1,1,1,1
+access_hr_payslip_input_employee_manager,hr.payslip.input.employee.manager,model_hr_payslip_input_employee,hr.group_hr_manager,1,1,1,1

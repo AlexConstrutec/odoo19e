@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="hr_absence_line_list_view" model="ir.ui.view">
+        <field name="name">hr.absence.line.list</field>
+        <field name="model">hr.absence.line</field>
+        <field name="arch" type="xml">
+            <list string="Ausencias" editable="bottom">
+                <field name="employee_id"/>
+                <field name="work_entry_type_id"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <field name="number_of_days"/>
+                <field name="date_payroll"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="hr_absence_line_form_view" model="ir.ui.view">
+        <field name="name">hr.absence.line.form</field>
+        <field name="model">hr.absence.line</field>
+        <field name="arch" type="xml">
+            <form string="Ausencia">
+                <header>
+                    <button name="action_approve" type="object" string="Aprobar"
+                            class="oe_highlight" invisible="state != 'draft'"
+                            groups="hr.group_hr_manager,hr.group_hr_user"/>
+                    <button name="action_refuse" type="object" string="Rechazar"
+                            invisible="state not in ('draft', 'approve')"
+                            groups="hr.group_hr_manager,hr.group_hr_user"/>
+                    <button name="action_set_draft" type="object" string="Volver a Borrador"
+                            invisible="state == 'draft'"
+                            groups="hr.group_hr_manager,hr.group_hr_user"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,approve"/>
+                </header>
+                <sheet>
+                    <group col="4">
+                        <field name="employee_id" readonly="state != 'draft'"/>
+                        <field name="version_id"/>
+                        <field name="work_entry_type_id" readonly="state != 'draft'"/>
+                        <field name="date_from" readonly="state != 'draft'"/>
+                        <field name="date_to" readonly="state != 'draft'"/>
+                        <field name="number_of_days"/>
+                        <field name="date_payroll" readonly="state != 'draft'"/>
+                        <field name="reason"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_hr_absence_line_search" model="ir.ui.view">
+        <field name="name">hr.absence.line.search</field>
+        <field name="model">hr.absence.line</field>
+        <field name="arch" type="xml">
+            <search string="Ausencias">
+                <field name="employee_id"/>
+                <field name="work_entry_type_id"/>
+                <filter string="Empleado" name="group_employee" context="{'group_by':'employee_id'}"/>
+                <filter string="Tipo de Ausencia" name="group_type" context="{'group_by':'work_entry_type_id'}"/>
+                <filter string="Estado" name="group_state" context="{'group_by':'state'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_hr_absence" model="ir.actions.act_window">
+        <field name="name">Ausencias</field>
+        <field name="res_model">hr.absence.line</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_hr_absence_line_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Registra una ausencia.
+            </p>
+        </field>
+    </record>
+
+    <record id="act_hr_employee_absence" model="ir.actions.act_window">
+        <field name="name">Ausencias</field>
+        <field name="res_model">hr.absence.line</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('employee_id', '=', active_id)]</field>
+        <field name="context">{'default_employee_id': active_id}</field>
+        <field name="binding_model_id" ref="hr.model_hr_employee"/>
+        <field name="binding_view_types">form</field>
+        <field name="view_id" ref="hr_absence_line_list_view"/>
+    </record>
+
+    <record id="view_employee_form_absence_inherit" model="ir.ui.view">
+        <field name="name">hr.employee.absence.form.inherit</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="%(act_hr_employee_absence)d" type="action" class="oe_stat_button"
+                        icon="fa-calendar-times-o" groups="hr.group_hr_manager,hr.group_hr_user">
+                    <field name="absence_count" widget="statinfo" string="Ausencias"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

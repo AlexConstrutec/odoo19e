@@ -29,7 +29,7 @@ class HrPayslipRegisterPaymentWizard(models.TransientModel):
     communication = fields.Char(string='Memo')
     payment_method_id = fields.Many2one(
         'account.payment.method', string='Método de Pago', required=True,
-        default=lambda self: self.env.ref('account.account_payment_method_manual_in', raise_if_not_found=False))
+        default=lambda self: self.env.ref('account.account_payment_method_manual_out', raise_if_not_found=False))
 
     @api.constrains('amount')
     def _check_amount(self):
@@ -49,7 +49,7 @@ class HrPayslipRegisterPaymentWizard(models.TransientModel):
             'amount': self.amount,
             'currency_id': self.currency_id.id,
             'date': self.payment_date,
-            'ref': self.communication,
+            'memo': self.communication,
         }
 
     def action_register_payment(self):

@@ -11,6 +11,6 @@ class HrEmployeeEducational(models.Model):
     establecimiento = fields.Char(string='Establecimiento')
     titulo = fields.Char(string='Título')
     nivel_academico = fields.Selection(NIVEL_ACADEMICO, string='Nivel Académico')
-    año = fields.Integer(string='Año')
+    anio = fields.Integer(string='Año')
     fecha_inicio = fields.Date(string='Fecha de Inicio')
     fecha_fin = fields.Date(string='Fecha de Fin')

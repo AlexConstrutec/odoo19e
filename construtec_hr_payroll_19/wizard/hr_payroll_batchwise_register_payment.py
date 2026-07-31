@@ -16,7 +16,7 @@ class HrPayslipBatchwiseRegisterPaymentWizard(models.TransientModel):
     communication = fields.Char(string='Memo')
     payment_method_id = fields.Many2one(
         'account.payment.method', string='Método de Pago', required=True,
-        default=lambda self: self.env.ref('account.account_payment_method_manual_in', raise_if_not_found=False))
+        default=lambda self: self.env.ref('account.account_payment_method_manual_out', raise_if_not_found=False))
 
     def action_register_payments(self):
         self.ensure_one()
@@ -39,7 +39,7 @@ class HrPayslipBatchwiseRegisterPaymentWizard(models.TransientModel):
                 'amount': payslip.balance,
                 'currency_id': self.currency_id.id,
                 'date': self.payment_date,
-                'ref': self.communication,
+                'memo': self.communication,
             })
             payslip.write({'payment_ids': [(4, payment.id)]})
         return {'type': 'ir.actions.act_window_close'}

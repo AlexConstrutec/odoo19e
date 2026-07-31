@@ -38,6 +38,8 @@
         'views/account_move_views.xml',
         'views/hr_payslip_prestaciones_views.xml',
         'views/hr_overtime_views.xml',
+        'views/hr_absence_views.xml',
+        'views/hr_payslip_input_employee_views.xml',
         'views/menus.xml',
     ],
     'application': True,

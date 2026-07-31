@@ -27,10 +27,9 @@ class HrPayslip(models.Model):
             payslip.balance = net_total - sum(payslip.payment_ids.mapped('amount'))
 
     def compute_sheet(self):
-        res = super().compute_sheet()
         self._adjust_worked_days_lines()
         self._compute_extra_inputs()
-        return res
+        return super().compute_sheet()
 
     def _adjust_worked_days_lines(self):
         """Convierte horas a días o calcula el monto de horas extra según el tipo de entrada."""
@@ -112,6 +111,23 @@ class HrPayslip(models.Model):
                             'Fecha evaluacion: %(date)s, Puntuacion: %(score)s%%, Total: Q.%(total)s',
                             date=qualification.fecha_evaluacion.strftime('%d/%m/%Y'),
                             score=qualification.calificacion * 100, total=f'{amount:,.2f}'),
+                    }))
+
+            # Otras entradas registradas a nivel de empleado (hr.payslip.input.employee),
+            # p.ej. bonificaciones, gratificaciones, ajustes, etc. del catálogo hr.payslip.input.type.
+            generic_entries = self.env['hr.payslip.input.employee'].search([
+                ('version_id', '=', payslip.version_id.id),
+                ('state', '=', 'approve'),
+                ('date_from', '<=', payslip.date_to),
+                ('date_to', '>=', payslip.date_from),
+            ])
+            if generic_entries:
+                codes_to_clear.extend(generic_entries.mapped('input_type_id.code'))
+                for entry in generic_entries:
+                    new_inputs.append((0, 0, {
+                        'input_type_id': entry.input_type_id.id,
+                        'amount': entry.amount,
+                        'name': entry.name or entry.input_type_id.name,
                     }))
 
             if codes_to_clear:

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="hr_payslip_input_employee_list_view" model="ir.ui.view">
+        <field name="name">hr.payslip.input.employee.list</field>
+        <field name="model">hr.payslip.input.employee</field>
+        <field name="arch" type="xml">
+            <list string="Otras Entradas" editable="bottom">
+                <field name="employee_id"/>
+                <field name="input_type_id"/>
+                <field name="code" optional="hide"/>
+                <field name="amount"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <field name="name"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="hr_payslip_input_employee_form_view" model="ir.ui.view">
+        <field name="name">hr.payslip.input.employee.form</field>
+        <field name="model">hr.payslip.input.employee</field>
+        <field name="arch" type="xml">
+            <form string="Otra Entrada de Nómina">
+                <header>
+                    <button name="action_approve" type="object" string="Aprobar"
+                            class="oe_highlight" invisible="state != 'draft'"
+                            groups="hr.group_hr_manager,hr.group_hr_user"/>
+                    <button name="action_refuse" type="object" string="Rechazar"
+                            invisible="state not in ('draft', 'approve')"
+                            groups="hr.group_hr_manager,hr.group_hr_user"/>
+                    <button name="action_set_draft" type="object" string="Volver a Borrador"
+                            invisible="state == 'draft'"
+                            groups="hr.group_hr_manager,hr.group_hr_user"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,approve"/>
+                </header>
+                <sheet>
+                    <group col="4">
+                        <field name="employee_id" readonly="state != 'draft'"/>
+                        <field name="version_id"/>
+                        <field name="input_type_id" readonly="state != 'draft'"/>
+                        <field name="amount" readonly="state != 'draft'"/>
+                        <field name="date_from" readonly="state != 'draft'"/>
+                        <field name="date_to" readonly="state != 'draft'"/>
+                        <field name="name"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_hr_payslip_input_employee_search" model="ir.ui.view">
+        <field name="name">hr.payslip.input.employee.search</field>
+        <field name="model">hr.payslip.input.employee</field>
+        <field name="arch" type="xml">
+            <search string="Otras Entradas">
+                <field name="employee_id"/>
+                <field name="input_type_id"/>
+                <filter string="Empleado" name="group_employee" context="{'group_by':'employee_id'}"/>
+                <filter string="Tipo de Entrada" name="group_type" context="{'group_by':'input_type_id'}"/>
+                <filter string="Estado" name="group_state" context="{'group_by':'state'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_hr_payslip_input_employee" model="ir.actions.act_window">
+        <field name="name">Otras Entradas</field>
+        <field name="res_model">hr.payslip.input.employee</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_hr_payslip_input_employee_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Registra una entrada de nómina (bonificación, gratificación, ajuste, etc.) para un empleado.
+            </p>
+        </field>
+    </record>
+
+    <record id="act_hr_employee_payslip_input" model="ir.actions.act_window">
+        <field name="name">Otras Entradas</field>
+        <field name="res_model">hr.payslip.input.employee</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('employee_id', '=', active_id)]</field>
+        <field name="context">{'default_employee_id': active_id}</field>
+        <field name="binding_model_id" ref="hr.model_hr_employee"/>
+        <field name="binding_view_types">form</field>
+        <field name="view_id" ref="hr_payslip_input_employee_list_view"/>
+    </record>
+
+    <record id="view_employee_form_payslip_input_inherit" model="ir.ui.view">
+        <field name="name">hr.employee.payslip.input.form.inherit</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="%(act_hr_employee_payslip_input)d" type="action" class="oe_stat_button"
+                        icon="fa-list-alt" groups="hr.group_hr_manager,hr.group_hr_user">
+                    <field name="payslip_input_count" widget="statinfo" string="Otras Entradas"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>
