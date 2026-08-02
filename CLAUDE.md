@@ -18,6 +18,7 @@ It contains a set of custom modules being migrated from a legacy Odoo 16 deploym
 | [construtec_hr_employee_19](construtec_hr_employee_19/CLAUDE.md) | `gth` | Built |
 | [construtec_hr_reports_19](construtec_hr_reports_19/CLAUDE.md) | `gth_reports`, `nomina_report` | Built |
 | [construtec_account_reports_19](construtec_account_reports_19/CLAUDE.md) | `account_report_financial` | Built |
+| [construtec_account_19](construtec_account_19/CLAUDE.md) | n/a (new, not a migration) | Built (fiscal fields only; FEL certification pending) |
 | `construtec_petty_cash_19` | `bolson` | Not started |
 
 Dependency order (each depends on the ones above it): `construtec_hr_payroll_19` → `construtec_hr_employee_19` → `construtec_hr_reports_19` → `construtec_account_reports_19` (also depends on `construtec_hr_payroll_19` directly, for `account.payment.payslip_id`).
