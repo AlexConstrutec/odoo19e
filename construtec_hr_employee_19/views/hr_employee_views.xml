@@ -92,7 +92,7 @@
                                 <field name="establecimiento"/>
                                 <field name="titulo"/>
                                 <field name="nivel_academico"/>
-                                <field name="año"/>
+                                <field name="anio"/>
                             </list>
                         </field>
                     </group>
@@ -101,8 +101,8 @@
                         <field name="employee_work_history" nolabel="1">
                             <list editable="bottom">
                                 <field name="empresa"/>
-                                <field name="año_inicio"/>
-                                <field name="año_fin"/>
+                                <field name="anio_inicio"/>
+                                <field name="anio_fin"/>
                                 <field name="puesto"/>
                                 <field name="motivo_retiro"/>
                                 <field name="jefe_inmediato"/>

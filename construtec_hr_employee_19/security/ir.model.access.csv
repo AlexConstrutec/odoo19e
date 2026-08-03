@@ -3,8 +3,6 @@ access_hr_departamento_user,hr.departamento.user,model_hr_departamento,base.grou
 access_hr_departamento_manager,hr.departamento.manager,model_hr_departamento,hr.group_hr_manager,1,1,1,1
 access_hr_municipio_user,hr.municipio.user,model_hr_municipio,base.group_user,1,0,0,0
 access_hr_municipio_manager,hr.municipio.manager,model_hr_municipio,hr.group_hr_manager,1,1,1,1
-access_hr_ocupacion_puesto_user,hr.ocupacion.puesto.user,model_hr_ocupacion_puesto,base.group_user,1,0,0,0
-access_hr_ocupacion_puesto_manager,hr.ocupacion.puesto.manager,model_hr_ocupacion_puesto,hr.group_hr_manager,1,1,1,1
 access_hr_codigo_employee_user,hr.codigo.employee.user,model_hr_codigo_employee,hr.group_hr_user,1,1,1,1
 access_hr_employee_history_job_salary_user,hr.employee.history.job.salary.user,model_hr_employee_history_job_salary,hr.group_hr_user,1,1,1,1
 access_hr_employee_family_user,hr.employee.family.user,model_hr_employee_family,base.group_user,1,1,1,1

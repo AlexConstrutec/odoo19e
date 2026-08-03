@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="hr_payslip_run_view_kanban_inherit_construtec_employee" model="ir.ui.view">
+        <field name="name">hr.payslip.run.kanban.inherit.construtec.employee</field>
+        <field name="model">hr.payslip.run</field>
+        <field name="inherit_id" ref="construtec_hr_payroll_19.hr_payslip_run_view_kanban_inherit_construtec"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='action_confirm']" position="after">
+                <button name="action_generar_csv_banco" type="object" class="btn btn-secondary"
+                        string="Generar CSV Banco" invisible="state != '02_close'"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

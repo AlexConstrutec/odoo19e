@@ -2,7 +2,7 @@ from odoo import api, fields, models
 
 SYNC_TRIGGER_FIELDS = {
     'contract_date_start', 'contract_date_end', 'date_version', 'wage',
-    'bonificacion_incentivo', 'bonificacion_fija', 'bonificacion_productividad',
+    'x_bonificacion_incentivo', 'x_bonificacion_fija', 'x_bonificacion_productividad',
     'registrar_fecha_inspeccion', 'job_id', 'company_id',
 }
 
@@ -24,8 +24,8 @@ class HrVersion(models.Model):
                 'company': version.company_id.name,
                 'job': version.job_id.name,
                 'employee': version.employee_id.name,
-                'salary': (version.wage or 0.0) + version.bonificacion_incentivo
-                + version.bonificacion_fija + version.bonificacion_productividad,
+                'salary': (version.wage or 0.0) + version.x_bonificacion_incentivo
+                + version.x_bonificacion_fija + version.x_bonificacion_productividad,
                 'identification_employee_id': version.employee_id.identification_id,
                 'version_id': version.id,
                 'contrato_registrado': version.registrar_fecha_inspeccion,

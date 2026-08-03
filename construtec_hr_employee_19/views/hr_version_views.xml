@@ -8,7 +8,6 @@
             <xpath expr="//group[@name='contract']" position="inside">
                 <field name="registrar_fecha_inspeccion"/>
                 <field name="jornada_trabajo"/>
-                <field name="ocupacion_puesto_id"/>
             </xpath>
         </field>
     </record>

@@ -27,7 +27,6 @@ class HrEmployee(models.Model):
         ('4', 'No está sujeto a jornada'),
         ('5', 'Tiempo Parcial'),
     ], string='Jornada de trabajo', default='1')
-    ocupacion_puesto_id = fields.Many2one('hr.ocupacion.puesto', string='Ocupación de puesto')
     discapacidad = fields.Selection(DISCAPACIDAD, string='Discapacidad', default='1')
     certificate = fields.Selection(NIVEL_ACADEMICO, string='Nivel de certificado', default='other',
                                     groups='hr.group_hr_user', tracking=True)

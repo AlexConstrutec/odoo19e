@@ -7,3 +7,4 @@ from . import hr_employee_work_history
 from . import hr_employee_licencia
 from . import hr_version
 from . import hr_employee
+from . import hr_payslip_run
