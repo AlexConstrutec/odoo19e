@@ -25,9 +25,6 @@ access_hr_payslip_batchwise_register_payment_wizard_hr_manager,hr.payslip.batchw
 access_hr_payslip_batchwise_register_payment_wizard_acc_manager,hr.payslip.batchwise.register.payment.wizard.acc_manager,model_hr_payslip_batchwise_register_payment_wizard,account.group_account_manager,1,1,1,1
 access_hr_overtime_shift_user,hr.overtime.shift.user,model_hr_overtime_shift,base.group_user,1,0,0,0
 access_hr_overtime_shift_manager,hr.overtime.shift.manager,model_hr_overtime_shift,hr.group_hr_manager,1,1,1,1
-access_hr_overtime_rate_user,hr.overtime.rate.user,model_hr_overtime_rate,base.group_user,1,0,0,0
-access_hr_overtime_rate_hr_user,hr.overtime.rate.hr_user,model_hr_overtime_rate,hr.group_hr_user,1,1,1,1
-access_hr_overtime_rate_manager,hr.overtime.rate.manager,model_hr_overtime_rate,hr.group_hr_manager,1,1,1,1
 access_hr_overtime_user,hr.overtime.user,model_hr_overtime,base.group_user,1,0,0,0
 access_hr_overtime_hr_user,hr.overtime.hr_user,model_hr_overtime,hr.group_hr_user,1,1,1,1
 access_hr_overtime_manager,hr.overtime.manager,model_hr_overtime,hr.group_hr_manager,1,1,1,1

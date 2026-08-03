@@ -4,17 +4,37 @@
         <field name="name">hr.overtime.shift.list</field>
         <field name="model">hr.overtime.shift</field>
         <field name="arch" type="xml">
-            <list string="Jornadas de Hora Extra" editable="bottom">
+            <list string="Jornadas de Hora Extra">
                 <field name="name"/>
+                <field name="amount_select"/>
                 <field name="active" widget="boolean_toggle"/>
             </list>
+        </field>
+    </record>
+
+    <record id="hr_overtime_shift_form_view" model="ir.ui.view">
+        <field name="name">hr.overtime.shift.form</field>
+        <field name="model">hr.overtime.shift</field>
+        <field name="arch" type="xml">
+            <form string="Jornada de Hora Extra">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="active" widget="boolean_toggle"/>
+                        <field name="amount_select"/>
+                    </group>
+                    <group invisible="amount_select != 'code'">
+                        <field name="code_python" widget="code" options="{'mode': 'python'}" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
         </field>
     </record>
 
     <record id="action_hr_overtime_shift" model="ir.actions.act_window">
         <field name="name">Jornadas de Hora Extra</field>
         <field name="res_model">hr.overtime.shift</field>
-        <field name="view_mode">list</field>
+        <field name="view_mode">list,form</field>
     </record>
 
     <record id="hr_overtime_list_view" model="ir.ui.view">
@@ -24,9 +44,10 @@
             <list string="Horas Extra" editable="bottom">
                 <field name="employee_id"/>
                 <field name="date"/>
-                <field name="rate_id" domain="[('employee_id', '=', employee_id)]" options="{'no_create': True, 'no_open': True}"/>
+                <field name="shift_id" options="{'no_create': True}"/>
+                <field name="amount_select" column_invisible="1"/>
                 <field name="number_of_hours"/>
-                <field name="unit_amount" readonly="1"/>
+                <field name="unit_amount" readonly="amount_select == 'code'"/>
                 <field name="total_amount" readonly="1" sum="Total"/>
             </list>
         </field>
@@ -58,24 +79,17 @@
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
                 <page string="Horas Extra" name="overtime">
-                    <group col="2">
-                        <field name="overtime_ids" nolabel="1">
-                            <list string="Horas Extras" editable="bottom">
-                                <field name="employee_id" column_invisible="1"/>
-                                <field name="date"/>
-                                <field name="rate_id" domain="[('employee_id', '=', employee_id)]" options="{'no_create': True, 'no_open': True}"/>
-                                <field name="number_of_hours"/>
-                                <field name="unit_amount" readonly="1"/>
-                                <field name="total_amount" readonly="1" sum="Total"/>
-                            </list>
-                        </field>
-                        <field name="overtime_rate_ids" nolabel="1">
-                            <list string="Tipo Hora Extra" editable="bottom">
-                                <field name="shift_id"/>
-                                <field name="hourly_amount"/>
-                            </list>
-                        </field>
-                    </group>
+                    <field name="overtime_ids" nolabel="1">
+                        <list string="Horas Extras" editable="bottom">
+                            <field name="employee_id" column_invisible="1"/>
+                            <field name="date"/>
+                            <field name="shift_id" options="{'no_create': True}"/>
+                            <field name="amount_select" column_invisible="1"/>
+                            <field name="number_of_hours"/>
+                            <field name="unit_amount" readonly="amount_select == 'code'"/>
+                            <field name="total_amount" readonly="1" sum="Total"/>
+                        </list>
+                    </field>
                 </page>
             </xpath>
         </field>

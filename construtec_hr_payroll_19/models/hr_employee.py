@@ -8,7 +8,6 @@ class HrEmployee(models.Model):
     prestamos = fields.One2many('hr.loan', 'employee_id', string='Prestamos')
     calificaciones = fields.One2many('hr.qualification', 'employee_id', string='Calificaciones')
     overtime_ids = fields.One2many('hr.overtime', 'employee_id', string='Horas Extra')
-    overtime_rate_ids = fields.One2many('hr.overtime.rate', 'employee_id', string='Tipo Hora Extra')
     absence_ids = fields.One2many('hr.absence.line', 'employee_id', string='Ausencias')
     payslip_input_ids = fields.One2many('hr.payslip.input.employee', 'employee_id', string='Otras Entradas')
     # entradas_trabajo = fields.One2many('hr.work.entry', 'employee_id', string='Entradas de trabajo')
