@@ -58,7 +58,7 @@ class HrPayslipRun(models.Model):
                 sin_cuenta_banrural.append(f'{employee.name} ({employee.barcode or "sin código"})')
                 continue
             writer.writerow([
-                employee.barcode or '',
+                employee.codigo_banco or '',
                 self.name,
                 cuenta.acc_number or '',
                 '1',

@@ -18,6 +18,9 @@ class HrEmployee(models.Model):
     apellido_casada = fields.Char(string='Apellido de casada')
     nit = fields.Char(string='NIT')
     igss = fields.Char(string='IGSS')
+    codigo_banco = fields.Char(string='Código Banco', help='Código Interno usado para la carga de cuentas '
+                                                             '(CSV Banco) — ver "Generar CSV Banco" en el lote de '
+                                                             'nómina.')
     departamento_id = fields.Many2one('hr.departamento', string='Departamento')
     municipio_id = fields.Many2one('hr.municipio', string='Municipio')
     jornada_trabajo = fields.Selection([
