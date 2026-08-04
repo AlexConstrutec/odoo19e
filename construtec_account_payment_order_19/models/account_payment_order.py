@@ -1,5 +1,5 @@
 from odoo import api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import AccessError, UserError, ValidationError
 
 
 class AccountPaymentOrder(models.Model):
@@ -11,7 +11,7 @@ class AccountPaymentOrder(models.Model):
         ('anticipo', 'Anticipo'),
         ('liquidacion', 'Liquidación'),
         ('pago_directo', 'Pago Directo'),
-    ], string='Tipo', required=True, default='liquidacion')
+    ], string='Tipo', required=True, default='anticipo')
     name = fields.Char(string='Nombre', compute='_compute_name', store=True, readonly=False)
     no_liquidacion = fields.Integer(string='No. Liquidación')
     fecha = fields.Date(string='Fecha', required=True, default=fields.Date.context_today)
@@ -20,8 +20,24 @@ class AccountPaymentOrder(models.Model):
                                   default=lambda self: self.env.company.id)
     user_id = fields.Many2one('res.users', string='Usuario', default=lambda self: self.env.user.id)
     partner_id = fields.Many2one('res.partner', string='Contacto')
+    currency_id = fields.Many2one('res.currency', string='Moneda',
+                                   default=lambda self: self.env.company.currency_id.id)
     cuenta_ajuste_id = fields.Many2one('account.account', string='Cuenta de Ajuste')
     move_id = fields.Many2one('account.move', string='Asiento', readonly=True, copy=False)
+    anticipo_id = fields.Many2one('account.payment.order', string='Anticipo de Origen',
+                                   domain=[('tipo', '=', 'anticipo')], copy=False,
+                                   help='Anticipo del que se origina esta Liquidación. Una Liquidación no se '
+                                        'puede crear directamente - debe generarse desde el botón "Registrar '
+                                        'Liquidación" de un Anticipo ya aplicado.')
+    monto = fields.Monetary(string='Monto', currency_field='currency_id',
+                             help='Monto del Anticipo a entregar al Contacto.')
+    cuenta_anticipo_id = fields.Many2one(
+        'account.account', string='Cuenta de Anticipos por Liquidar',
+        domain=[('account_type', 'in', ('asset_receivable', 'liability_payable'))],
+        help='Cuenta puente donde queda registrado el Anticipo hasta que se liquide contra facturas '
+             'reales (no es la cuenta por pagar normal del Contacto). Debe ser de tipo por cobrar/por '
+             'pagar para que la Liquidación pueda netearla contra las facturas reales.')
+    payment_id = fields.Many2one('account.payment', string='Pago del Anticipo', readonly=True, copy=False)
     factura_ids = fields.One2many('account.move', 'payment_order_id', string='Facturas', domain=[
         ('move_type', 'in', ('in_invoice', 'in_refund')),
         ('state', '=', 'posted'),
@@ -56,6 +72,21 @@ class AccountPaymentOrder(models.Model):
             elif not rec.name:
                 rec.name = 'Nueva Orden de Pago'
 
+    @api.constrains('tipo', 'anticipo_id')
+    def _check_anticipo_id(self):
+        for rec in self:
+            if rec.tipo == 'liquidacion' and not rec.anticipo_id:
+                raise ValidationError(rec.env._(
+                    'Una Liquidación debe originarse desde un Anticipo: usa el botón "Registrar '
+                    'Liquidación" en el Anticipo correspondiente en vez de crearla directamente.'))
+
+    def _check_es_administrador_contable(self):
+        if not self.env.user.has_group('account.group_account_manager'):
+            raise AccessError(self.env._(
+                'Se requiere el permiso de Contabilidad: Administrador para aplicar o cancelar '
+                'una Orden de Pago. Cualquier usuario de Contabilidad puede crearla y dejarla en '
+                'borrador, pero solo un Administrador puede avanzarla de estado.'))
+
     @api.onchange('no_liquidacion')
     def _onchange_no_liquidacion(self):
         if self.no_liquidacion:
@@ -73,8 +104,9 @@ class AccountPaymentOrder(models.Model):
         self.ensure_one()
         if self.tipo != 'liquidacion':
             raise UserError(self.env._(
-                'Conciliar solo aplica a órdenes de tipo Liquidación (Anticipo y Pago Directo '
-                'aún no están implementados).'))
+                'Conciliar solo aplica a órdenes de tipo Liquidación (Pago Directo aún no está '
+                'implementado).'))
+        self._check_es_administrador_contable()
 
         # Solo las líneas de por cobrar/por pagar representan la deuda con el proveedor o
         # el contacto - las demás (caja, banco, "Pagos Pendientes"/outstanding) son solo el
@@ -148,8 +180,9 @@ class AccountPaymentOrder(models.Model):
         self.ensure_one()
         if self.tipo != 'liquidacion':
             raise UserError(self.env._(
-                'Cancelar solo aplica a órdenes de tipo Liquidación (Anticipo y Pago Directo '
-                'aún no están implementados).'))
+                'Cancelar solo aplica a órdenes de tipo Liquidación (Pago Directo aún no está '
+                'implementado).'))
+        self._check_es_administrador_contable()
         if self.move_id:
             for line in self.move_id.line_ids:
                 if line.reconciled:
@@ -158,3 +191,53 @@ class AccountPaymentOrder(models.Model):
             self.move_id.unlink()
         self.write({'move_id': False, 'state': 'borrador'})
         return True
+
+    def action_aplicar(self):
+        self.ensure_one()
+        if self.tipo != 'anticipo':
+            raise UserError(self.env._('Aplicar solo se usa para órdenes de tipo Anticipo.'))
+        self._check_es_administrador_contable()
+        if not self.partner_id:
+            raise UserError(self.env._('Define el Contacto que recibirá el anticipo.'))
+        if not self.monto:
+            raise UserError(self.env._('Define el Monto del anticipo.'))
+        if not self.cuenta_anticipo_id:
+            raise UserError(self.env._('Define la Cuenta de Anticipos por Liquidar.'))
+
+        payment = self.env['account.payment'].create({
+            'payment_type': 'outbound',
+            'partner_type': 'supplier',
+            'partner_id': self.partner_id.id,
+            'amount': self.monto,
+            'currency_id': self.currency_id.id,
+            'journal_id': self.journal_id.id,
+            'date': self.fecha,
+            'memo': self.name,
+            'destination_account_id': self.cuenta_anticipo_id.id,
+        })
+        payment.action_post()
+        self.write({'payment_id': payment.id, 'state': 'aplicado'})
+        return True
+
+    def action_registrar_liquidacion(self):
+        self.ensure_one()
+        if self.tipo != 'anticipo':
+            raise UserError(self.env._('Esta acción solo aplica a órdenes de tipo Anticipo.'))
+        if self.state != 'aplicado':
+            raise UserError(self.env._('Aplica el Anticipo antes de registrar su Liquidación.'))
+
+        liquidacion = self.env['account.payment.order'].create({
+            'tipo': 'liquidacion',
+            'anticipo_id': self.id,
+            'journal_id': self.journal_id.id,
+            'fecha': fields.Date.context_today(self),
+            'partner_id': self.partner_id.id,
+            'pago_ids': [(4, self.payment_id.id)] if self.payment_id else False,
+        })
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'account.payment.order',
+            'view_mode': 'form',
+            'res_id': liquidacion.id,
+            'target': 'current',
+        }
