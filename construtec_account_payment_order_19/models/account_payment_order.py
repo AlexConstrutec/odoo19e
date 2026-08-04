@@ -31,6 +31,11 @@ class AccountPaymentOrder(models.Model):
                                         'Liquidación" de un Anticipo ya aplicado.')
     monto = fields.Monetary(string='Monto', currency_field='currency_id',
                              help='Monto del Anticipo a entregar al Contacto.')
+    payment_method_line_id = fields.Many2one(
+        'account.payment.method.line', string='Método de Pago',
+        domain="[('id', 'in', journal_id.outbound_payment_method_line_ids)]",
+        help='Método de pago para el Anticipo, según los métodos configurados en el Diario '
+             '(ej. Manual, Cheque). Si se deja vacío, se usa el método por defecto del Diario.')
     cuenta_anticipo_id = fields.Many2one(
         'account.account', string='Cuenta de Anticipos por Liquidar',
         domain=[('account_type', 'in', ('asset_receivable', 'liability_payable'))],
@@ -86,6 +91,11 @@ class AccountPaymentOrder(models.Model):
                 'Se requiere el permiso de Contabilidad: Administrador para aplicar o cancelar '
                 'una Orden de Pago. Cualquier usuario de Contabilidad puede crearla y dejarla en '
                 'borrador, pero solo un Administrador puede avanzarla de estado.'))
+
+    @api.onchange('journal_id')
+    def _onchange_journal_id_payment_method(self):
+        if self.payment_method_line_id not in self.journal_id.outbound_payment_method_line_ids:
+            self.payment_method_line_id = self.journal_id.outbound_payment_method_line_ids[:1]
 
     @api.onchange('no_liquidacion')
     def _onchange_no_liquidacion(self):
@@ -202,7 +212,7 @@ class AccountPaymentOrder(models.Model):
         if not self.cuenta_anticipo_id:
             raise UserError(self.env._('Define la Cuenta de Anticipos por Liquidar.'))
 
-        payment = self.env['account.payment'].create({
+        payment_vals = {
             'payment_type': 'outbound',
             'partner_type': 'supplier',
             'partner_id': self.partner_id.id,
@@ -212,7 +222,10 @@ class AccountPaymentOrder(models.Model):
             'date': self.fecha,
             'memo': self.name,
             'destination_account_id': self.cuenta_anticipo_id.id,
-        })
+        }
+        if self.payment_method_line_id:
+            payment_vals['payment_method_line_id'] = self.payment_method_line_id.id
+        payment = self.env['account.payment'].create(payment_vals)
         payment.action_post()
         self.write({'payment_id': payment.id, 'state': 'aplicado'})
 
