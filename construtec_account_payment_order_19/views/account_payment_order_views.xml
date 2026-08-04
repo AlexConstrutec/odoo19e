@@ -14,10 +14,10 @@
                             invisible="tipo != 'anticipo' or state != 'aplicado'"/>
                     <button name="action_conciliar" string="Conciliar" type="object" class="oe_highlight"
                             groups="account.group_account_manager"
-                            invisible="tipo != 'liquidacion' or state == 'aplicado'"/>
+                            invisible="tipo not in ('liquidacion', 'pago_directo') or state == 'aplicado'"/>
                     <button name="action_cancelar" string="Cancelar" type="object"
                             groups="account.group_account_manager"
-                            invisible="tipo != 'liquidacion' or state != 'aplicado'"/>
+                            invisible="tipo not in ('liquidacion', 'pago_directo') or state != 'aplicado'"/>
                     <field name="state" widget="statusbar" statusbar_visible="borrador,aplicado"/>
                 </header>
                 <sheet>
@@ -40,11 +40,6 @@
                         </group>
                     </group>
 
-                    <div class="alert alert-info" role="alert" invisible="tipo != 'pago_directo'">
-                        El tipo "Pago Directo" todavía no tiene lógica implementada (pendiente de
-                        definir con más detalle de negocio).
-                    </div>
-
                     <group invisible="tipo != 'anticipo'">
                         <group>
                             <field name="monto" readonly="state != 'borrador'"/>
@@ -55,29 +50,34 @@
                         </group>
                     </group>
 
-                    <div invisible="tipo != 'liquidacion'">
-                        <div class="oe_title">
-                            <h2>Facturas</h2>
-                        </div>
-                        <field name="factura_ids" widget="many2many" nolabel="1">
-                            <list>
-                                <field name="made_sequence_gap" column_invisible="1"/>
-                                <field name="name" decoration-bf="1" decoration-danger="made_sequence_gap"/>
-                                <field name="date"/>
-                                <field name="partner_id" string="Proveedor"/>
-                                <field name="ref" string="Referencia Proveedor"/>
-                                <field name="amount_untaxed_signed"/>
-                                <field name="amount_total_signed" sum="Total"/>
-                                <field name="payment_state" widget="badge"
-                                       decoration-danger="payment_state == 'not_paid'"
-                                       decoration-warning="payment_state in ('partial', 'in_payment')"
-                                       decoration-success="payment_state in ('paid', 'reversed')"
-                                       optional="show"/>
-                                <field name="state" widget="badge" decoration-success="state == 'posted'"
-                                       decoration-info="state == 'draft'" optional="show"/>
-                            </list>
-                        </field>
+                    <div class="oe_title">
+                        <h2>Facturas</h2>
+                    </div>
+                    <p class="text-muted" invisible="tipo != 'anticipo'">
+                        Opcional en un Anticipo: si adjuntas una factura que el monto cubre al 100%,
+                        el sistema te avisará al Aplicar que probablemente corresponde usar "Pago
+                        Directo" en vez de un Anticipo pendiente de liquidar.
+                    </p>
+                    <field name="factura_ids" widget="many2many" nolabel="1">
+                        <list>
+                            <field name="made_sequence_gap" column_invisible="1"/>
+                            <field name="name" decoration-bf="1" decoration-danger="made_sequence_gap"/>
+                            <field name="date"/>
+                            <field name="partner_id" string="Proveedor"/>
+                            <field name="ref" string="Referencia Proveedor"/>
+                            <field name="amount_untaxed_signed"/>
+                            <field name="amount_total_signed" sum="Total"/>
+                            <field name="payment_state" widget="badge"
+                                   decoration-danger="payment_state == 'not_paid'"
+                                   decoration-warning="payment_state in ('partial', 'in_payment')"
+                                   decoration-success="payment_state in ('paid', 'reversed')"
+                                   optional="show"/>
+                            <field name="state" widget="badge" decoration-success="state == 'posted'"
+                                   decoration-info="state == 'draft'" optional="show"/>
+                        </list>
+                    </field>
 
+                    <div invisible="tipo == 'anticipo'">
                         <div class="oe_title">
                             <h2>Pagos/Cheques</h2>
                         </div>

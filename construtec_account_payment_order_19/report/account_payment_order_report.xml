@@ -3,30 +3,35 @@
     <template id="report_account_payment_order_document">
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="o">
+                <t t-set="todos_pagos" t-value="o.pago_ids | o.payment_id"/>
                 <t t-call="web.external_layout">
                     <div class="page">
                         <div class="oe_structure"/>
-                        <h2><span t-field="o.name"/></h2>
+                        <h2>Comprobante de Pago - <span t-field="o.name"/></h2>
 
                         <div class="row mt32 mb32">
-                            <div class="col-4">
+                            <div class="col-3">
+                                <strong>Tipo:</strong><br/>
+                                <span t-field="o.tipo"/>
+                            </div>
+                            <div class="col-3">
                                 <strong>Fecha:</strong><br/>
                                 <span t-field="o.fecha"/>
                             </div>
-                            <div class="col-4">
+                            <div class="col-3">
+                                <strong>Contacto:</strong><br/>
+                                <span t-field="o.partner_id.name"/>
+                            </div>
+                            <div class="col-3">
                                 <strong>Diario:</strong><br/>
                                 <span t-field="o.journal_id.name"/>
                             </div>
-                            <div class="col-4">
-                                <strong>Asiento:</strong><br/>
-                                <span t-field="o.move_id.name"/>
-                            </div>
                         </div>
 
-                        <h3>Facturas</h3>
+                        <h3 t-if="o.factura_ids">Facturas</h3>
                         <t t-set="total_factura" t-value="0"/>
 
-                        <table class="table table-sm">
+                        <table class="table table-sm" t-if="o.factura_ids">
                             <thead>
                                 <tr>
                                     <th><strong>No. Interno</strong></th>
@@ -56,7 +61,7 @@
                             </tbody>
                         </table>
 
-                        <h3>Pagos/Cheques</h3>
+                        <h3>Pago(s)</h3>
                         <t t-set="total_pago" t-value="0"/>
 
                         <table class="table table-sm">
@@ -69,7 +74,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr t-foreach="o.pago_ids" t-as="c">
+                                <tr t-foreach="todos_pagos" t-as="c">
                                     <t t-set="total_pago" t-value="total_pago + c.amount"/>
                                     <td><span t-field="c.name"/></td>
                                     <td><span t-field="c.memo"/></td>
@@ -89,7 +94,7 @@
                             </tbody>
                         </table>
 
-                        <table class="table table-sm">
+                        <table class="table table-sm" t-if="o.factura_ids">
                             <tbody>
                                 <tr>
                                     <td>Diferencia</td>
@@ -100,6 +105,12 @@
                                 </tr>
                             </tbody>
                         </table>
+
+                        <div class="row mt32" t-if="o.move_id">
+                            <div class="col-12">
+                                <strong>Asiento contable:</strong> <span t-field="o.move_id.name"/>
+                            </div>
+                        </div>
                         <div class="oe_structure"/>
                     </div>
                 </t>
@@ -108,12 +119,12 @@
     </template>
 
     <record id="action_report_account_payment_order" model="ir.actions.report">
-        <field name="name">Orden de Pago</field>
+        <field name="name">Comprobante de Pago</field>
         <field name="model">account.payment.order</field>
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">construtec_account_payment_order_19.report_account_payment_order_document</field>
         <field name="report_file">construtec_account_payment_order_19.report_account_payment_order_document</field>
-        <field name="print_report_name">'Orden de Pago - %s' % (object.name)</field>
+        <field name="print_report_name">'Comprobante de Pago - %s' % (object.name)</field>
         <field name="binding_model_id" ref="model_account_payment_order"/>
         <field name="binding_type">report</field>
     </record>

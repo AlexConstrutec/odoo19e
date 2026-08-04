@@ -102,10 +102,9 @@ class AccountPaymentOrder(models.Model):
 
     def action_conciliar(self):
         self.ensure_one()
-        if self.tipo != 'liquidacion':
+        if self.tipo not in ('liquidacion', 'pago_directo'):
             raise UserError(self.env._(
-                'Conciliar solo aplica a órdenes de tipo Liquidación (Pago Directo aún no está '
-                'implementado).'))
+                'Conciliar solo aplica a órdenes de tipo Liquidación o Pago Directo.'))
         self._check_es_administrador_contable()
 
         # Solo las líneas de por cobrar/por pagar representan la deuda con el proveedor o
@@ -178,10 +177,9 @@ class AccountPaymentOrder(models.Model):
 
     def action_cancelar(self):
         self.ensure_one()
-        if self.tipo != 'liquidacion':
+        if self.tipo not in ('liquidacion', 'pago_directo'):
             raise UserError(self.env._(
-                'Cancelar solo aplica a órdenes de tipo Liquidación (Pago Directo aún no está '
-                'implementado).'))
+                'Cancelar solo aplica a órdenes de tipo Liquidación o Pago Directo.'))
         self._check_es_administrador_contable()
         if self.move_id:
             for line in self.move_id.line_ids:
@@ -217,7 +215,41 @@ class AccountPaymentOrder(models.Model):
         })
         payment.action_post()
         self.write({'payment_id': payment.id, 'state': 'aplicado'})
+
+        aviso = self._aviso_posible_pago_directo()
+        if aviso:
+            return aviso
         return True
+
+    def _aviso_posible_pago_directo(self):
+        """Si el Anticipo lleva factura(s) adjunta(s) (opcional) cuyo total coincide con el monto
+        entregado y ninguna tiene ya un pago conciliado, es en realidad un Pago Directo, no un
+        Anticipo pendiente de Liquidación. No se cambia nada automáticamente - solo se avisa."""
+        CUENTAS_A_NETEAR = ('asset_receivable', 'liability_payable')
+        facturas = self.factura_ids.filtered(lambda f: f.state == 'posted')
+        if not facturas:
+            return None
+        ya_conciliadas = facturas.filtered(lambda f: any(
+            line.reconciled for line in f.line_ids if line.account_id.account_type in CUENTAS_A_NETEAR))
+        if ya_conciliadas:
+            return None
+        total_facturas = sum(facturas.mapped('amount_total'))
+        if self.currency_id.compare_amounts(total_facturas, self.monto) != 0:
+            return None
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': self.env._('Posible Pago Directo'),
+                'message': self.env._(
+                    'El monto entregado cubre el 100%s de la(s) factura(s) adjunta(s) y ninguna '
+                    'tiene todavía un pago conciliado. Si ya se pagó por completo, considera usar '
+                    'una orden de tipo "Pago Directo" en vez de un Anticipo pendiente de liquidar.',
+                    '%'),
+                'type': 'warning',
+                'sticky': True,
+            },
+        }
 
     def action_registrar_liquidacion(self):
         self.ensure_one()
