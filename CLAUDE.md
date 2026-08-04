@@ -10,7 +10,7 @@ This is the **custom addons directory** for the Odoo19E (Enterprise) installatio
 addons_path = c:\users\alex\documents\proyectos\odoo19e\server\odoo\addons,c:\users\alex\documents\proyectos\odoo19e\server\odoo19e
 ```
 
-It contains a set of custom modules being migrated from a legacy Odoo 16 deployment (source preserved under `Odoo16\`, one folder per legacy module — not wired into `addons_path`, kept only as migration source material) into 5 new Odoo 19 modules, each with its own `CLAUDE.md` with module-specific detail:
+It contains a set of custom modules being migrated from a legacy Odoo 16 deployment (source preserved under `Odoo16\`, one folder per legacy module — not wired into `addons_path`, kept only as migration source material) into 6 new Odoo 19 modules, each with its own `CLAUDE.md` with module-specific detail:
 
 | Module | Migrated from | Status |
 |---|---|---|
@@ -19,7 +19,7 @@ It contains a set of custom modules being migrated from a legacy Odoo 16 deploym
 | [construtec_hr_reports_19](construtec_hr_reports_19/CLAUDE.md) | `gth_reports`, `nomina_report` | Built |
 | [construtec_account_reports_19](construtec_account_reports_19/CLAUDE.md) | `account_report_financial` | Built |
 | [construtec_account_19](construtec_account_19/CLAUDE.md) | n/a (new, not a migration) | Built (fiscal fields only; FEL certification pending) |
-| `construtec_petty_cash_19` | `bolson` | Not started |
+| [construtec_account_payment_order_19](construtec_account_payment_order_19/CLAUDE.md) | `bolson` | Built (only `tipo == 'liquidacion'` has real logic; `anticipo`/`pago_directo` are structure-only, pending) |
 
 Dependency order (each depends on the ones above it): `construtec_hr_payroll_19` → `construtec_hr_employee_19` → `construtec_hr_reports_19` → `construtec_account_reports_19` (also depends on `construtec_hr_payroll_19` directly, for `account.payment.payslip_id`).
 

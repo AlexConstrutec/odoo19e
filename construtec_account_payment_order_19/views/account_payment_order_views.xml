@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_payment_order_form" model="ir.ui.view">
+        <field name="name">account.payment.order.form</field>
+        <field name="model">account.payment.order</field>
+        <field name="arch" type="xml">
+            <form string="Orden de Pago">
+                <header>
+                    <button name="action_conciliar" string="Conciliar" type="object" class="oe_highlight"
+                            invisible="tipo != 'liquidacion' or state == 'aplicado'"/>
+                    <button name="action_cancelar" string="Cancelar" type="object"
+                            invisible="tipo != 'liquidacion' or state != 'aplicado'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="borrador,aplicado"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="tipo"/>
+                            <field name="no_liquidacion" invisible="tipo != 'liquidacion'"/>
+                            <field name="journal_id"/>
+                            <field name="partner_id"/>
+                        </group>
+                        <group>
+                            <field name="fecha"/>
+                            <field name="user_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+
+                    <div class="alert alert-info" role="alert" invisible="tipo == 'liquidacion'">
+                        Los tipos "Anticipo" y "Pago Directo" todavía no tienen lógica implementada
+                        (pendiente de definir con más detalle de negocio). Por ahora solo "Liquidación"
+                        concilia facturas y pagos.
+                    </div>
+
+                    <div invisible="tipo != 'liquidacion'">
+                        <div class="oe_title">
+                            <h2>Facturas</h2>
+                        </div>
+                        <field name="factura_ids" widget="many2many" nolabel="1">
+                            <list>
+                                <field name="made_sequence_gap" column_invisible="1"/>
+                                <field name="name" decoration-bf="1" decoration-danger="made_sequence_gap"/>
+                                <field name="date"/>
+                                <field name="partner_id" string="Proveedor"/>
+                                <field name="ref" string="Referencia Proveedor"/>
+                                <field name="amount_untaxed_signed"/>
+                                <field name="amount_total_signed" sum="Total"/>
+                                <field name="payment_state" widget="badge"
+                                       decoration-danger="payment_state == 'not_paid'"
+                                       decoration-warning="payment_state in ('partial', 'in_payment')"
+                                       decoration-success="payment_state in ('paid', 'reversed')"
+                                       optional="show"/>
+                                <field name="state" widget="badge" decoration-success="state == 'posted'"
+                                       decoration-info="state == 'draft'" optional="show"/>
+                            </list>
+                        </field>
+
+                        <div class="oe_title">
+                            <h2>Pagos/Cheques</h2>
+                        </div>
+                        <field name="pago_ids" widget="many2many" nolabel="1">
+                            <list>
+                                <field name="date"/>
+                                <field name="name"/>
+                                <field name="partner_id" string="Contacto"/>
+                                <field name="memo" string="Memo"/>
+                                <field name="amount" widget="monetary" sum="Total"/>
+                                <field name="state" widget="badge" decoration-info="state == 'draft'"
+                                       decoration-warning="state == 'in_process'"
+                                       decoration-success="state == 'paid'"
+                                       decoration-danger="state in ('canceled', 'rejected')"/>
+                            </list>
+                        </field>
+
+                        <group>
+                            <group>
+                                <field name="cuenta_ajuste_id"/>
+                            </group>
+                            <group>
+                                <field name="move_id" readonly="1"/>
+                            </group>
+                        </group>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_account_payment_order_list" model="ir.ui.view">
+        <field name="name">account.payment.order.list</field>
+        <field name="model">account.payment.order</field>
+        <field name="arch" type="xml">
+            <list string="Órdenes de Pago">
+                <field name="fecha"/>
+                <field name="name"/>
+                <field name="tipo"/>
+                <field name="partner_id"/>
+                <field name="state" widget="badge" decoration-success="state == 'aplicado'"
+                       decoration-info="state == 'borrador'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_account_payment_order" model="ir.actions.act_window">
+        <field name="name">Órdenes de Pago</field>
+        <field name="res_model">account.payment.order</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem action="action_account_payment_order" id="menu_account_payment_order"
+              parent="account.menu_finance_payables" sequence="21"/>
+</odoo>
