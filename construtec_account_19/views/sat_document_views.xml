@@ -128,11 +128,12 @@
         <field name="model">construtec.sat.document</field>
         <field name="arch" type="xml">
             <list string="Documentos SAT" decoration-danger="anulado">
+                <field name="partner_id"/>
+                <field name="nit_contacto"/>
                 <field name="fecha_certificacion"/>
                 <field name="direction"/>
                 <field name="tipo_dte"/>
                 <field name="numero_autorizacion"/>
-                <field name="partner_id"/>
                 <field name="monto_total" sum="Total"/>
                 <field name="anulado" optional="hide"/>
                 <field name="state" widget="badge"
@@ -171,6 +172,48 @@
         <field name="context">{'search_default_pendientes': 1}</field>
     </record>
 
+    <record id="view_construtec_sat_document_line_detail_list" model="ir.ui.view">
+        <field name="name">construtec.sat.document.line.detail.list</field>
+        <field name="model">construtec.sat.document.line</field>
+        <field name="arch" type="xml">
+            <list string="Detalle de Facturas SAT" create="0" edit="0">
+                <field name="numero_autorizacion"/>
+                <field name="partner_id"/>
+                <field name="nit_contacto"/>
+                <field name="fecha_certificacion"/>
+                <field name="product_id"/>
+                <field name="descripcion"/>
+                <field name="cantidad"/>
+                <field name="precio_unitario"/>
+                <field name="monto_iva" sum="IVA"/>
+                <field name="monto_total" sum="Total"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_construtec_sat_document_line_detail_search" model="ir.ui.view">
+        <field name="name">construtec.sat.document.line.detail.search</field>
+        <field name="model">construtec.sat.document.line</field>
+        <field name="arch" type="xml">
+            <search string="Detalle de Facturas SAT">
+                <field name="numero_autorizacion"/>
+                <field name="partner_id"/>
+                <field name="nit_contacto"/>
+                <field name="product_id"/>
+                <group>
+                    <filter string="Contacto" name="group_partner" context="{'group_by': 'partner_id'}"/>
+                    <filter string="Producto" name="group_product" context="{'group_by': 'product_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_construtec_sat_document_line_detail" model="ir.actions.act_window">
+        <field name="name">Detalle de Facturas SAT</field>
+        <field name="res_model">construtec.sat.document.line</field>
+        <field name="view_mode">list</field>
+    </record>
+
     <record id="action_construtec_sat_document_import" model="ir.actions.server">
         <field name="name">Importar desde SAT</field>
         <field name="model_id" ref="model_construtec_sat_document"/>
@@ -182,6 +225,8 @@
               sequence="6"/>
     <menuitem id="menu_construtec_sat_document" action="action_construtec_sat_document"
               parent="menu_construtec_sat_document_root" sequence="1"/>
-    <menuitem id="menu_construtec_sat_document_import" action="action_construtec_sat_document_import"
+    <menuitem id="menu_construtec_sat_document_line_detail" action="action_construtec_sat_document_line_detail"
               parent="menu_construtec_sat_document_root" sequence="2"/>
+    <menuitem id="menu_construtec_sat_document_import" action="action_construtec_sat_document_import"
+              parent="menu_construtec_sat_document_root" sequence="3"/>
 </odoo>

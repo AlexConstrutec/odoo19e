@@ -305,13 +305,14 @@ class ConstructecSatDocument(models.Model):
         return candidate if candidate.exists() else None
 
     @api.model
-    def _sat_move_to_duplicados(self, xml_path, pdf_path):
-        """Los documentos duplicados no se borran (a diferencia de éxito): se
-        mueven a data/duplicados/<empresa>/<seccion>/{xml,pdf}, espejo de la
-        estructura de outbox, para dejar rastro de qué se intentó reimportar
-        sin tener que confiar solo en la bitácora de Odoo."""
+    def _sat_move_to_subfolder(self, xml_path, pdf_path, subfolder_name):
+        """Mueve XML+PDF a data/<subfolder_name>/<empresa>/<seccion>/{xml,pdf},
+        espejo de la estructura de outbox, para dejar rastro de qué se excluyó
+        sin tener que confiar solo en la bitácora de Odoo. Usado tanto para
+        duplicados como para documentos con NIT no permitido - ninguno de los
+        dos se borra, a diferencia de un import exitoso."""
         outbox_root = self._sat_outbox_path()
-        duplicados_root = outbox_root.parent / 'duplicados'
+        destino_root = outbox_root.parent / subfolder_name
         for path in (xml_path, pdf_path):
             if not path:
                 continue
@@ -319,12 +320,18 @@ class ConstructecSatDocument(models.Model):
                 relative = path.relative_to(outbox_root)
             except ValueError:
                 continue
-            destino = duplicados_root / relative
+            destino = destino_root / relative
             destino.parent.mkdir(parents=True, exist_ok=True)
             try:
                 shutil.move(str(path), str(destino))
             except Exception:
                 pass
+
+    def _sat_move_to_duplicados(self, xml_path, pdf_path):
+        self._sat_move_to_subfolder(xml_path, pdf_path, 'duplicados')
+
+    def _sat_move_to_rechazados(self, xml_path, pdf_path):
+        self._sat_move_to_subfolder(xml_path, pdf_path, 'rechazados')
 
     @api.model
     def create_from_dte_xml(self, xml_base64, direction):
@@ -379,6 +386,10 @@ class ConstructecSatDocument(models.Model):
           - Duplicado (numero_autorizacion ya existía): se mueven a
             data/duplicados/<empresa>/<seccion>/ en vez de borrarse, para
             dejar rastro de qué se reintentó.
+          - NIT no permitido (ver _sat_nits_permitidos en sat_document.py -
+            ej. el outbox trae mezcladas facturas de la cuenta personal del
+            usuario y de la empresa): se mueven a
+            data/rechazados/<empresa>/<seccion>/, tampoco se borran.
           - Error: se dejan intactos en outbox para reintentar en la próxima
             corrida.
           - Excel: se usa solo para leer datos (anulado/estado/etc, ver
@@ -387,7 +398,7 @@ class ConstructecSatDocument(models.Model):
             tras leerlo (es un resumen de muchos documentos, no algo que
             pueda "duplicarse" como un XML individual).
         """
-        resumen = {'success': 0, 'skipped_duplicate': 0, 'error': 0}
+        resumen = {'success': 0, 'skipped_duplicate': 0, 'nit_no_permitido': 0, 'error': 0}
         Document = self.env['construtec.sat.document']
 
         for direction, xml_path in self._sat_iter_outbox_xml_files():
@@ -412,6 +423,8 @@ class ConstructecSatDocument(models.Model):
                         path.unlink(missing_ok=True)
             elif estado == 'skipped_duplicate':
                 self._sat_move_to_duplicados(xml_path, pdf_path)
+            elif estado == 'nit_no_permitido':
+                self._sat_move_to_rechazados(xml_path, pdf_path)
             # estado == 'error': se deja todo intacto para reintentar despues.
 
         for xls_path in self._sat_iter_outbox_excel_files():
@@ -428,6 +441,7 @@ class ConstructecSatDocument(models.Model):
         mensaje = (
             f"Creados: {resumen.get('success', 0)} | "
             f"Duplicados (movidos): {resumen.get('skipped_duplicate', 0)} | "
+            f"NIT no permitido (movidos): {resumen.get('nit_no_permitido', 0)} | "
             f"Errores: {resumen.get('error', 0)}"
         )
         return {

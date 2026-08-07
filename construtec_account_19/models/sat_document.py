@@ -44,6 +44,10 @@ class ConstructecSatDocument(models.Model):
         'res.partner', string='Contacto',
         help='Resuelto por NIT (emisor si es Recibida, receptor si es Emitida). Revisa/corrige '
              'antes de convertir a factura si no es el contacto correcto.')
+    nit_contacto = fields.Char(
+        related='partner_id.vat', string='NIT', store=True,
+        help='NIT del Contacto ya resuelto (partner_id) - a diferencia de nit_emisor/nit_receptor, '
+             'este siempre es "el NIT de la otra parte" sin importar la dirección del documento.')
     company_id = fields.Many2one(
         'res.company', string='Compañía', required=True, default=lambda self: self.env.company.id)
     currency_id = fields.Many2one(
@@ -120,10 +124,10 @@ class ConstructecSatDocument(models.Model):
         existe, no crea nada nuevo y responde state=skipped_duplicate — así
         el llamador puede reintentar sin miedo a duplicar.
 
-        Devuelve un dict con al menos `state` ('success' | 'skipped_duplicate')
-        y `document_id`. Si algo falla, registra el error en la bitácora y
-        vuelve a lanzar la excepción (el llamador ve el fallo vía el fault de
-        XML-RPC/JSON-RPC).
+        Devuelve un dict con al menos `state` ('success' | 'skipped_duplicate' |
+        'nit_no_permitido') y `document_id`. Si algo falla, registra el error
+        en la bitácora y vuelve a lanzar la excepción (el llamador ve el
+        fallo vía el fault de XML-RPC/JSON-RPC).
         """
         numero_autorizacion = vals.get('numero_autorizacion')
         direction = vals.get('direction')
@@ -139,6 +143,20 @@ class ConstructecSatDocument(models.Model):
                 'document_id': existing.id,
             })
             return {'state': 'skipped_duplicate', 'document_id': existing.id}
+
+        nits_permitidos = self._sat_nits_permitidos()
+        nit_propio = vals.get('nit_receptor') if direction == 'recibida' else vals.get('nit_emisor')
+        if nits_permitidos and (nit_propio or '').strip() not in nits_permitidos:
+            log_model.create({
+                'numero_autorizacion': numero_autorizacion,
+                'direction': direction,
+                'state': 'nit_no_permitido',
+                'message': self.env._(
+                    'NIT %(nit)s no está en la lista de NITs permitidos (%(permitidos)s).',
+                    nit=nit_propio, permitidos=', '.join(sorted(nits_permitidos)),
+                ),
+            })
+            return {'state': 'nit_no_permitido', 'document_id': False}
 
         try:
             if direction == 'recibida':
@@ -226,6 +244,21 @@ class ConstructecSatDocument(models.Model):
             return False
         document.write(vals)
         return True
+
+    @api.model
+    def _sat_nits_permitidos(self):
+        """NIT "propio" aceptado al importar: el de la compañía activa
+        (res.company.vat, la misma que se ve/edita en Ajustes > Compañías -
+        no un parámetro aparte que haya que mantener sincronizado a mano). Un
+        documento 'recibida' se rechaza si su nit_receptor no coincide, y uno
+        'emitida' si su nit_emisor no coincide - así, si el outbox trae
+        mezclados documentos de más de una cuenta SAT (ej. la personal del
+        usuario y la de la empresa), solo entra a Odoo lo que de verdad es de
+        esta compañía. Si la compañía no tiene NIT configurado, no se filtra
+        nada.
+        """
+        company_vat = (self.env.company.vat or '').strip()
+        return {company_vat} if company_vat else set()
 
     def _sat_find_or_create_partner(self, nit, name):
         if not nit:
@@ -395,6 +428,13 @@ class ConstructecSatDocumentLine(models.Model):
 
     document_id = fields.Many2one(
         'construtec.sat.document', string='Documento SAT', required=True, ondelete='cascade')
+    numero_autorizacion = fields.Char(
+        related='document_id.numero_autorizacion', string='No. Autorización SAT', store=True)
+    partner_id = fields.Many2one(
+        related='document_id.partner_id', string='Contacto', store=True)
+    nit_contacto = fields.Char(related='document_id.nit_contacto', string='NIT', store=True)
+    fecha_certificacion = fields.Datetime(
+        related='document_id.fecha_certificacion', string='Fecha de Certificación', store=True)
     numero_linea = fields.Integer(string='No. Línea')
     bien_o_servicio = fields.Selection(
         [('B', 'Bien'), ('S', 'Servicio')], string='Bien/Servicio')

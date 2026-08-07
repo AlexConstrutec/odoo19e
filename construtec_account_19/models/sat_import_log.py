@@ -15,6 +15,7 @@ class ConstructecSatImportLog(models.Model):
         ('success', 'Éxito'),
         ('error', 'Error'),
         ('skipped_duplicate', 'Duplicado (omitido)'),
+        ('nit_no_permitido', 'NIT no permitido (rechazado)'),
     ], string='Resultado', required=True)
     message = fields.Text(string='Mensaje')
     document_id = fields.Many2one('construtec.sat.document', string='Documento SAT')
