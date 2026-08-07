@@ -48,8 +48,39 @@ class ConstructecSatDocument(models.Model):
         'res.company', string='Compañía', required=True, default=lambda self: self.env.company.id)
     currency_id = fields.Many2one(
         'res.currency', string='Moneda', default=lambda self: self.env.company.currency_id.id)
+    moneda_codigo = fields.Char(
+        string='Código Moneda DTE',
+        help='Código de moneda tal como viene en el DTE (ej. GTQ), informativo - no cambia '
+             'currency_id automáticamente.')
     monto_total = fields.Monetary(string='Monto Total', currency_field='currency_id')
     monto_iva = fields.Monetary(string='Monto IVA', currency_field='currency_id')
+    monto_petroleo = fields.Monetary(string='Impuesto Petróleo', currency_field='currency_id')
+    monto_turismo_hospedaje = fields.Monetary(string='Impuesto Turismo Hospedaje', currency_field='currency_id')
+    monto_turismo_pasajes = fields.Monetary(string='Impuesto Turismo Pasajes', currency_field='currency_id')
+    monto_timbre_prensa = fields.Monetary(string='Timbre de Prensa', currency_field='currency_id')
+    monto_bomberos = fields.Monetary(string='Impuesto Bomberos', currency_field='currency_id')
+    monto_tasa_municipal = fields.Monetary(string='Tasa Municipal', currency_field='currency_id')
+    monto_bebidas_alcoholicas = fields.Monetary(string='Impuesto Bebidas Alcohólicas', currency_field='currency_id')
+    monto_tabaco = fields.Monetary(string='Impuesto Tabaco', currency_field='currency_id')
+    monto_cemento = fields.Monetary(string='Impuesto Cemento', currency_field='currency_id')
+    monto_bebidas_no_alcoholicas = fields.Monetary(
+        string='Impuesto Bebidas No Alcohólicas', currency_field='currency_id')
+    monto_tarifa_portuaria = fields.Monetary(string='Tarifa Portuaria', currency_field='currency_id')
+    codigo_establecimiento = fields.Char(string='Código Establecimiento')
+    nombre_establecimiento = fields.Char(string='Nombre Establecimiento', help='Solo viene en el Excel del portal.')
+    nombre_comercial_emisor = fields.Char(string='Nombre Comercial Emisor')
+    direccion_emisor = fields.Char(string='Dirección Emisor')
+    nit_certificador = fields.Char(string='NIT Certificador')
+    nombre_certificador = fields.Char(string='Nombre Certificador')
+    clasificacion_emisor = fields.Char(string='Clasificación Emisor', help='Solo viene en el Excel del portal.')
+    exportacion = fields.Char(string='Exportación', help='Solo viene en el Excel del portal.')
+    estado_sat = fields.Char(
+        string='Estado en SAT',
+        help='Vigente/Anulado según el Excel del portal al momento de importar. No se actualiza '
+             'solo - si la SAT anula el documento después de importado, hay que reimportar el '
+             'Excel de ese rango para refrescarlo.')
+    anulado = fields.Boolean(string='Anulado')
+    fecha_anulacion = fields.Datetime(string='Fecha de Anulación')
     xml_attachment_id = fields.Many2one('ir.attachment', string='XML', copy=False)
     pdf_attachment_id = fields.Many2one('ir.attachment', string='PDF', copy=False)
     line_ids = fields.One2many('construtec.sat.document.line', 'document_id', string='Líneas')
@@ -119,10 +150,13 @@ class ConstructecSatDocument(models.Model):
             partner = self._sat_find_or_create_partner(nit_partner, nombre_partner)
 
             line_ids = [(0, 0, {
+                'numero_linea': line.get('numero_linea', 0),
+                'bien_o_servicio': line.get('bien_o_servicio'),
                 'descripcion': line.get('descripcion'),
                 'cantidad': line.get('cantidad', 1.0),
                 'precio_unitario': line.get('precio_unitario', 0.0),
                 'monto_descuento': line.get('monto_descuento', 0.0),
+                'otro_descuento': line.get('otro_descuento', 0.0),
                 'monto_iva': line.get('monto_iva', 0.0),
                 'monto_total': line.get('monto_total', 0.0),
             }) for line in vals.get('lines', [])]
@@ -136,8 +170,14 @@ class ConstructecSatDocument(models.Model):
                 'fecha_certificacion': vals.get('fecha_certificacion'),
                 'nit_emisor': vals.get('nit_emisor'),
                 'nombre_emisor': vals.get('nombre_emisor'),
+                'nombre_comercial_emisor': vals.get('nombre_comercial_emisor'),
+                'direccion_emisor': vals.get('direccion_emisor'),
+                'codigo_establecimiento': vals.get('codigo_establecimiento'),
                 'nit_receptor': vals.get('nit_receptor'),
                 'nombre_receptor': vals.get('nombre_receptor'),
+                'nit_certificador': vals.get('nit_certificador'),
+                'nombre_certificador': vals.get('nombre_certificador'),
+                'moneda_codigo': vals.get('moneda_codigo'),
                 'partner_id': partner.id if partner else False,
                 'monto_total': vals.get('monto_total', 0.0),
                 'monto_iva': vals.get('monto_iva', 0.0),
@@ -170,6 +210,22 @@ class ConstructecSatDocument(models.Model):
                 'message': str(exc),
             })
             raise
+
+    @api.model
+    def update_from_excel_row(self, numero_autorizacion, vals):
+        """Complementa un documento YA creado (por create_from_dte/create_from_dte_xml)
+        con los campos que solo trae el Excel del portal - notablemente si fue
+        anulado después de certificado, cosa que el XML nunca refleja. No crea
+        nada nuevo: si no existe un documento con ese numero_autorizacion, no
+        hace nada (silenciosamente) - el Excel es un resumen de MUCHOS
+        documentos y no todos tienen por qué tener ya su XML importado.
+        Devuelve True si actualizó algo, False si no encontró el documento.
+        """
+        document = self.search([('numero_autorizacion', '=', numero_autorizacion)], limit=1)
+        if not document:
+            return False
+        document.write(vals)
+        return True
 
     def _sat_find_or_create_partner(self, nit, name):
         if not nit:
@@ -339,6 +395,9 @@ class ConstructecSatDocumentLine(models.Model):
 
     document_id = fields.Many2one(
         'construtec.sat.document', string='Documento SAT', required=True, ondelete='cascade')
+    numero_linea = fields.Integer(string='No. Línea')
+    bien_o_servicio = fields.Selection(
+        [('B', 'Bien'), ('S', 'Servicio')], string='Bien/Servicio')
     descripcion = fields.Char(string='Descripción', required=True)
     cantidad = fields.Float(string='Cantidad', default=1.0)
     precio_unitario = fields.Float(string='Precio Unitario')
@@ -346,6 +405,8 @@ class ConstructecSatDocumentLine(models.Model):
         string='Descuento',
         help='Monto de descuento tal como viene en el DTE. Es solo informativo: no se traduce '
              'automáticamente al campo "Descuento" (%) de la línea de factura de Odoo.')
+    otro_descuento = fields.Float(
+        string='Otro Descuento', help='Campo "OtrosDescuento" del DTE, informativo.')
     monto_iva = fields.Float(string='IVA')
     monto_total = fields.Float(string='Total')
     product_id = fields.Many2one('product.product', string='Producto')

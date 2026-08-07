@@ -14,6 +14,10 @@
                            statusbar_visible="pendiente,convertido_factura,convertido_orden_compra"/>
                 </header>
                 <sheet>
+                    <div class="alert alert-danger" role="alert" invisible="not anulado">
+                        Este documento fue <strong>ANULADO</strong> en la SAT
+                        (<field name="fecha_anulacion" readonly="1" nolabel="1"/>).
+                    </div>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_ver_factura" type="object" class="oe_stat_button"
                                 icon="fa-file-text-o" invisible="not move_id">
@@ -59,10 +63,13 @@
                         <page string="Líneas">
                             <field name="line_ids">
                                 <list editable="bottom">
+                                    <field name="numero_linea" optional="hide"/>
+                                    <field name="bien_o_servicio" optional="hide"/>
                                     <field name="descripcion"/>
                                     <field name="cantidad"/>
                                     <field name="precio_unitario"/>
                                     <field name="monto_descuento"/>
+                                    <field name="otro_descuento" optional="hide"/>
                                     <field name="monto_iva"/>
                                     <field name="monto_total" sum="Total"/>
                                     <field name="product_id"/>
@@ -70,6 +77,45 @@
                                     <field name="tax_ids" widget="many2many_tags"/>
                                 </list>
                             </field>
+                        </page>
+                        <page string="Detalle SAT">
+                            <group>
+                                <group string="Emisor">
+                                    <field name="nombre_comercial_emisor"/>
+                                    <field name="direccion_emisor"/>
+                                    <field name="codigo_establecimiento"/>
+                                    <field name="nombre_establecimiento"/>
+                                    <field name="clasificacion_emisor"/>
+                                    <field name="exportacion"/>
+                                </group>
+                                <group string="Certificación / Estado">
+                                    <field name="nit_certificador"/>
+                                    <field name="nombre_certificador"/>
+                                    <field name="moneda_codigo"/>
+                                    <field name="estado_sat"/>
+                                    <field name="anulado"/>
+                                    <field name="fecha_anulacion" invisible="not anulado"/>
+                                </group>
+                            </group>
+                            <group string="Otros Impuestos (si aplica)">
+                                <group>
+                                    <field name="monto_petroleo"/>
+                                    <field name="monto_turismo_hospedaje"/>
+                                    <field name="monto_turismo_pasajes"/>
+                                    <field name="monto_timbre_prensa"/>
+                                </group>
+                                <group>
+                                    <field name="monto_bomberos"/>
+                                    <field name="monto_tasa_municipal"/>
+                                    <field name="monto_bebidas_alcoholicas"/>
+                                    <field name="monto_tabaco"/>
+                                </group>
+                                <group>
+                                    <field name="monto_cemento"/>
+                                    <field name="monto_bebidas_no_alcoholicas"/>
+                                    <field name="monto_tarifa_portuaria"/>
+                                </group>
+                            </group>
                         </page>
                     </notebook>
                 </sheet>
@@ -81,13 +127,14 @@
         <field name="name">construtec.sat.document.list</field>
         <field name="model">construtec.sat.document</field>
         <field name="arch" type="xml">
-            <list string="Documentos SAT">
+            <list string="Documentos SAT" decoration-danger="anulado">
                 <field name="fecha_certificacion"/>
                 <field name="direction"/>
                 <field name="tipo_dte"/>
                 <field name="numero_autorizacion"/>
                 <field name="partner_id"/>
                 <field name="monto_total" sum="Total"/>
+                <field name="anulado" optional="hide"/>
                 <field name="state" widget="badge"
                        decoration-success="state in ('convertido_factura', 'convertido_orden_compra')"
                        decoration-info="state == 'pendiente'"/>
@@ -108,6 +155,7 @@
                 <filter string="Pendientes" name="pendientes" domain="[('state', '=', 'pendiente')]"/>
                 <filter string="Convertidos" name="convertidos"
                         domain="[('state', 'in', ('convertido_factura', 'convertido_orden_compra'))]"/>
+                <filter string="Anuladas" name="anuladas" domain="[('anulado', '=', True)]"/>
                 <group>
                     <filter string="Dirección" name="group_direction" context="{'group_by': 'direction'}"/>
                     <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
