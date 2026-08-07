@@ -1,10 +1,91 @@
 import base64
+import re
 import shutil
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 
 from odoo import api, models
+
+# La SAT a veces certifica el DTE con el nombre/dirección del contribuyente ya
+# dañado: un carácter acentuado (á/é/í/ó/ú/ñ) llega reemplazado por un '?'
+# literal ANTES de que nosotros lo veamos - confirmado inspeccionando los bytes
+# crudos de XML reales (ej. NombreEmisor="Avi?n Company, S.A.", "AN?NIMA"). No
+# es un problema de decodificación de nuestro lado: el carácter original ya se
+# perdió. _fix_mangled_accents() intenta recuperarlo por diccionario - si una
+# palabra con '?' coincide con una palabra conocida (apellidos/términos legales
+# comunes en Guatemala) al probar cada vocal acentuada o 'ñ' en esa posición,
+# se corrige. Si no hay una coincidencia clara, se deja el '?' tal cual: mejor
+# no adivinar mal que inventar un dato incorrecto en un documento fiscal.
+_ACCENT_LOWER = ('á', 'é', 'í', 'ó', 'ú', 'ñ')
+_ACCENT_UPPER = ('Á', 'É', 'Í', 'Ó', 'Ú', 'Ñ')
+_KNOWN_WORDS_RAW = {
+    # Términos legales / societarios
+    'ANONIMA', 'COMPAÑIA', 'SUCESION',
+    # Sustantivos terminados en "-ción"/"-sión", muy comunes en nombres comerciales
+    'ADMINISTRACION', 'CONSTRUCCION', 'DISTRIBUCION', 'IMPORTACION', 'EXPORTACION',
+    'PRODUCCION', 'OPERACION', 'ASOCIACION', 'EDUCACION', 'COMUNICACION',
+    'ORGANIZACION', 'INFORMACION', 'NACION', 'INVERSION', 'INVERSIONES',
+    'CORPORACION', 'FUNDACION', 'TRANSPORTACION', 'PLANIFICACION', 'CAPACITACION',
+    'CERTIFICACION', 'CONTRATACION', 'LIQUIDACION', 'ADQUISICION', 'PARTICIPACION',
+    'REPRESENTACION', 'COMERCIALIZACION', 'FABRICACION', 'ELABORACION',
+    'PRESTACION', 'RECEPCION', 'PROMOCION', 'GESTION', 'REGION', 'PENSION',
+    'EXTENSION', 'DIMENSION', 'COMISION', 'MISION', 'VISION', 'DECISION',
+    'REVISION', 'PROVISION', 'SUPERVISION', 'DIVISION', 'CONDICION', 'POSICION',
+    'CONFECCION',
+    # Sustantivos/adjetivos comunes
+    'CANTON', 'AVION', 'CAMION', 'ALMACEN', 'ALMACENES', 'ENERGIA', 'ELECTRONICA',
+    'ELECTRICA', 'MECANICA', 'QUIMICA', 'TECNICA', 'MEDICA', 'ACADEMICA',
+    'ECONOMICA', 'LOGISTICA', 'AUTOMATICA', 'PLASTICA', 'GRAFICA', 'AGRICOLA',
+    'UNICA', 'PUBLICA', 'REPUBLICA', 'MULTIPLE', 'CREDITO', 'CLINICA', 'FARMACIA',
+    'MAQUINA', 'MAQUINARIA', 'TELEFONO', 'TELEFONICA', 'BASICA', 'PRACTICA',
+    'ULTIMA', 'PROXIMA', 'MAXIMA', 'MINIMA', 'OPTICA', 'GENETICA', 'DOMESTICA',
+    # Apellidos comunes en Guatemala
+    'MENDEZ', 'GARCIA', 'RODRIGUEZ', 'HERNANDEZ', 'PEREZ', 'GOMEZ', 'MARTINEZ',
+    'SANCHEZ', 'RAMIREZ', 'JIMENEZ', 'DOMINGUEZ', 'VASQUEZ', 'VELASQUEZ',
+    'CHAVEZ', 'CORDOVA', 'NUÑEZ', 'MUÑOZ', 'IBAÑEZ', 'ORDOÑEZ', 'PANIAGUA',
+    'CASTAÑEDA', 'ZUÑIGA', 'PEÑA', 'MONTAÑO', 'BARRIENTOS', 'ESQUIVEL',
+    # Nombres propios comunes
+    'JOSE', 'MARIA', 'JESUS', 'ANGEL', 'RAUL', 'ANDRES', 'RENE', 'MOISES',
+    'GERMAN', 'RAMON', 'SIMON', 'ADRIAN', 'JULIAN', 'HECTOR', 'TOMAS',
+    'NICOLAS', 'IGNACIO', 'AGUSTIN', 'JOAQUIN', 'ANTON',
+}
+
+
+def _strip_accents_upper(text):
+    import unicodedata
+    normalized = unicodedata.normalize('NFKD', text)
+    return ''.join(c for c in normalized if not unicodedata.combining(c)).upper()
+
+
+# Normalizado una sola vez: algunas palabras de la lista de arriba llevan ñ/tilde
+# escritas directamente (NUÑEZ, COMPAÑIA...) porque así se leen mejor en el
+# código, pero la comparación en _fix_mangled_accents es siempre sin acentos.
+_KNOWN_WORDS_UPPER = {_strip_accents_upper(w) for w in _KNOWN_WORDS_RAW}
+
+
+def _fix_mangled_accents(text):
+    if not text or '?' not in text:
+        return text
+
+    def _fix_token(match):
+        token = match.group(0)
+        # Si el resto de la palabra está en mayúsculas, la tilde insertada
+        # también debe serlo (ANÓNIMA, no ANóNIMA) - se decide por el resto de
+        # letras del propio token, no por una lista fija.
+        letras = token.replace('?', '')
+        candidatos = _ACCENT_UPPER if letras.isupper() else _ACCENT_LOWER
+        for accented in candidatos:
+            candidate = token.replace('?', accented, 1)
+            # Comparar sin acentos: _KNOWN_WORDS_UPPER guarda las palabras SIN
+            # tilde (ANONIMA, MENDEZ...) a propósito, para no tener que listar
+            # cada palabra dos veces - la tilde insertada aquí es la que se usa
+            # en el resultado si hay coincidencia.
+            if _strip_accents_upper(candidate) in _KNOWN_WORDS_UPPER:
+                return candidate
+        return token
+
+    return re.sub(r'[^\W\d_]*\?[^\W\d_]*', _fix_token, text, flags=re.UNICODE)
 
 # Ruta por defecto donde run_sat_download_only.py/run_sat_download_range.py (bot
 # Selenium fuera de Odoo, en C:\Users\Alex\Documents\n8n\sat-bot) dejan los
@@ -98,7 +179,7 @@ def _parse_dte_xml(xml_bytes: bytes) -> dict:
         lines.append({
             'numero_linea': int(numero_linea_raw) if numero_linea_raw else 0,
             'bien_o_servicio': item.get('BienOServicio'),
-            'descripcion': _text('Descripcion', ''),
+            'descripcion': _fix_mangled_accents(_text('Descripcion', '')),
             'cantidad': float(_text('Cantidad')),
             'precio_unitario': float(_text('PrecioUnitario')),
             'monto_descuento': float(_text('Descuento')),
@@ -117,15 +198,15 @@ def _parse_dte_xml(xml_bytes: bytes) -> dict:
         'fecha_certificacion': _parse_dte_datetime(certificacion.find('dte:FechaHoraCertificacion', NS).text)
         if certificacion is not None else None,
         'nit_emisor': emisor.get('NITEmisor') if emisor is not None else None,
-        'nombre_emisor': emisor.get('NombreEmisor') if emisor is not None else None,
-        'nombre_comercial_emisor': emisor.get('NombreComercial') if emisor is not None else None,
+        'nombre_emisor': _fix_mangled_accents(emisor.get('NombreEmisor')) if emisor is not None else None,
+        'nombre_comercial_emisor': _fix_mangled_accents(emisor.get('NombreComercial')) if emisor is not None else None,
         'codigo_establecimiento': emisor.get('CodigoEstablecimiento') if emisor is not None else None,
-        'direccion_emisor': direccion_emisor_el.text if direccion_emisor_el is not None else None,
+        'direccion_emisor': _fix_mangled_accents(direccion_emisor_el.text) if direccion_emisor_el is not None else None,
         'nit_receptor': receptor.get('IDReceptor') if receptor is not None else None,
-        'nombre_receptor': receptor.get('NombreReceptor') if receptor is not None else None,
+        'nombre_receptor': _fix_mangled_accents(receptor.get('NombreReceptor')) if receptor is not None else None,
         'nit_certificador': certificacion.find('dte:NITCertificador', NS).text
         if certificacion is not None and certificacion.find('dte:NITCertificador', NS) is not None else None,
-        'nombre_certificador': certificacion.find('dte:NombreCertificador', NS).text
+        'nombre_certificador': _fix_mangled_accents(certificacion.find('dte:NombreCertificador', NS).text)
         if certificacion is not None and certificacion.find('dte:NombreCertificador', NS) is not None else None,
         'monto_total': float(gran_total_el.text) if gran_total_el is not None and gran_total_el.text else 0.0,
         'monto_iva': float(total_iva_el.get('TotalMontoImpuesto')) if total_iva_el is not None else 0.0,
@@ -183,7 +264,7 @@ def _parse_dte_excel(xls_bytes: bytes) -> dict:
                 except (TypeError, ValueError):
                     row_vals[field_name] = 0.0
             else:
-                row_vals[field_name] = str(raw_value).strip()
+                row_vals[field_name] = _fix_mangled_accents(str(raw_value).strip())
         result[numero_autorizacion] = row_vals
 
     return result
