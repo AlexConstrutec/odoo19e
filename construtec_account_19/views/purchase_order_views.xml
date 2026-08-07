@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="account_move_form_inherit_construtec_account" model="ir.ui.view">
-        <field name="name">account.move.form.inherit.construtec.account</field>
-        <field name="model">account.move</field>
-        <field name="inherit_id" ref="account.view_move_form"/>
+    <record id="purchase_order_form_inherit_construtec_account" model="ir.ui.view">
+        <field name="name">purchase.order.form.inherit.construtec.account</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
         <field name="arch" type="xml">
-            <field name="date" position="after">
-                <field name="partida_numero" readonly="state != 'posted'"/>
-            </field>
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button name="action_view_sat_document" type="object" class="oe_stat_button"
                         icon="fa-file-text-o" invisible="not sat_document_id">

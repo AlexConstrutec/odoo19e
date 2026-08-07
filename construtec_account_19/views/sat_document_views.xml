@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_construtec_sat_document_form" model="ir.ui.view">
+        <field name="name">construtec.sat.document.form</field>
+        <field name="model">construtec.sat.document</field>
+        <field name="arch" type="xml">
+            <form string="Documento SAT">
+                <header>
+                    <button name="action_convertir_a_factura" string="Convertir a Factura" type="object"
+                            class="oe_highlight" invisible="state != 'pendiente'"/>
+                    <button name="action_convertir_a_orden_compra" string="Convertir a Orden de Compra" type="object"
+                            invisible="state != 'pendiente' or direction != 'recibida'"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="pendiente,convertido_factura,convertido_orden_compra"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_ver_factura" type="object" class="oe_stat_button"
+                                icon="fa-file-text-o" invisible="not move_id">
+                            <field name="move_id" widget="statinfo" string="Factura"/>
+                        </button>
+                        <button name="action_ver_orden_compra" type="object" class="oe_stat_button"
+                                icon="fa-shopping-cart" invisible="not purchase_order_id">
+                            <field name="purchase_order_id" widget="statinfo" string="Orden de Compra"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="numero_autorizacion"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="direction"/>
+                            <field name="tipo_dte"/>
+                            <field name="serie"/>
+                            <field name="numero_documento"/>
+                            <field name="fecha_certificacion"/>
+                        </group>
+                        <group>
+                            <field name="partner_id"/>
+                            <field name="nit_emisor" readonly="1"/>
+                            <field name="nombre_emisor" readonly="1"/>
+                            <field name="nit_receptor" readonly="1"/>
+                            <field name="nombre_receptor" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="monto_total"/>
+                            <field name="monto_iva"/>
+                        </group>
+                        <group>
+                            <field name="xml_attachment_id" readonly="1"/>
+                            <field name="pdf_attachment_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Líneas">
+                            <field name="line_ids">
+                                <list editable="bottom">
+                                    <field name="descripcion"/>
+                                    <field name="cantidad"/>
+                                    <field name="precio_unitario"/>
+                                    <field name="monto_descuento"/>
+                                    <field name="monto_iva"/>
+                                    <field name="monto_total" sum="Total"/>
+                                    <field name="product_id"/>
+                                    <field name="account_id"/>
+                                    <field name="tax_ids" widget="many2many_tags"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_construtec_sat_document_list" model="ir.ui.view">
+        <field name="name">construtec.sat.document.list</field>
+        <field name="model">construtec.sat.document</field>
+        <field name="arch" type="xml">
+            <list string="Documentos SAT">
+                <field name="fecha_certificacion"/>
+                <field name="direction"/>
+                <field name="tipo_dte"/>
+                <field name="numero_autorizacion"/>
+                <field name="partner_id"/>
+                <field name="monto_total" sum="Total"/>
+                <field name="state" widget="badge"
+                       decoration-success="state in ('convertido_factura', 'convertido_orden_compra')"
+                       decoration-info="state == 'pendiente'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_construtec_sat_document_search" model="ir.ui.view">
+        <field name="name">construtec.sat.document.search</field>
+        <field name="model">construtec.sat.document</field>
+        <field name="arch" type="xml">
+            <search string="Documentos SAT">
+                <field name="numero_autorizacion"/>
+                <field name="partner_id"/>
+                <filter string="Recibidas" name="recibidas" domain="[('direction', '=', 'recibida')]"/>
+                <filter string="Emitidas" name="emitidas" domain="[('direction', '=', 'emitida')]"/>
+                <separator/>
+                <filter string="Pendientes" name="pendientes" domain="[('state', '=', 'pendiente')]"/>
+                <filter string="Convertidos" name="convertidos"
+                        domain="[('state', 'in', ('convertido_factura', 'convertido_orden_compra'))]"/>
+                <group>
+                    <filter string="Dirección" name="group_direction" context="{'group_by': 'direction'}"/>
+                    <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_construtec_sat_document" model="ir.actions.act_window">
+        <field name="name">Documentos SAT</field>
+        <field name="res_model">construtec.sat.document</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_pendientes': 1}</field>
+    </record>
+
+    <record id="action_construtec_sat_document_import" model="ir.actions.server">
+        <field name="name">Importar desde SAT</field>
+        <field name="model_id" ref="model_construtec_sat_document"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_import_from_outbox()</field>
+    </record>
+
+    <menuitem id="menu_construtec_sat_document_root" name="Documentos SAT" parent="account.menu_finance"
+              sequence="6"/>
+    <menuitem id="menu_construtec_sat_document" action="action_construtec_sat_document"
+              parent="menu_construtec_sat_document_root" sequence="1"/>
+    <menuitem id="menu_construtec_sat_document_import" action="action_construtec_sat_document_import"
+              parent="menu_construtec_sat_document_root" sequence="2"/>
+</odoo>

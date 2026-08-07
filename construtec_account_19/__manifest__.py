@@ -9,10 +9,15 @@
     'depends': [
         'base',
         'account',
+        'purchase_stock',
     ],
     'data': [
+        'security/ir.model.access.csv',
         'views/res_company_views.xml',
         'views/account_move_views.xml',
+        'views/purchase_order_views.xml',
+        'views/sat_document_views.xml',
+        'views/sat_import_log_views.xml',
     ],
     'application': False,
     'installable': True,

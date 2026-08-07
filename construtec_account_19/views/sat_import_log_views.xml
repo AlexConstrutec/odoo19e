@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_construtec_sat_import_log_list" model="ir.ui.view">
+        <field name="name">construtec.sat.import.log.list</field>
+        <field name="model">construtec.sat.import.log</field>
+        <field name="arch" type="xml">
+            <list string="Bitácora de Importación SAT" create="false" edit="false">
+                <field name="create_date"/>
+                <field name="direction"/>
+                <field name="numero_autorizacion"/>
+                <field name="document_id"/>
+                <field name="state" widget="badge" decoration-success="state == 'success'"
+                       decoration-warning="state == 'skipped_duplicate'"
+                       decoration-danger="state == 'error'"/>
+                <field name="message"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_construtec_sat_import_log_search" model="ir.ui.view">
+        <field name="name">construtec.sat.import.log.search</field>
+        <field name="model">construtec.sat.import.log</field>
+        <field name="arch" type="xml">
+            <search string="Bitácora de Importación SAT">
+                <field name="numero_autorizacion"/>
+                <filter string="Errores" name="errores" domain="[('state', '=', 'error')]"/>
+                <filter string="Duplicados" name="duplicados" domain="[('state', '=', 'skipped_duplicate')]"/>
+                <group>
+                    <filter string="Resultado" name="group_state" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_construtec_sat_import_log" model="ir.actions.act_window">
+        <field name="name">Bitácora de Importación SAT</field>
+        <field name="res_model">construtec.sat.import.log</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <menuitem id="menu_construtec_sat_import_log" action="action_construtec_sat_import_log"
+              parent="menu_construtec_sat_document_root" sequence="2"/>
+</odoo>
