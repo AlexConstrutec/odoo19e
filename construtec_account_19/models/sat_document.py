@@ -10,6 +10,7 @@ TIPO_DTE_SELECTION = [
     ('NABN', 'NABN: Nota de Abono'),
     ('NCRE', 'NCRE: Nota de Crédito'),
     ('NDEB', 'NDEB: Nota de Débito'),
+    ('RECI', 'RECI: Recibo'),
 ]
 
 # Solo la Nota de Crédito se contabiliza como in_refund/out_refund (disminuye lo adeudado).
