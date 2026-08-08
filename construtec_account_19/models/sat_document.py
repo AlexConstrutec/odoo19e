@@ -12,6 +12,19 @@ TIPO_DTE_SELECTION = [
     ('NDEB', 'NDEB: Nota de Débito'),
     ('RECI', 'RECI: Recibo'),
     ('CIVA', 'CIVA: Constancia de IVA'),
+    # Los siguientes no se han visto todavía en un documento real (a diferencia
+    # de los de arriba, verificados contra XML reales) - agregados por
+    # adelantado según el catálogo público de la SAT para evitar el mismo
+    # fallo de "Wrong value for tipo_dte" si aparecen. La SAT sigue agregando
+    # tipos con el tiempo (p.ej. Decreto 31-2024), así que esta lista puede
+    # seguir quedando corta - si falla uno nuevo, se agrega igual que estos.
+    ('FEXP', 'FEXP: Factura Electrónica de Exportación'),
+    ('RDON', 'RDON: Recibo por Donación'),
+    ('RSP', 'RSP: Recibo por Servicios Profesionales'),
+    ('NENV', 'NENV: Nota de Envío'),
+    ('RECC', 'RECC: Recibo de Caja Chica'),
+    ('REPA', 'REPA: Recibo de Pago'),
+    ('CRET', 'CRET: Comprobante de Retención'),
 ]
 
 # Solo la Nota de Crédito se contabiliza como in_refund/out_refund (disminuye lo adeudado).
