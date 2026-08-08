@@ -11,6 +11,7 @@ TIPO_DTE_SELECTION = [
     ('NCRE', 'NCRE: Nota de Crédito'),
     ('NDEB', 'NDEB: Nota de Débito'),
     ('RECI', 'RECI: Recibo'),
+    ('CIVA', 'CIVA: Constancia de IVA'),
 ]
 
 # Solo la Nota de Crédito se contabiliza como in_refund/out_refund (disminuye lo adeudado).
