@@ -10,8 +10,10 @@
                             class="oe_highlight" invisible="state != 'pendiente'"/>
                     <button name="action_convertir_a_orden_compra" string="Convertir a Orden de Compra" type="object"
                             invisible="state != 'pendiente' or direction != 'recibida'"/>
+                    <button name="action_convertir_a_pedido_venta" string="Convertir a Pedido de Venta" type="object"
+                            invisible="state != 'pendiente' or direction != 'emitida'"/>
                     <field name="state" widget="statusbar"
-                           statusbar_visible="pendiente,convertido_factura,convertido_orden_compra"/>
+                           statusbar_visible="pendiente,convertido_factura,convertido_orden_compra,convertido_pedido_venta"/>
                 </header>
                 <sheet>
                     <div class="alert alert-danger" role="alert" invisible="not anulado">
@@ -26,6 +28,10 @@
                         <button name="action_ver_orden_compra" type="object" class="oe_stat_button"
                                 icon="fa-shopping-cart" invisible="not purchase_order_id">
                             <field name="purchase_order_id" widget="statinfo" string="Orden de Compra"/>
+                        </button>
+                        <button name="action_ver_pedido_venta" type="object" class="oe_stat_button"
+                                icon="fa-shopping-cart" invisible="not sale_order_id">
+                            <field name="sale_order_id" widget="statinfo" string="Pedido de Venta"/>
                         </button>
                     </div>
                     <div class="oe_title">

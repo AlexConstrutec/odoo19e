@@ -107,10 +107,13 @@ class ConstructecSatDocument(models.Model):
         ('pendiente', 'Pendiente'),
         ('convertido_factura', 'Convertido a Factura'),
         ('convertido_orden_compra', 'Convertido a Orden de Compra'),
+        ('convertido_pedido_venta', 'Convertido a Pedido de Venta'),
     ], string='Estado', default='pendiente', copy=False)
     move_id = fields.Many2one('account.move', string='Factura Generada', readonly=True, copy=False)
     purchase_order_id = fields.Many2one(
         'purchase.order', string='Orden de Compra Generada', readonly=True, copy=False)
+    sale_order_id = fields.Many2one(
+        'sale.order', string='Pedido de Venta Generado', readonly=True, copy=False)
 
     _numero_autorizacion_uniq = models.Constraint(
         'unique(numero_autorizacion)',
@@ -414,13 +417,65 @@ class ConstructecSatDocument(models.Model):
             'target': 'current',
         }
 
+    def action_convertir_a_pedido_venta(self):
+        self.ensure_one()
+        if self.direction != 'emitida':
+            raise UserError(self.env._(
+                'Solo los documentos Emitidos (ventas) se pueden convertir a Pedido de Venta.'))
+        if self.state != 'pendiente':
+            raise UserError(self.env._('Este documento ya fue convertido.'))
+        if not self.partner_id:
+            raise UserError(self.env._(
+                'Define el Contacto (resuelto por NIT) antes de convertir a Pedido de Venta.'))
+        if not self.line_ids:
+            raise UserError(self.env._('El documento no tiene líneas que convertir.'))
+
+        order_line_ids = []
+        for linea in self.line_ids:
+            producto = linea.product_id or self._sat_get_or_create_generic_product(linea.descripcion)
+            order_line_ids.append((0, 0, {
+                'product_id': producto.id,
+                'name': linea.descripcion,
+                'product_uom_qty': linea.cantidad or 1.0,
+                'price_unit': linea.precio_unitario,
+                'tax_ids': [(6, 0, linea.tax_ids.ids)],
+            }))
+
+        order = self.env['sale.order'].create({
+            'partner_id': self.partner_id.id,
+            'date_order': self.fecha_certificacion,
+            'client_order_ref': self.numero_documento or self.numero_autorizacion,
+            'currency_id': self.currency_id.id,
+            'order_line': order_line_ids,
+            'sat_document_id': self.id,
+        })
+
+        adjuntos = self.xml_attachment_id | self.pdf_attachment_id
+        if adjuntos:
+            adjuntos.write({'res_model': 'sale.order', 'res_id': order.id})
+
+        self.write({'sale_order_id': order.id, 'state': 'convertido_pedido_venta'})
+
+        return self.action_ver_pedido_venta()
+
+    def action_ver_pedido_venta(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'sale.order',
+            'view_mode': 'form',
+            'res_id': self.sale_order_id.id,
+            'target': 'current',
+        }
+
     def _sat_get_or_create_generic_product(self, descripcion):
-        """Usada solo al convertir a Orden de Compra: las líneas de OC necesitan
-        product_id obligatorio, pero las líneas del documento SAT lo dejan en blanco
-        a propósito (mapeo manual, ver construtec.sat.document.line.product_id). Si
-        falta, se busca/crea un producto genérico "de paso" por nombre exacto de la
-        descripción del DTE, marcado como inventariable (is_storable) para que sí
-        cuente en control de inventario.
+        """Usada al convertir a Orden de Compra o a Pedido de Venta: ambas líneas
+        necesitan product_id obligatorio, pero las líneas del documento SAT lo dejan
+        en blanco a propósito (mapeo manual, ver construtec.sat.document.line.product_id).
+        Si falta, se busca/crea un producto genérico "de paso" por nombre exacto de la
+        descripción del DTE, marcado como inventariable (is_storable) y habilitado tanto
+        para compra como para venta, ya que el mismo producto genérico puede terminar
+        usándose desde cualquiera de las dos conversiones según qué documento SAT lo cree.
         """
         producto = self.env['product.product'].search([('name', '=', descripcion)], limit=1)
         if producto:
@@ -432,7 +487,7 @@ class ConstructecSatDocument(models.Model):
             'type': 'consu',
             'is_storable': True,
             'purchase_ok': True,
-            'sale_ok': False,
+            'sale_ok': True,
         })
         return template.product_variant_id
 
