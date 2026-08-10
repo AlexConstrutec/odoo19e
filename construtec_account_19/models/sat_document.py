@@ -329,6 +329,7 @@ class ConstructecSatDocument(models.Model):
                 'price_unit': linea.precio_unitario,
                 'account_id': linea.account_id.id,
                 'tax_ids': [(6, 0, linea.tax_ids.ids)],
+                'analytic_distribution': linea.analytic_distribution,
             }
             if linea.product_id:
                 vals['product_id'] = linea.product_id.id
@@ -388,6 +389,7 @@ class ConstructecSatDocument(models.Model):
                 'product_qty': linea.cantidad or 1.0,
                 'price_unit': linea.precio_unitario,
                 'tax_ids': [(6, 0, linea.tax_ids.ids)],
+                'analytic_distribution': linea.analytic_distribution,
             }))
 
         order = self.env['purchase.order'].create({
@@ -439,6 +441,7 @@ class ConstructecSatDocument(models.Model):
                 'product_uom_qty': linea.cantidad or 1.0,
                 'price_unit': linea.precio_unitario,
                 'tax_ids': [(6, 0, linea.tax_ids.ids)],
+                'analytic_distribution': linea.analytic_distribution,
             }))
 
         order = self.env['sale.order'].create({
@@ -494,6 +497,7 @@ class ConstructecSatDocument(models.Model):
 
 class ConstructecSatDocumentLine(models.Model):
     _name = 'construtec.sat.document.line'
+    _inherit = ['analytic.mixin']
     _description = 'Línea de Documento SAT (DTE) importado'
 
     document_id = fields.Many2one(
