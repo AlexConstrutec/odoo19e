@@ -210,7 +210,9 @@
                 <field name="numero_autorizacion"/>
                 <field name="partner_id"/>
                 <field name="nit_contacto"/>
+                <field name="fecha_certificacion"/>
                 <field name="product_id"/>
+                <field name="descripcion"/>
                 <group>
                     <filter string="Contacto" name="group_partner" context="{'group_by': 'partner_id'}"/>
                     <filter string="Producto" name="group_product" context="{'group_by': 'product_id'}"/>
