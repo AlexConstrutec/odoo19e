@@ -20,8 +20,9 @@ It contains a set of custom modules being migrated from a legacy Odoo 16 deploym
 | [construtec_account_reports_19](construtec_account_reports_19/CLAUDE.md) | `account_report_financial` | Built |
 | [construtec_account_19](construtec_account_19/CLAUDE.md) | n/a (new, not a migration) | Built (fiscal fields only; FEL certification pending) |
 | [construtec_account_payment_order_19](construtec_account_payment_order_19/CLAUDE.md) | `bolson` | Built (only `tipo == 'liquidacion'` has real logic; `anticipo`/`pago_directo` are structure-only, pending) |
+| [construtec_materials_sync_19](construtec_materials_sync_19/CLAUDE.md) | n/a (new, receiving side of an API integration) | Built — receives a read-only mirror of Odoo19C's `construtec_materials_19` "Solicitud de Materiales" via `/jsonrpc`, `depends: ["base"]` only |
 
-Dependency order (each depends on the ones above it): `construtec_hr_payroll_19` → `construtec_hr_employee_19` → `construtec_hr_reports_19` → `construtec_account_reports_19` (also depends on `construtec_hr_payroll_19` directly, for `account.payment.payslip_id`).
+Dependency order (each depends on the ones above it): `construtec_hr_payroll_19` → `construtec_hr_employee_19` → `construtec_hr_reports_19` → `construtec_account_reports_19` (also depends on `construtec_hr_payroll_19` directly, for `account.payment.payslip_id`). `construtec_materials_sync_19` is independent of this chain.
 
 ## Why this isn't a straight port
 

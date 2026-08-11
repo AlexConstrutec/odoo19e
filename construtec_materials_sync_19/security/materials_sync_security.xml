@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="group_materials_sync_integration" model="res.groups">
+        <field name="name">Integración: Sincronización de Materiales (Community)</field>
+        <field name="comment">
+            Grupo de mínimo privilegio para el usuario de servicio cuya API
+            Key usa Odoo Community para sincronizar Solicitudes de
+            Materiales. Solo puede crear registros espejo — nunca leer,
+            modificar ni eliminar — para que una API Key filtrada no permita
+            leer ni alterar datos existentes.
+        </field>
+    </record>
+</odoo>
