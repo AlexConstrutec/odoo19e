@@ -12,6 +12,7 @@ TIPO_DTE_SELECTION = [
     ('NDEB', 'NDEB: Nota de Débito'),
     ('RECI', 'RECI: Recibo'),
     ('CIVA', 'CIVA: Constancia de IVA'),
+    ('FAPE', 'FAPE: Factura de Pequeño Contribuyente Especial'),
     # Los siguientes no se han visto todavía en un documento real (a diferencia
     # de los de arriba, verificados contra XML reales) - agregados por
     # adelantado según el catálogo público de la SAT para evitar el mismo
