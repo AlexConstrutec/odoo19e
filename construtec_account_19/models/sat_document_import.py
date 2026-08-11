@@ -1,4 +1,5 @@
 import base64
+import logging
 import re
 import shutil
 import xml.etree.ElementTree as ET
@@ -6,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from odoo import api, models
+
+_logger = logging.getLogger(__name__)
 
 # La SAT a veces certifica el DTE con el nombre/dirección del contribuyente ya
 # dañado: un carácter acentuado (á/é/í/ó/ú/ñ) llega reemplazado por un '?'
@@ -40,8 +43,10 @@ _KNOWN_WORDS_RAW = {
     'UNICA', 'PUBLICA', 'REPUBLICA', 'MULTIPLE', 'CREDITO', 'CLINICA', 'FARMACIA',
     'MAQUINA', 'MAQUINARIA', 'TELEFONO', 'TELEFONICA', 'BASICA', 'PRACTICA',
     'ULTIMA', 'PROXIMA', 'MAXIMA', 'MINIMA', 'OPTICA', 'GENETICA', 'DOMESTICA',
+    # Términos de catálogo de productos (vistos en nombres de producto reales con '?')
+    'CAMARA', 'CAMARAS',
     # Apellidos comunes en Guatemala
-    'MENDEZ', 'GARCIA', 'RODRIGUEZ', 'HERNANDEZ', 'PEREZ', 'GOMEZ', 'MARTINEZ',
+    'MENDEZ', 'GARCIA', 'RODRIGUEZ', 'HERNANDEZ', 'PEREZ', 'GOMEZ', 'MARTINEZ', 'LOPEZ',
     'SANCHEZ', 'RAMIREZ', 'JIMENEZ', 'DOMINGUEZ', 'VASQUEZ', 'VELASQUEZ',
     'CHAVEZ', 'CORDOVA', 'NUÑEZ', 'MUÑOZ', 'IBAÑEZ', 'ORDOÑEZ', 'PANIAGUA',
     'CASTAÑEDA', 'ZUÑIGA', 'PEÑA', 'MONTAÑO', 'BARRIENTOS', 'ESQUIVEL',
@@ -452,5 +457,68 @@ class ConstructecSatDocument(models.Model):
                 'message': mensaje,
                 'sticky': resumen.get('error', 0) > 0,
                 'type': 'warning' if resumen.get('error', 0) > 0 else 'success',
+            },
+        }
+
+    @api.model
+    def action_fix_mangled_accents(self):
+        """Botón/acción "Corregir Acentos Dañados": repara con el mismo diccionario
+        de _fix_mangled_accents() nombres que quedaron con un '?' literal en vez de
+        una vocal acentuada o 'ñ' - datos ya guardados de ANTES de conocer la causa
+        real (ver comentario junto a _fix_mangled_accents más arriba), o palabras
+        que ese diccionario todavía no conocía al momento de importar (ej. nombres
+        de producto del catálogo, que no pasan por el parser de DTE en absoluto).
+
+        Revisa res.partner.name, product.template.name, los campos de texto del
+        propio encabezado SAT y construtec.sat.document.line.descripcion. Solo
+        escribe cuando encuentra una coincidencia seguro en el diccionario - lo
+        que no puede resolver se deja intacto (mismo criterio de "no adivinar" que
+        ya usa _fix_mangled_accents al importar) y queda listado en el log del
+        servidor para revisión manual, en vez de arriesgar un dato incorrecto en
+        un documento fiscal o en el catálogo de productos.
+        """
+        corregidos = []
+        sin_resolver = []
+
+        def _procesar(records, field_name):
+            for record in records:
+                original = record[field_name]
+                if not original or '?' not in original:
+                    continue
+                nuevo = _fix_mangled_accents(original)
+                if nuevo != original:
+                    record[field_name] = nuevo
+                    corregidos.append(f"{record._name}#{record.id}.{field_name}: '{original}' -> '{nuevo}'")
+                else:
+                    sin_resolver.append(f"{record._name}#{record.id}.{field_name}: '{original}'")
+
+        _procesar(self.env['res.partner'].search([('name', 'like', '%?%')]), 'name')
+        _procesar(self.env['product.template'].search([('name', 'like', '%?%')]), 'name')
+        for field_name in (
+            'nombre_emisor', 'nombre_receptor', 'nombre_comercial_emisor',
+            'direccion_emisor', 'nombre_certificador', 'nombre_establecimiento',
+        ):
+            _procesar(self.search([(field_name, 'like', '%?%')]), field_name)
+        _procesar(self.env['construtec.sat.document.line'].search([('descripcion', 'like', '%?%')]), 'descripcion')
+
+        if corregidos or sin_resolver:
+            _logger.info(
+                "Corrección de acentos dañados: %s corregidos, %s sin coincidencia segura.\n%s",
+                len(corregidos), len(sin_resolver),
+                '\n'.join(corregidos + [f"SIN RESOLVER: {texto}" for texto in sin_resolver]),
+            )
+
+        mensaje = (
+            f"Corregidos: {len(corregidos)} | "
+            f"Sin coincidencia segura (ver log del servidor): {len(sin_resolver)}"
+        )
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Corrección de acentos dañados',
+                'message': mensaje,
+                'sticky': len(sin_resolver) > 0,
+                'type': 'warning' if sin_resolver else 'success',
             },
         }

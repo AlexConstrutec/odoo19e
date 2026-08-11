@@ -232,6 +232,13 @@
         <field name="code">action = model.action_import_from_outbox()</field>
     </record>
 
+    <record id="action_construtec_sat_document_fix_accents" model="ir.actions.server">
+        <field name="name">Corregir Acentos Dañados</field>
+        <field name="model_id" ref="model_construtec_sat_document"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_fix_mangled_accents()</field>
+    </record>
+
     <menuitem id="menu_construtec_sat_document_root" name="Documentos SAT" parent="account.menu_finance"
               sequence="6"/>
     <menuitem id="menu_construtec_sat_document" action="action_construtec_sat_document"
@@ -240,4 +247,6 @@
               parent="menu_construtec_sat_document_root" sequence="2"/>
     <menuitem id="menu_construtec_sat_document_import" action="action_construtec_sat_document_import"
               parent="menu_construtec_sat_document_root" sequence="3"/>
+    <menuitem id="menu_construtec_sat_document_fix_accents" action="action_construtec_sat_document_fix_accents"
+              parent="menu_construtec_sat_document_root" sequence="4"/>
 </odoo>
