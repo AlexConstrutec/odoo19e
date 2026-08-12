@@ -29,6 +29,7 @@
         #'views/hr_work_entry_views.xml',
         'views/hr_qualification_views.xml',
         'views/hr_loan_views.xml',
+        'views/hr_isr_retencion_views.xml',
         'views/salary_advance_views.xml',
         'views/hr_payslip_worked_days_wizard_views.xml',
         'views/hr_payroll_register_payment_views.xml',

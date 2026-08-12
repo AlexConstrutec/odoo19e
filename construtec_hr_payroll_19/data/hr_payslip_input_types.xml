@@ -89,5 +89,9 @@
             <field name="code">BON_FIJ_ES</field>
             <field name="name">Bonificacion Fija - Estatico</field>
         </record>
+        <record id="hr_payslip_input_type_isr_ajuste" model="hr.payslip.input.type">
+            <field name="code">ISR_AJ</field>
+            <field name="name">Retención ISR</field>
+        </record>
     </data>
 </odoo>

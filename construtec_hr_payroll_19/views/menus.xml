@@ -32,5 +32,10 @@
     <menuitem id="menu_hr_payslip_input_type" name="Tipos de Entrada" parent="menu_division_entradas_nomina"
               action="hr_payroll.action_view_hr_payslip_input_type"/>
 
+    <!-- División Retención ISR -->
+    <menuitem id="menu_division_isr_retencion" name="Retención ISR" parent="menu_alteraciones_salariales" sequence="7"/>
+    <menuitem id="menu_hr_isr_retencion_request" name="Retenciones ISR" parent="menu_division_isr_retencion" action="action_hr_isr_retencion_request"/>
+    <menuitem id="menu_hr_isr_retencion_line_request" name="Cuotas de Retención ISR" parent="menu_division_isr_retencion" action="act_hr_isr_retencion_line_request"/>
+
     <menuitem id="menu_prestaciones_list" name="Prestaciones de Nómina" parent="hr_payroll.menu_hr_payroll_report" action="action_prestaciones_list"/>
 </odoo>

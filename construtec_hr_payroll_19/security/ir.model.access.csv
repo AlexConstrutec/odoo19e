@@ -34,3 +34,9 @@ access_hr_absence_line_manager,hr.absence.line.manager,model_hr_absence_line,hr.
 access_hr_payslip_input_employee_user,hr.payslip.input.employee.user,model_hr_payslip_input_employee,base.group_user,1,0,0,0
 access_hr_payslip_input_employee_hr_user,hr.payslip.input.employee.hr_user,model_hr_payslip_input_employee,hr.group_hr_user,1,1,1,1
 access_hr_payslip_input_employee_manager,hr.payslip.input.employee.manager,model_hr_payslip_input_employee,hr.group_hr_manager,1,1,1,1
+access_hr_isr_retencion_user,hr.isr.retencion.user,model_hr_isr_retencion,base.group_user,1,1,1,0
+access_hr_isr_retencion_hr_user,hr.isr.retencion.hr_user,model_hr_isr_retencion,hr.group_hr_user,1,1,1,1
+access_hr_isr_retencion_manager,hr.isr.retencion.manager,model_hr_isr_retencion,hr.group_hr_manager,1,1,1,1
+access_hr_isr_retencion_line_user,hr.isr.retencion.line.user,model_hr_isr_retencion_line,base.group_user,1,1,1,0
+access_hr_isr_retencion_line_hr_user,hr.isr.retencion.line.hr_user,model_hr_isr_retencion_line,hr.group_hr_user,1,1,1,1
+access_hr_isr_retencion_line_manager,hr.isr.retencion.line.manager,model_hr_isr_retencion_line,hr.group_hr_manager,1,1,1,1

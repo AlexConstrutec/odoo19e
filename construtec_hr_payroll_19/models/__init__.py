@@ -6,6 +6,7 @@ from . import hr_payslip_input_employee
 #from . import hr_work_entry
 from . import hr_qualification
 from . import hr_loan
+from . import hr_isr_retencion
 from . import salary_advance
 from . import hr_payslip
 #from . import hr_payslip_run

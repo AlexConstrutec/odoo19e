@@ -24,5 +24,13 @@
             <field name="padding">4</field>
             <field name="company_id" eval="False"/>
         </record>
+
+        <record id="hr_isr_retencion_sequence" model="ir.sequence">
+            <field name="name">Retenciones ISR</field>
+            <field name="code">hr.isr.retencion.seq</field>
+            <field name="prefix">ISR/</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
     </data>
 </odoo>

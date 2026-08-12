@@ -12,6 +12,7 @@ class HrEmployee(models.Model):
     payslip_input_ids = fields.One2many('hr.payslip.input.employee', 'employee_id', string='Otras Entradas')
     # entradas_trabajo = fields.One2many('hr.work.entry', 'employee_id', string='Entradas de trabajo')
     loan_count = fields.Integer(string='Cantidad de préstamos', compute='_compute_loan_count')
+    isr_count = fields.Integer(string='Cantidad de retenciones ISR', compute='_compute_isr_count')
     absence_count = fields.Integer(string='Cantidad de ausencias', compute='_compute_absence_count')
     payslip_input_count = fields.Integer(string='Cantidad de otras entradas', compute='_compute_payslip_input_count')
     # estado_contrato = fields.Many2one('hr.contract.status', string='Estado de contrato',
@@ -25,6 +26,13 @@ class HrEmployee(models.Model):
         counts = {employee.id: count for employee, count in loan_data}
         for employee in self:
             employee.loan_count = counts.get(employee.id, 0)
+
+    def _compute_isr_count(self):
+        isr_data = self.env['hr.isr.retencion']._read_group(
+            [('employee_id', 'in', self.ids)], ['employee_id'], ['__count'])
+        counts = {employee.id: count for employee, count in isr_data}
+        for employee in self:
+            employee.isr_count = counts.get(employee.id, 0)
 
     def _compute_absence_count(self):
         absence_data = self.env['hr.absence.line']._read_group(

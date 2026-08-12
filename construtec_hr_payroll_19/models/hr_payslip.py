@@ -6,6 +6,7 @@ class HrPayslipInput(models.Model):
     _inherit = 'hr.payslip.input'
 
     loan_line_id = fields.Many2one('hr.loan.line', string='Cuota de préstamo')
+    isr_line_id = fields.Many2one('hr.isr.retencion.line', string='Cuota de Retención ISR')
 
 
 class HrPayslip(models.Model):
@@ -48,6 +49,8 @@ class HrPayslip(models.Model):
         input_type_advance = self.env.ref('construtec_hr_payroll_19.hr_payslip_input_type_advance', raise_if_not_found=False)
         input_type_qualification = self.env.ref(
             'construtec_hr_payroll_19.hr_payslip_input_type_qualification', raise_if_not_found=False)
+        input_type_isr = self.env.ref(
+            'construtec_hr_payroll_19.hr_payslip_input_type_isr_ajuste', raise_if_not_found=False)
 
         for payslip in self:
             if not (payslip.employee_id and payslip.date_from and payslip.date_to):
@@ -94,6 +97,27 @@ class HrPayslip(models.Model):
                             date=advance.date.strftime('%d/%m/%Y'), desc=advance.reason or ''),
                     }))
 
+            if input_type_isr and 'ISR_AJ' in rule_codes:
+                codes_to_clear.append('ISR_AJ')
+                isrs = self.env['hr.isr.retencion'].search([
+                    ('version_id', '=', payslip.version_id.id),
+                    ('state', '=', 'approve'),
+                ])
+                pending_isr_lines = isrs.isr_lines.filtered(
+                    lambda l: not l.paid and payslip.date_from <= l.date <= payslip.date_to)
+                for line in pending_isr_lines:
+                    saldo = sum(
+                        line.isr_id.isr_lines.filtered(lambda l: not l.paid).mapped('amount')) - line.amount
+                    new_inputs.append((0, 0, {
+                        'input_type_id': input_type_isr.id,
+                        'isr_line_id': line.id,
+                        'amount': line.amount,
+                        'name': self.env._(
+                            'Fecha cobro: %(date)s Total: Q.%(total)s Saldo: Q.%(saldo)s',
+                            date=line.date.strftime('%d/%m/%Y'),
+                            total=f'{line.isr_id.monto_total:,.2f}', saldo=f'{saldo:,.2f}'),
+                    }))
+
             if input_type_qualification and 'BONPRO' in rule_codes:
                 codes_to_clear.append('QUALY')
                 qualifications = self.env['hr.qualification'].search([
@@ -137,16 +161,11 @@ class HrPayslip(models.Model):
 
         self.input_line_ids.filtered(lambda l: not l.amount).unlink()
 
-    # def action_payslip_done(self):
-    #     for payslip in self:
-    #         mismatched = payslip.line_ids.filtered(lambda l: l.salary_rule_id.struct_id != payslip.struct_id)
-    #         if mismatched:
-    #             raise UserError(self.env._(
-    #                 'La regla salarial %(rule)s no pertenece a la estructura de nómina %(struct)s.',
-    #                 rule=mismatched[0].salary_rule_id.name, struct=payslip.struct_id.name))
-    #     self.input_line_ids.filtered('loan_line_id').loan_line_id.write({'paid': True})
-    #     return super().action_payslip_done()
-    #
+    def action_payslip_done(self):
+        self.input_line_ids.filtered('loan_line_id').loan_line_id.write({'paid': True})
+        self.input_line_ids.filtered('isr_line_id').isr_line_id.write({'paid': True})
+        return super().action_payslip_done()
+
     # def write(self, vals):
     #     res = super().write(vals)
     #     if 'state' in vals:

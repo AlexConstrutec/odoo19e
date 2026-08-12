@@ -6,6 +6,15 @@ from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
 
+def _siguiente_quincena(fecha):
+    """Dada una fecha en día 1 o 16, devuelve la siguiente fecha de corte quincenal
+    (1 -> 16 del mismo mes, 16 -> 1 del mes siguiente). Misma convención de quincena
+    (1-15 / 16-fin de mes) usada en construtec_hr_reports_19 para clasificar payslips."""
+    if fecha.day == 1:
+        return fecha.replace(day=16)
+    return fecha.replace(day=1) + relativedelta(months=1)
+
+
 class HrLoan(models.Model):
     _name = 'hr.loan'
     _inherit = ['mail.thread', 'mail.activity.mixin']
@@ -48,6 +57,10 @@ class HrLoan(models.Model):
     concepto = fields.Many2one('hr.concepto.anticipo', string='Concepto', required=True,
                                 domain=[('mostrar', '=', True)])
     reason = fields.Text(string='Descripcion')
+    periodicidad = fields.Selection([
+        ('mensual', 'Mensual'),
+        ('quincenal', 'Quincenal'),
+    ], string='Periodicidad', default='mensual', required=True)
 
     @api.onchange('employee_id')
     def _onchange_employee_id(self):
@@ -73,6 +86,9 @@ class HrLoan(models.Model):
         for loan in self:
             loan.loan_lines.unlink()
             date_start = datetime.strptime(str(loan.payment_date), '%Y-%m-%d')
+            if loan.periodicidad == 'quincenal' and date_start.day not in (1, 16):
+                raise UserError(self.env._(
+                    'Para periodicidad quincenal, la fecha de inicio debe ser el 1 o el 16 del mes.'))
             amount = loan.loan_amount / loan.installment
             lines = []
             for _i in range(loan.installment):
@@ -83,7 +99,10 @@ class HrLoan(models.Model):
                     'version_id': loan.version_id.id,
                     'loan_id': loan.id,
                 })
-                date_start += relativedelta(months=1)
+                if loan.periodicidad == 'quincenal':
+                    date_start = _siguiente_quincena(date_start)
+                else:
+                    date_start += relativedelta(months=1)
             self.env['hr.loan.line'].create(lines)
 
     def action_refuse(self):

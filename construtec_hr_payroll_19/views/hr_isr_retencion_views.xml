@@ -1,41 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="hr_loan_list_view" model="ir.ui.view">
-        <field name="name">hr.loan.list</field>
-        <field name="model">hr.loan</field>
+    <record id="hr_isr_retencion_list_view" model="ir.ui.view">
+        <field name="name">hr.isr.retencion.list</field>
+        <field name="model">hr.isr.retencion</field>
         <field name="arch" type="xml">
-            <list string="Solicitudes de préstamo">
+            <list string="Retenciones ISR">
                 <field name="name"/>
                 <field name="employee_id"/>
-                <field name="loan_amount"/>
+                <field name="monto_total"/>
                 <field name="date"/>
                 <field name="state"/>
             </list>
         </field>
     </record>
 
-    <record id="hr_loan_line_list_view" model="ir.ui.view">
-        <field name="name">hr.loan.line.list</field>
-        <field name="model">hr.loan.line</field>
+    <record id="hr_isr_retencion_line_list_view" model="ir.ui.view">
+        <field name="name">hr.isr.retencion.line.list</field>
+        <field name="model">hr.isr.retencion.line</field>
         <field name="arch" type="xml">
-            <list string="Pagos de préstamo">
+            <list string="Cuotas de Retención ISR">
                 <field name="date"/>
                 <field name="employee_id"/>
                 <field name="version_id"/>
-                <field name="loan_id"/>
+                <field name="isr_id"/>
                 <field name="paid"/>
                 <field name="amount"/>
             </list>
         </field>
     </record>
 
-    <record id="hr_loan_form_view" model="ir.ui.view">
-        <field name="name">hr.loan.form</field>
-        <field name="model">hr.loan</field>
+    <record id="hr_isr_retencion_form_view" model="ir.ui.view">
+        <field name="name">hr.isr.retencion.form</field>
+        <field name="model">hr.isr.retencion</field>
         <field name="arch" type="xml">
-            <form string="Solicitud de Préstamo">
+            <form string="Retención ISR">
                 <header>
-                    <button name="compute_installment" type="object" string="Calcular Pagos" class="oe_highlight" invisible="state in ('approve', 'refuse')"/>
+                    <button name="compute_installment" type="object" string="Calcular Cuotas" class="oe_highlight" invisible="state in ('approve', 'refuse')"/>
                     <button name="action_submit" type="object" string="Confirmar" invisible="state != 'draft'" class="oe_highlight"/>
                     <button name="action_cancel" type="object" string="Cancelar" invisible="state != 'draft'"/>
                     <button name="action_approve" type="object" string="Aprobar" invisible="state != 'waiting_approval_1'" class="oe_highlight" groups="hr.group_hr_manager"/>
@@ -54,18 +54,16 @@
                         <field name="date"/>
                         <field name="department_id"/>
                         <field name="job_position"/>
-                        <field name="concepto" readonly="state != 'draft'"/>
-                        <field name="loan_amount" readonly="state == 'approve'"/>
-                        <field name="periodicidad" readonly="state == 'approve'"/>
-                        <field name="installment" readonly="state == 'approve'"/>
-                        <field name="payment_date" readonly="state == 'approve'"/>
+                        <field name="monto_total" readonly="state == 'approve'"/>
+                        <field name="cuotas" readonly="state == 'approve'"/>
+                        <field name="fecha_inicio" readonly="state == 'approve'"/>
                         <field name="company_id" options="{'no_create': True}" groups="base.group_multi_company"/>
                         <field name="currency_id" options="{'no_create': True}" groups="base.group_multi_company"/>
-                        <field name="reason" readonly="state != 'draft'"/>
+                        <field name="motivo" readonly="state != 'draft'"/>
                     </group>
                     <notebook>
-                        <page string="Calendario de Pagos">
-                            <field name="loan_lines">
+                        <page string="Calendario de Cuotas">
+                            <field name="isr_lines">
                                 <list string="Cuotas" editable="bottom">
                                     <field name="version_id"/>
                                     <field name="version_is_current"/>
@@ -88,12 +86,12 @@
         </field>
     </record>
 
-    <record id="view_loan_request_search_form" model="ir.ui.view">
-        <field name="name">hr.loan.search.form</field>
-        <field name="model">hr.loan</field>
+    <record id="view_isr_retencion_search_form" model="ir.ui.view">
+        <field name="name">hr.isr.retencion.search.form</field>
+        <field name="model">hr.isr.retencion</field>
         <field name="arch" type="xml">
-            <search string="Préstamos">
-                <filter string="Mis Préstamos" name="myrequest" domain="[('employee_id.user_id.id', '=', uid)]"/>
+            <search string="Retenciones ISR">
+                <filter string="Mis Retenciones" name="myrequest" domain="[('employee_id.user_id.id', '=', uid)]"/>
                 <field name="employee_id" string="Empleado"/>
                 <field name="department_id" string="Departamento"/>
                 <filter string="Empleado" name="employee_id" context="{'group_by':'employee_id'}"/>
@@ -103,44 +101,44 @@
         </field>
     </record>
 
-    <record id="action_hr_loan_request" model="ir.actions.act_window">
-        <field name="name">Solicitudes de Préstamo</field>
-        <field name="res_model">hr.loan</field>
+    <record id="action_hr_isr_retencion_request" model="ir.actions.act_window">
+        <field name="name">Retenciones ISR</field>
+        <field name="res_model">hr.isr.retencion</field>
         <field name="view_mode">list,form</field>
         <field name="context">{'search_default_myrequest': 1}</field>
-        <field name="search_view_id" ref="view_loan_request_search_form"/>
+        <field name="search_view_id" ref="view_isr_retencion_search_form"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-                Crea una solicitud de préstamo.
+                Crea una retención de ISR.
             </p>
         </field>
     </record>
 
-    <record id="act_hr_loan_line_request" model="ir.actions.act_window">
-        <field name="name">Pagos de Préstamo</field>
-        <field name="res_model">hr.loan.line</field>
+    <record id="act_hr_isr_retencion_line_request" model="ir.actions.act_window">
+        <field name="name">Cuotas de Retención ISR</field>
+        <field name="res_model">hr.isr.retencion.line</field>
         <field name="view_mode">list</field>
-        <field name="view_id" ref="hr_loan_line_list_view"/>
+        <field name="view_id" ref="hr_isr_retencion_line_list_view"/>
     </record>
 
-    <record id="act_hr_employee_loan_request" model="ir.actions.act_window">
-        <field name="name">Préstamos</field>
-        <field name="res_model">hr.loan</field>
+    <record id="act_hr_employee_isr_retencion_request" model="ir.actions.act_window">
+        <field name="name">Retenciones ISR</field>
+        <field name="res_model">hr.isr.retencion</field>
         <field name="view_mode">list,form</field>
         <field name="domain">[('employee_id', '=', active_id)]</field>
         <field name="binding_model_id" ref="hr.model_hr_employee"/>
         <field name="binding_view_types">form</field>
-        <field name="view_id" ref="hr_loan_list_view"/>
+        <field name="view_id" ref="hr_isr_retencion_list_view"/>
     </record>
 
-    <record id="view_employee_form_loan_inherit" model="ir.ui.view">
-        <field name="name">hr.employee.loan.form.inherit</field>
+    <record id="view_employee_form_isr_inherit" model="ir.ui.view">
+        <field name="name">hr.employee.isr.retencion.form.inherit</field>
         <field name="model">hr.employee</field>
         <field name="inherit_id" ref="hr.view_employee_form"/>
         <field name="arch" type="xml">
             <xpath expr="//div[@name='button_box']" position="inside">
-                <button name="%(act_hr_employee_loan_request)d" type="action" class="oe_stat_button" icon="fa-calendar" groups="hr.group_hr_manager,hr.group_hr_user">
-                    <field name="loan_count" widget="statinfo" string="Préstamos"/>
+                <button name="%(act_hr_employee_isr_retencion_request)d" type="action" class="oe_stat_button" icon="fa-percent" groups="hr.group_hr_manager,hr.group_hr_user">
+                    <field name="isr_count" widget="statinfo" string="Retenciones ISR"/>
                 </button>
             </xpath>
         </field>
