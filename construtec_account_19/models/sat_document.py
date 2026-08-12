@@ -107,6 +107,7 @@ class ConstructecSatDocument(models.Model):
     fecha_anulacion = fields.Datetime(string='Fecha de Anulación')
     xml_attachment_id = fields.Many2one('ir.attachment', string='XML', copy=False)
     pdf_attachment_id = fields.Many2one('ir.attachment', string='PDF', copy=False)
+    cuenta_analitica_id = fields.Many2one('account.analytic.account', string='Cuenta Analítica')
     line_ids = fields.One2many('construtec.sat.document.line', 'document_id', string='Líneas')
     state = fields.Selection([
         ('pendiente', 'Pendiente'),

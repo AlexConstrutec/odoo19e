@@ -59,6 +59,7 @@
                             <field name="currency_id" invisible="1"/>
                             <field name="monto_total"/>
                             <field name="monto_iva"/>
+                            <field name="cuenta_analitica_id"/>
                         </group>
                         <group>
                             <field name="xml_attachment_id" readonly="1"/>
