@@ -2,3 +2,4 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_construtec_sat_document_user,construtec.sat.document.user,model_construtec_sat_document,account.group_account_invoice,1,1,1,1
 access_construtec_sat_document_line_user,construtec.sat.document.line.user,model_construtec_sat_document_line,account.group_account_invoice,1,1,1,1
 access_construtec_sat_import_log_user,construtec.sat.import.log.user,model_construtec_sat_import_log,account.group_account_invoice,1,1,1,1
+access_construtec_sat_product_catalog_user,construtec.sat.product.catalog.user,model_construtec_sat_product_catalog,account.group_account_invoice,1,1,1,1

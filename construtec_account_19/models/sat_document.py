@@ -1,5 +1,9 @@
+import logging
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
+
+_logger = logging.getLogger(__name__)
 
 TIPO_DTE_SELECTION = [
     ('FACT', 'FACT: Factura'),
@@ -230,6 +234,20 @@ class ConstructecSatDocument(models.Model):
                     'xml_attachment_id': xml_attachment.id if xml_attachment else False,
                     'pdf_attachment_id': pdf_attachment.id if pdf_attachment else False,
                 })
+
+            # Catálogo de referencia de precios de proveedor (ver
+            # construtec.sat.product.catalog) - no debe impedir que el documento
+            # SAT en sí se guarde si algo sale mal aquí (ej. carrera entre dos
+            # importaciones concurrentes chocando con la restricción unique).
+            catalog_model = self.env['construtec.sat.product.catalog']
+            for line in document.line_ids:
+                try:
+                    catalog_model._sat_register_from_line(document, line)
+                except Exception:
+                    _logger.exception(
+                        'No se pudo registrar en el catálogo de productos la línea "%s" del documento %s',
+                        line.descripcion, numero_autorizacion,
+                    )
 
             log_model.create({
                 'numero_autorizacion': numero_autorizacion,

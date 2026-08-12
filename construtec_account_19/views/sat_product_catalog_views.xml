@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_construtec_sat_product_catalog_form" model="ir.ui.view">
+        <field name="name">construtec.sat.product.catalog.form</field>
+        <field name="model">construtec.sat.product.catalog</field>
+        <field name="arch" type="xml">
+            <form string="Catálogo de Productos de Proveedor">
+                <header>
+                    <button name="action_retry_sync" string="Reintentar Sincronización" type="object"
+                            class="oe_highlight" invisible="sync_state == 'sincronizado'"/>
+                    <field name="sync_state" widget="statusbar" statusbar_visible="pendiente,sincronizado"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-danger" role="alert" invisible="sync_state != 'error'">
+                        <field name="sync_error" readonly="1" nolabel="1"/>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="partner_id"/>
+                            <field name="uom_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="precio_referencia"/>
+                            <field name="primera_fecha_compra"/>
+                            <field name="ultima_fecha_compra"/>
+                            <field name="sync_date"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_construtec_sat_product_catalog_list" model="ir.ui.view">
+        <field name="name">construtec.sat.product.catalog.list</field>
+        <field name="model">construtec.sat.product.catalog</field>
+        <field name="arch" type="xml">
+            <list string="Catálogo de Productos de Proveedor" decoration-danger="sync_state == 'error'">
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="uom_id" optional="hide"/>
+                <field name="precio_referencia"/>
+                <field name="primera_fecha_compra"/>
+                <field name="ultima_fecha_compra"/>
+                <field name="sync_state" widget="badge"
+                       decoration-success="sync_state == 'sincronizado'"
+                       decoration-warning="sync_state == 'pendiente'"
+                       decoration-danger="sync_state == 'error'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_construtec_sat_product_catalog_search" model="ir.ui.view">
+        <field name="name">construtec.sat.product.catalog.search</field>
+        <field name="model">construtec.sat.product.catalog</field>
+        <field name="arch" type="xml">
+            <search string="Catálogo de Productos de Proveedor">
+                <field name="name"/>
+                <field name="partner_id"/>
+                <filter string="Con Error de Sincronización" name="con_error" domain="[('sync_state', '=', 'error')]"/>
+                <filter string="Pendientes" name="pendientes" domain="[('sync_state', '=', 'pendiente')]"/>
+                <group>
+                    <filter string="Proveedor" name="group_partner" context="{'group_by': 'partner_id'}"/>
+                    <filter string="Estado de Sincronización" name="group_sync_state" context="{'group_by': 'sync_state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_construtec_sat_product_catalog" model="ir.actions.act_window">
+        <field name="name">Catálogo de Productos de Proveedor</field>
+        <field name="res_model">construtec.sat.product.catalog</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_construtec_sat_product_catalog_retry_sync" model="ir.actions.server">
+        <field name="name">Reintentar Sincronizaciones Pendientes</field>
+        <field name="model_id" ref="model_construtec_sat_product_catalog"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_retry_pending_sync_notify()</field>
+    </record>
+
+    <menuitem id="menu_construtec_sat_product_catalog" action="action_construtec_sat_product_catalog"
+              parent="menu_construtec_sat_document_root" sequence="5"/>
+    <menuitem id="menu_construtec_sat_product_catalog_retry_sync"
+              action="action_construtec_sat_product_catalog_retry_sync"
+              parent="menu_construtec_sat_document_root" sequence="6"/>
+</odoo>
