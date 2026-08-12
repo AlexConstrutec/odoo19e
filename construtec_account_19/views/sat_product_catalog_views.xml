@@ -19,6 +19,7 @@
                     </div>
                     <group>
                         <group>
+                            <field name="codigo"/>
                             <field name="partner_id"/>
                             <field name="uom_id"/>
                             <field name="company_id" groups="base.group_multi_company"/>
@@ -41,6 +42,7 @@
         <field name="model">construtec.sat.product.catalog</field>
         <field name="arch" type="xml">
             <list string="Catálogo de Productos de Proveedor" decoration-danger="sync_state == 'error'">
+                <field name="codigo"/>
                 <field name="name"/>
                 <field name="partner_id"/>
                 <field name="uom_id" optional="hide"/>
@@ -61,6 +63,7 @@
         <field name="arch" type="xml">
             <search string="Catálogo de Productos de Proveedor">
                 <field name="name"/>
+                <field name="codigo"/>
                 <field name="partner_id"/>
                 <filter string="Con Error de Sincronización" name="con_error" domain="[('sync_state', '=', 'error')]"/>
                 <filter string="Pendientes" name="pendientes" domain="[('sync_state', '=', 'pendiente')]"/>
@@ -85,9 +88,19 @@
         <field name="code">action = model.action_retry_pending_sync_notify()</field>
     </record>
 
+    <record id="action_construtec_sat_product_catalog_extraer_codigo" model="ir.actions.server">
+        <field name="name">Extraer Código de Producto</field>
+        <field name="model_id" ref="model_construtec_sat_product_catalog"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_extraer_codigo()</field>
+    </record>
+
     <menuitem id="menu_construtec_sat_product_catalog" action="action_construtec_sat_product_catalog"
               parent="menu_construtec_sat_document_root" sequence="5"/>
+    <menuitem id="menu_construtec_sat_product_catalog_extraer_codigo"
+              action="action_construtec_sat_product_catalog_extraer_codigo"
+              parent="menu_construtec_sat_document_root" sequence="6"/>
     <menuitem id="menu_construtec_sat_product_catalog_retry_sync"
               action="action_construtec_sat_product_catalog_retry_sync"
-              parent="menu_construtec_sat_document_root" sequence="6"/>
+              parent="menu_construtec_sat_document_root" sequence="7"/>
 </odoo>

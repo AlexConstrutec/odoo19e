@@ -1,9 +1,45 @@
 import logging
+import re
 import xmlrpc.client
 
 from odoo import api, fields, models
 
 _logger = logging.getLogger(__name__)
+
+# Extracción del "código de producto" a partir del nombre/descripción del DTE -
+# la SAT no manda un código de producto separado, así que si el proveedor pone
+# uno, va mezclado en el mismo texto de la descripción, en una de tres formas
+# (confirmado contra nombres reales de este catálogo): entre corchetes
+# ("[C2X-2] COMBO 2 CAMARAS..."), antes de una barra vertical
+# ("8471.30.00 | LAPTOP DELL..."), o como una secuencia de dígitos al inicio
+# seguida de espacio ("784512 CABLE UTP CAT6..."). Se prueban en ese orden -
+# corchetes primero por ser la marca más explícita - y si ninguna aplica se
+# deja vacío en vez de adivinar (mismo criterio que _fix_mangled_accents en
+# sat_document_import.py: mejor vacío que un dato incorrecto).
+_CODIGO_BRACKET_RE = re.compile(r'\[([^\[\]]+)\]')
+_CODIGO_NUMERIC_PREFIX_RE = re.compile(r'^\s*(\d{4,}(?:[.\-]\d+)*)\s+\S')
+
+
+def _sat_extract_codigo(name):
+    if not name:
+        return False
+
+    match = _CODIGO_BRACKET_RE.search(name)
+    if match:
+        codigo = match.group(1).strip()
+        if codigo:
+            return codigo
+
+    if '|' in name:
+        codigo = name.split('|', 1)[0].strip()
+        if codigo:
+            return codigo
+
+    match = _CODIGO_NUMERIC_PREFIX_RE.match(name)
+    if match:
+        return match.group(1)
+
+    return False
 
 # Timeout defensivo para las llamadas salientes hacia Community: esto corre
 # SINCRONO dentro de create_from_dte (ver sat_document.py), que a su vez puede
@@ -44,6 +80,13 @@ class ConstructecSatProductCatalog(models.Model):
     _order = 'ultima_fecha_compra desc'
 
     name = fields.Char(string='Producto', required=True)
+    codigo = fields.Char(
+        string='Código de Producto',
+        help='Extraído automáticamente del nombre al crearse la entrada (entre corchetes, antes '
+             'de una barra vertical "|", o una secuencia de dígitos al inicio) - vacío si el '
+             'proveedor no incluyó ningún código reconocible. Editable a mano; no se vuelve a '
+             'recalcular sobre un valor ya puesto, salvo con la acción "Extraer Código de '
+             'Producto" (ver CLAUDE.md).')
     name_normalized = fields.Char(
         compute='_compute_name_normalized', store=True, index=True,
         help='Nombre en mayúsculas/sin espacios sobrantes, usado solo para detectar duplicados '
@@ -120,6 +163,7 @@ class ConstructecSatProductCatalog(models.Model):
         if not entry:
             entry = self.create({
                 'name': nombre,
+                'codigo': _sat_extract_codigo(nombre),
                 'partner_id': document.partner_id.id,
                 'company_id': document.company_id.id,
                 'currency_id': document.currency_id.id,
@@ -181,6 +225,7 @@ class ConstructecSatProductCatalog(models.Model):
         vals = {
             'origin_id': self.id,
             'name': self.name,
+            'codigo': self.codigo or False,
             'partner_name': self.partner_id.display_name,
             'partner_vat': self.partner_id.vat or False,
             'uom_name': self.uom_id.display_name if self.uom_id else False,
@@ -208,6 +253,33 @@ class ConstructecSatProductCatalog(models.Model):
             return
 
         self.write({'sync_state': 'sincronizado', 'sync_error': False, 'sync_date': fields.Datetime.now()})
+
+    @api.model
+    def action_extraer_codigo(self):
+        """Backfill de `codigo` (ver _sat_extract_codigo) para entradas creadas antes
+        de que este campo existiera. Solo toca entradas con codigo vacío - nunca
+        pisa uno ya puesto (automático o corregido a mano). No sincroniza con
+        Community por sí sola: si alguna entrada estaba pendiente/con error de
+        sincronización, el próximo reintento (botón, acción masiva o el cron)
+        ya manda el código actualizado junto con el resto de campos."""
+        entradas = self.search([('codigo', '=', False)])
+        actualizadas = 0
+        for entry in entradas:
+            codigo = _sat_extract_codigo(entry.name)
+            if codigo:
+                entry.codigo = codigo
+                actualizadas += 1
+        mensaje = f"Código extraído en {actualizadas} de {len(entradas)} entradas sin código."
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Extracción de Código de Producto',
+                'message': mensaje,
+                'sticky': False,
+                'type': 'success',
+            },
+        }
 
     def action_retry_sync(self):
         for entry in self:
