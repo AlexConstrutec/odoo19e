@@ -7,3 +7,4 @@ from . import report_planilla_igss
 from . import report_descuentos
 from . import report_informe_empleador
 from . import report_liquidacion
+from . import report_detalle_nomina

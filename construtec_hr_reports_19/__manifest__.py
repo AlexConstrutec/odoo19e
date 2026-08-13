@@ -33,6 +33,7 @@
         'wizard/report_descuentos_views.xml',
         'wizard/report_informe_empleador_views.xml',
         'wizard/report_liquidacion_views.xml',
+        'wizard/report_detalle_nomina_views.xml',
         'views/menus.xml',
     ],
     'application': False,
