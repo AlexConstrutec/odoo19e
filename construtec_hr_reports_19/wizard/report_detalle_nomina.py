@@ -4,20 +4,57 @@ from odoo import fields, models
 
 FIXED_HEADERS = ['Empleado', 'Código', 'Puesto', 'Departamento', 'Lote', 'Del', 'Al']
 
-# Códigos de reglas salariales excluidos del detalle (reservas/provisiones contables que
-# no forman parte del pago real al empleado, a pedido del usuario).
+# Códigos de reglas salariales excluidos del detalle por completo (reservas/provisiones
+# contables que no forman parte del pago real al empleado, a pedido del usuario) - ni
+# columna propia, ni sumados en "Otros Conceptos".
 EXCLUDED_CODES = {'BONO14', 'AGUINALDO', 'INDM', 'VACAC'}
 
-# Clasificación suma/resta para colorear el Excel. Los códigos conocidos vienen de las
-# reglas ya usadas en los demás wizards de este módulo (report_planilla_sueldos.py,
-# report_libro_sueldos.py, report_planilla_igss.py) y fueron confirmados por el usuario:
-# ANT1 = Vales, ANT2 = Otros Descuentos, ANT3 = Prestamos. Para códigos no vistos antes
-# (cada empresa configura sus reglas directo en la UI de Odoo) se usa como respaldo una
-# búsqueda de palabras clave en el nombre de la regla.
-DEDUCTION_CODES = {
-    'IGSSLABR', 'CIGSSLAB', 'ISRASA', 'ANT1', 'ANT2', 'ANT3', 'DEDU', 'LO', 'ISR_AJ', 'SAR',
-}
-DEDUCTION_KEYWORDS = ['descuento', 'deduccion', 'deducción', 'retenc', 'prestamo', 'préstamo', 'anticipo']
+# Lista fija de conceptos (una columna por cada uno, en el Excel y en el visor), en vez de
+# columnas 100% dinámicas: Odoo fuerza a que las columnas generadas por un campo Properties
+# en una vista lista arranquen ocultas (optional="hide" fijo en list_renderer.js, sin forma
+# de configurarlo), así que para que el visor muestre todo visible desde el principio hace
+# falta que sean campos reales. Los códigos vienen de los que ya se usan en los demás
+# wizards de este módulo (report_planilla_sueldos.py/report_libro_sueldos.py/
+# report_planilla_igss.py) y de los confirmados directamente por el usuario (ANT1=Vales,
+# ANT2=Otros Descuentos, ANT3=Prestamos - LO también es Prestamo, ver
+# construtec_hr_payroll_19/models/hr_payslip.py::_compute_extra_inputs()). 'kind' clasifica
+# suma/resta para el coloreado del Excel. Cualquier código de regla que NO esté en esta
+# lista (y no esté en EXCLUDED_CODES) se suma en la columna "Otros Conceptos" al final, para
+# que nada del detalle real desaparezca en silencio.
+CONCEPTS = [
+    {'field': 'salario_base', 'label': 'Salario Base', 'codes': ['BASIC'], 'kind': 'add'},
+    {'field': 'bonificacion_incentivo', 'label': 'Bonificación Incentivo', 'codes': ['BONIN'], 'kind': 'add'},
+    {'field': 'bonificacion_fija', 'label': 'Bonificación Fija', 'codes': ['BOFIJ'], 'kind': 'add'},
+    {'field': 'bonificacion_ajuste', 'label': 'Bonificación por Ajuste', 'codes': ['MDOA'], 'kind': 'add'},
+    {'field': 'bonificacion_asueto', 'label': 'Bonificación por Asueto', 'codes': ['MDOAS'], 'kind': 'add'},
+    {'field': 'bonificacion_productividad', 'label': 'Bonificación por Productividad', 'codes': ['BONPRO'], 'kind': 'add'},
+    {'field': 'alimentacion', 'label': 'Alimentación', 'codes': ['MDOALIM'], 'kind': 'add'},
+    {'field': 'horas_extra', 'label': 'Horas Extras', 'codes': ['VHEB'], 'kind': 'add'},
+    {'field': 'bonificacion_horas', 'label': 'Bonificación por Horas', 'codes': ['BHE'], 'kind': 'add'},
+    {'field': 'bonificaciones_extras', 'label': 'Bonificaciones Extras', 'codes': ['OTREN'], 'kind': 'add'},
+    {'field': 'gratificacion', 'label': 'Gratificación', 'codes': ['OTRGRATIF'], 'kind': 'add'},
+    {'field': 'devolucion_isr', 'label': 'Devolución de ISR', 'codes': ['DEVISR'], 'kind': 'add'},
+    {'field': 'bono14_pago', 'label': 'Bono 14 Pago', 'codes': ['BONO14P'], 'kind': 'add'},
+    {'field': 'aguinaldo_pago', 'label': 'Aguinaldo Pago', 'codes': ['AGUINALDOP'], 'kind': 'add'},
+    {'field': 'indemnizacion_pago', 'label': 'Indemnización Pago', 'codes': ['INDEMP'], 'kind': 'add'},
+    {'field': 'vacaciones_pago', 'label': 'Vacaciones Pago', 'codes': ['VACACPAG'], 'kind': 'add'},
+    {'field': 'igss_patronal', 'label': 'IGSS Patronal', 'codes': ['IGSS PAT'], 'kind': 'add'},
+    {'field': 'complemento_igss_patronal', 'label': 'Complemento IGSS Patronal', 'codes': ['CIGSSPAT'], 'kind': 'add'},
+    {'field': 'irtra', 'label': 'IRTRA', 'codes': ['IRTRA'], 'kind': 'add'},
+    {'field': 'intecap', 'label': 'INTECAP', 'codes': ['INTECAP'], 'kind': 'add'},
+    {'field': 'salario_devengado', 'label': 'Salario Devengado', 'codes': ['GROSS'], 'kind': 'add'},
+    {'field': 'igss_laboral', 'label': 'IGSS Laboral', 'codes': ['IGSSLABR'], 'kind': 'sub'},
+    {'field': 'complemento_igss_laboral', 'label': 'Complemento IGSS Laboral', 'codes': ['CIGSSLAB'], 'kind': 'sub'},
+    {'field': 'isr_asalariados', 'label': 'ISR Asalariados', 'codes': ['ISRASA'], 'kind': 'sub'},
+    {'field': 'vales', 'label': 'Vales', 'codes': ['ANT1'], 'kind': 'sub'},
+    {'field': 'otros_descuentos', 'label': 'Otros Descuentos', 'codes': ['ANT2'], 'kind': 'sub'},
+    {'field': 'prestamos', 'label': 'Préstamos', 'codes': ['ANT3', 'LO'], 'kind': 'sub'},
+    {'field': 'retencion_isr', 'label': 'Retención ISR', 'codes': ['ISR_AJ'], 'kind': 'sub'},
+    {'field': 'total_deducciones', 'label': 'Total Deducciones', 'codes': ['DEDU'], 'kind': 'sub'},
+    {'field': 'salario_neto', 'label': 'Salario Neto', 'codes': ['NET'], 'kind': 'add'},
+]
+OTHER_FIELD = 'otros_conceptos'
+OTHER_LABEL = 'Otros Conceptos'
 
 
 class WizardReporteDetalleNomina(models.TransientModel):
@@ -28,7 +65,6 @@ class WizardReporteDetalleNomina(models.TransientModel):
     date_start = fields.Date(string='Del', required=True)
     date_end = fields.Date(string='Al', required=True)
     payslip_run_ids = fields.Many2many('hr.payslip.run', string='Lotes')
-    detalle_definition = fields.PropertiesDefinition('Definición de Conceptos')
 
     def _get_payslips(self):
         # Domain por solapamiento (no por contención estricta): toma cualquier recibo cuyo
@@ -47,41 +83,26 @@ class WizardReporteDetalleNomina(models.TransientModel):
             domain.append(('payslip_run_id', 'in', self.payslip_run_ids.ids))
         return self.env['hr.payslip'].search(domain, order='employee_id, date_from asc')
 
-    @staticmethod
-    def _is_deduction(code, name):
-        if code in DEDUCTION_CODES:
-            return True
-        name_l = (name or '').lower()
-        return any(kw in name_l for kw in DEDUCTION_KEYWORDS)
-
     def _compute_matrix(self):
-        """Arma columnas dinámicamente a partir de los codigos de regla salarial que
-        efectivamente aparecen en los recibos seleccionados (no una lista fija), porque
-        distintas estructuras salariales pueden tener conjuntos de reglas distintos.
-        Devuelve (headers, rows, totals, column_kinds, payslips). column_kinds está
-        alineado con headers: None para las columnas fijas, 'add'/'sub' para las
-        dinámicas. payslips está alineado 1 a 1 con rows (mismo orden). Usado tanto por
-        el visor como por el Excel para que nunca queden desalineados."""
+        """Arma la matriz con la lista fija de CONCEPTS (una columna por concepto conocido,
+        más "Otros Conceptos" para códigos de regla no reconocidos). Devuelve (headers,
+        rows, totals, column_kinds, payslips). column_kinds está alineado con headers: None
+        para las columnas fijas, 'add'/'sub' para las de concepto ('Otros Conceptos' queda
+        en None porque puede mezclar ambos). payslips está alineado 1 a 1 con rows. Usado
+        tanto por el visor como por el Excel para que nunca queden desalineados."""
         payslips = self._get_payslips()
+        known_codes = {code for concept in CONCEPTS for code in concept['codes']}
 
-        dynamic_codes = []
-        dynamic_headers = []
-        dynamic_kinds = []
-        for payslip in payslips:
-            for line in payslip.line_ids:
-                if line.code and line.code not in EXCLUDED_CODES and line.code not in dynamic_codes:
-                    dynamic_codes.append(line.code)
-                    dynamic_headers.append(line.name or line.code)
-                    dynamic_kinds.append('sub' if self._is_deduction(line.code, line.name) else 'add')
+        headers = FIXED_HEADERS + [c['label'] for c in CONCEPTS] + [OTHER_LABEL]
+        column_kinds = [None] * len(FIXED_HEADERS) + [c['kind'] for c in CONCEPTS] + [None]
 
-        headers = FIXED_HEADERS + dynamic_headers
-        column_kinds = [None] * len(FIXED_HEADERS) + dynamic_kinds
         rows = []
         for payslip in payslips:
             employee = payslip.employee_id
             codes = {}
             for line in payslip.line_ids:
-                codes[line.code] = codes.get(line.code, 0.0) + line.total
+                if line.code:
+                    codes[line.code] = codes.get(line.code, 0.0) + line.total
             row = [
                 employee.name,
                 employee.codigo_empleado or '',
@@ -91,13 +112,18 @@ class WizardReporteDetalleNomina(models.TransientModel):
                 payslip.date_from.strftime('%d/%m/%Y'),
                 payslip.date_to.strftime('%d/%m/%Y'),
             ]
-            row.extend(codes.get(code, 0.0) for code in dynamic_codes)
+            for concept in CONCEPTS:
+                row.append(sum(codes.get(code, 0.0) for code in concept['codes']))
+            row.append(sum(
+                amount for code, amount in codes.items()
+                if code not in known_codes and code not in EXCLUDED_CODES))
             rows.append(row)
 
-        totals = [None] * len(FIXED_HEADERS)
+        n_fixed = len(FIXED_HEADERS)
+        totals = [None] * n_fixed
         totals[0] = 'TOTAL'
-        for col in range(len(dynamic_codes)):
-            totals.append(sum(row[len(FIXED_HEADERS) + col] for row in rows))
+        for col in range(len(CONCEPTS) + 1):
+            totals.append(sum(row[n_fixed + col] for row in rows))
 
         return headers, rows, totals, column_kinds, payslips
 
@@ -131,7 +157,7 @@ class WizardReporteDetalleNomina(models.TransientModel):
             for col, value in enumerate(row):
                 if col >= n_fixed:
                     kind = column_kinds[col]
-                    fmt = add_money if kind == 'add' else sub_money
+                    fmt = add_money if kind == 'add' else sub_money if kind == 'sub' else money
                     sheet.write_number(row_idx, col, value, fmt)
                 else:
                     sheet.write(row_idx, col, value)
@@ -140,7 +166,7 @@ class WizardReporteDetalleNomina(models.TransientModel):
         for col, value in enumerate(totals):
             if col >= n_fixed:
                 kind = column_kinds[col]
-                fmt = add_bold_money if kind == 'add' else sub_bold_money
+                fmt = add_bold_money if kind == 'add' else sub_bold_money if kind == 'sub' else bold_money
                 sheet.write_number(row_idx, col, value, fmt)
             else:
                 sheet.write(row_idx, col, value or '', bold)
@@ -157,30 +183,22 @@ class WizardReporteDetalleNomina(models.TransientModel):
         }
 
     def action_ver(self):
-        """Abre el detalle en una vista lista nativa de Odoo: una fila por recibo, con
-        cada concepto como su propia columna (igual que el Excel), usando fields.Properties
-        - el mismo mecanismo que ya usa hr_payroll (hr.payslip.payslip_properties) para
-        exponer columnas dinámicas por estructura salarial en una vista nativa. Esto evita
-        tener que tocar el ListRenderer del cliente web (ya descartado antes, ver
-        [[feedback_cautela_produccion]]): el renderer ya sabe expandir un campo Properties
-        en una columna por propiedad definida."""
+        """Abre el detalle en una vista lista nativa de Odoo: una fila por recibo, con cada
+        concepto conocido como su propia columna (igual que el Excel), todas visibles por
+        defecto. Se usan campos reales (no fields.Properties) porque Odoo fuerza a que las
+        columnas de un campo Properties en una vista lista arranquen ocultas
+        (optional="hide" fijo en list_renderer.js), sin ninguna forma soportada de
+        cambiarlo - ver CONCEPTS más arriba."""
         self.ensure_one()
         self.check_date()
         headers, rows, totals, kinds, payslips = self._compute_matrix()
         n_fixed = len(FIXED_HEADERS)
-        dynamic_headers = headers[n_fixed:]
-
-        property_names = [f'concepto_{i}' for i in range(len(dynamic_headers))]
-        self.detalle_definition = [
-            {'name': name, 'string': header, 'type': 'float', 'default': 0.0}
-            for name, header in zip(property_names, dynamic_headers)
-        ]
+        concept_fields = [c['field'] for c in CONCEPTS] + [OTHER_FIELD]
 
         line_vals = []
         for row, payslip in zip(rows, payslips):
             employee = payslip.employee_id
-            line_vals.append({
-                'wizard_id': self.id,
+            vals = {
                 'employee_id': employee.id,
                 'codigo_empleado': employee.codigo_empleado or '',
                 'job_id': employee.job_id.id,
@@ -188,8 +206,11 @@ class WizardReporteDetalleNomina(models.TransientModel):
                 'payslip_run_id': payslip.payslip_run_id.id,
                 'date_from': payslip.date_from,
                 'date_to': payslip.date_to,
-                'detalle': {name: row[n_fixed + i] for i, name in enumerate(property_names)},
-            })
+            }
+            for i, field_name in enumerate(concept_fields):
+                vals[field_name] = row[n_fixed + i]
+            line_vals.append(vals)
+
         lines = self.env['wizard.reporte.detalle.nomina.line'].create(line_vals)
         return {
             'type': 'ir.actions.act_window',
@@ -212,7 +233,6 @@ class WizardReporteDetalleNominaLine(models.TransientModel):
     _description = 'Línea de Detalle de Nómina (visor)'
     _order = 'employee_id, date_from'
 
-    wizard_id = fields.Many2one('wizard.reporte.detalle.nomina', required=True, ondelete='cascade')
     employee_id = fields.Many2one('hr.employee', string='Empleado')
     codigo_empleado = fields.Char(string='Código')
     job_id = fields.Many2one('hr.job', string='Puesto')
@@ -220,4 +240,35 @@ class WizardReporteDetalleNominaLine(models.TransientModel):
     payslip_run_id = fields.Many2one('hr.payslip.run', string='Lote')
     date_from = fields.Date(string='Del')
     date_to = fields.Date(string='Al')
-    detalle = fields.Properties('Detalle', definition='wizard_id.detalle_definition')
+
+    salario_base = fields.Float(string='Salario Base')
+    bonificacion_incentivo = fields.Float(string='Bonificación Incentivo')
+    bonificacion_fija = fields.Float(string='Bonificación Fija')
+    bonificacion_ajuste = fields.Float(string='Bonificación por Ajuste')
+    bonificacion_asueto = fields.Float(string='Bonificación por Asueto')
+    bonificacion_productividad = fields.Float(string='Bonificación por Productividad')
+    alimentacion = fields.Float(string='Alimentación')
+    horas_extra = fields.Float(string='Horas Extras')
+    bonificacion_horas = fields.Float(string='Bonificación por Horas')
+    bonificaciones_extras = fields.Float(string='Bonificaciones Extras')
+    gratificacion = fields.Float(string='Gratificación')
+    devolucion_isr = fields.Float(string='Devolución de ISR')
+    bono14_pago = fields.Float(string='Bono 14 Pago')
+    aguinaldo_pago = fields.Float(string='Aguinaldo Pago')
+    indemnizacion_pago = fields.Float(string='Indemnización Pago')
+    vacaciones_pago = fields.Float(string='Vacaciones Pago')
+    igss_patronal = fields.Float(string='IGSS Patronal')
+    complemento_igss_patronal = fields.Float(string='Complemento IGSS Patronal')
+    irtra = fields.Float(string='IRTRA')
+    intecap = fields.Float(string='INTECAP')
+    salario_devengado = fields.Float(string='Salario Devengado')
+    igss_laboral = fields.Float(string='IGSS Laboral')
+    complemento_igss_laboral = fields.Float(string='Complemento IGSS Laboral')
+    isr_asalariados = fields.Float(string='ISR Asalariados')
+    vales = fields.Float(string='Vales')
+    otros_descuentos = fields.Float(string='Otros Descuentos')
+    prestamos = fields.Float(string='Préstamos')
+    retencion_isr = fields.Float(string='Retención ISR')
+    total_deducciones = fields.Float(string='Total Deducciones')
+    salario_neto = fields.Float(string='Salario Neto')
+    otros_conceptos = fields.Float(string='Otros Conceptos')

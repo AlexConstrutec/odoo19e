@@ -31,14 +31,44 @@
         <field name="model">wizard.reporte.detalle.nomina.line</field>
         <field name="arch" type="xml">
             <list string="Detalle de Nómina" create="0" edit="0" delete="0">
-                <field name="employee_id"/>
-                <field name="codigo_empleado"/>
-                <field name="job_id" optional="hide"/>
-                <field name="department_id"/>
-                <field name="payslip_run_id"/>
-                <field name="date_from"/>
-                <field name="date_to"/>
-                <field name="detalle"/>
+                <field name="employee_id" optional="show"/>
+                <field name="codigo_empleado" optional="show"/>
+                <field name="job_id" optional="show"/>
+                <field name="department_id" optional="show"/>
+                <field name="payslip_run_id" optional="show"/>
+                <field name="date_from" optional="show"/>
+                <field name="date_to" optional="show"/>
+                <field name="salario_base" sum="Total" optional="show"/>
+                <field name="bonificacion_incentivo" sum="Total" optional="show"/>
+                <field name="bonificacion_fija" sum="Total" optional="show"/>
+                <field name="bonificacion_ajuste" sum="Total" optional="show"/>
+                <field name="bonificacion_asueto" sum="Total" optional="show"/>
+                <field name="bonificacion_productividad" sum="Total" optional="show"/>
+                <field name="alimentacion" sum="Total" optional="show"/>
+                <field name="horas_extra" sum="Total" optional="show"/>
+                <field name="bonificacion_horas" sum="Total" optional="show"/>
+                <field name="bonificaciones_extras" sum="Total" optional="show"/>
+                <field name="gratificacion" sum="Total" optional="show"/>
+                <field name="devolucion_isr" sum="Total" optional="show"/>
+                <field name="bono14_pago" sum="Total" optional="show"/>
+                <field name="aguinaldo_pago" sum="Total" optional="show"/>
+                <field name="indemnizacion_pago" sum="Total" optional="show"/>
+                <field name="vacaciones_pago" sum="Total" optional="show"/>
+                <field name="igss_patronal" sum="Total" optional="show"/>
+                <field name="complemento_igss_patronal" sum="Total" optional="show"/>
+                <field name="irtra" sum="Total" optional="show"/>
+                <field name="intecap" sum="Total" optional="show"/>
+                <field name="salario_devengado" sum="Total" optional="show"/>
+                <field name="igss_laboral" sum="Total" optional="show"/>
+                <field name="complemento_igss_laboral" sum="Total" optional="show"/>
+                <field name="isr_asalariados" sum="Total" optional="show"/>
+                <field name="vales" sum="Total" optional="show"/>
+                <field name="otros_descuentos" sum="Total" optional="show"/>
+                <field name="prestamos" sum="Total" optional="show"/>
+                <field name="retencion_isr" sum="Total" optional="show"/>
+                <field name="total_deducciones" sum="Total" optional="show"/>
+                <field name="salario_neto" sum="Total" optional="show"/>
+                <field name="otros_conceptos" sum="Total" optional="show"/>
             </list>
         </field>
     </record>
