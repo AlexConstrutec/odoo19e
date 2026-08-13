@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_detalle_nomina_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <div class="page" style="font-family: Arial; padding: 16px;">
+                    <h2>Detalle de Nómina</h2>
+                    <p>
+                        <t t-esc="doc.company_id.name"/> - Del
+                        <t t-esc="doc.date_start.strftime('%d/%m/%Y')"/> al
+                        <t t-esc="doc.date_end.strftime('%d/%m/%Y')"/>
+                    </p>
+                    <t t-set="matrix" t-value="doc._compute_matrix()"/>
+                    <t t-out="doc._build_preview_html(matrix[0], matrix[1], matrix[2])"/>
+                </div>
+            </t>
+        </t>
+    </template>
+</odoo>

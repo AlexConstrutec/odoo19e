@@ -1,4 +1,6 @@
-from markupsafe import escape
+import base64
+
+from markupsafe import Markup, escape
 
 from odoo import fields, models
 
@@ -10,9 +12,10 @@ EXCLUDED_CODES = {'BONO14', 'AGUINALDO', 'INDM', 'VACAC'}
 
 # Clasificación suma/resta para colorear el Excel. Los códigos conocidos vienen de las
 # reglas ya usadas en los demás wizards de este módulo (report_planilla_sueldos.py,
-# report_libro_sueldos.py, report_planilla_igss.py). Para códigos no vistos antes (cada
-# empresa configura sus reglas directo en la UI de Odoo) se usa como respaldo una búsqueda
-# de palabras clave en el nombre de la regla.
+# report_libro_sueldos.py, report_planilla_igss.py) y fueron confirmados por el usuario:
+# ANT1 = Vales, ANT2 = Otros Descuentos, ANT3 = Prestamos. Para códigos no vistos antes
+# (cada empresa configura sus reglas directo en la UI de Odoo) se usa como respaldo una
+# búsqueda de palabras clave en el nombre de la regla.
 DEDUCTION_CODES = {
     'IGSSLABR', 'CIGSSLAB', 'ISRASA', 'ANT1', 'ANT2', 'ANT3', 'DEDU', 'LO', 'ISR_AJ', 'SAR',
 }
@@ -27,9 +30,6 @@ class WizardReporteDetalleNomina(models.TransientModel):
     date_start = fields.Date(string='Del', required=True)
     date_end = fields.Date(string='Al', required=True)
     payslip_run_ids = fields.Many2many('hr.payslip.run', string='Lotes')
-    preview_html = fields.Html(string='Detalle', sanitize=False, readonly=True)
-    # Extiende el 'state' del mixin (choose/get) con un tercer valor para el visor.
-    state = fields.Selection(selection_add=[('view', 'Visor')], ondelete={'view': 'set default'})
 
     def _get_payslips(self):
         # Domain por solapamiento (no por contención estricta): toma cualquier recibo cuyo
@@ -121,7 +121,9 @@ class WizardReporteDetalleNomina(models.TransientModel):
             f'white-space:nowrap;font-weight:bold;">{escape(fmt(value, i >= n_fixed))}</td>'
             for i, value in enumerate(totals))
 
-        return (
+        # Markup (no un str plano) para que el reporte qweb-html lo pueda mostrar con
+        # t-out sin que se escape como texto - ver report_detalle_nomina_document.
+        return Markup(
             '<div style="overflow-x:auto;">'
             '<table style="border-collapse:collapse;font-size:12px;">'
             f'<thead><tr>{header_cells}</tr></thead>'
@@ -173,17 +175,22 @@ class WizardReporteDetalleNomina(models.TransientModel):
             else:
                 sheet.write(row_idx, col, value or '', bold)
 
-        return self.finalize_workbook(buffer, workbook, 'Detalle_Nomina.xlsx')
+        workbook.close()
+        filename = 'Detalle_Nomina.xlsx'
+        self.write({'data': base64.b64encode(buffer.getvalue()), 'name': filename})
+        # ir.actions.act_url con download=true dispara la descarga directa del archivo,
+        # sin pasar por una pantalla intermedia de "Archivo listo, haga clic para bajarlo".
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/{self._name}/{self.id}/data/{filename}?download=true',
+            'target': 'self',
+        }
 
     def action_ver(self):
+        """Abre el detalle en una pantalla nueva (reporte qweb-html), no en este mismo wizard."""
         self.ensure_one()
         self.check_date()
-        headers, rows, totals, _kinds = self._compute_matrix()
-        self.write({
-            'preview_html': self._build_preview_html(headers, rows, totals),
-            'state': 'view',
-        })
-        return self._reopen()
+        return self.env.ref('construtec_hr_reports_19.action_report_detalle_nomina').report_action(self, config=False)
 
     def action_excel(self):
         self.ensure_one()
