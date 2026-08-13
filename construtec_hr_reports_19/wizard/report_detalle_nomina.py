@@ -4,6 +4,20 @@ from odoo import fields, models
 
 FIXED_HEADERS = ['Empleado', 'Código', 'Puesto', 'Departamento', 'Lote', 'Del', 'Al']
 
+# Códigos de reglas salariales excluidos del detalle (reservas/provisiones contables que
+# no forman parte del pago real al empleado, a pedido del usuario).
+EXCLUDED_CODES = {'BONO14', 'AGUINALDO', 'INDM', 'VACAC'}
+
+# Clasificación suma/resta para colorear el Excel. Los códigos conocidos vienen de las
+# reglas ya usadas en los demás wizards de este módulo (report_planilla_sueldos.py,
+# report_libro_sueldos.py, report_planilla_igss.py). Para códigos no vistos antes (cada
+# empresa configura sus reglas directo en la UI de Odoo) se usa como respaldo una búsqueda
+# de palabras clave en el nombre de la regla.
+DEDUCTION_CODES = {
+    'IGSSLABR', 'CIGSSLAB', 'ISRASA', 'ANT1', 'ANT2', 'ANT3', 'DEDU', 'LO', 'ISR_AJ', 'SAR',
+}
+DEDUCTION_KEYWORDS = ['descuento', 'deduccion', 'deducción', 'retenc', 'prestamo', 'préstamo', 'anticipo']
+
 
 class WizardReporteDetalleNomina(models.TransientModel):
     _name = 'wizard.reporte.detalle.nomina'
@@ -14,33 +28,50 @@ class WizardReporteDetalleNomina(models.TransientModel):
     date_end = fields.Date(string='Al', required=True)
     payslip_run_ids = fields.Many2many('hr.payslip.run', string='Lotes')
     preview_html = fields.Html(string='Detalle', sanitize=False, readonly=True)
+    # Extiende el 'state' del mixin (choose/get) con un tercer valor para el visor.
+    state = fields.Selection(selection_add=[('view', 'Visor')], ondelete={'view': 'set default'})
 
     def _get_payslips(self):
+        # Domain por solapamiento (no por contención estricta): toma cualquier recibo cuyo
+        # periodo se cruce con el rango Del/Al elegido, para no dejar fuera lotes cuyo
+        # periodo no calza exactamente con las fechas seleccionadas.
         domain = [
-            ('date_from', '>=', self.date_start), ('date_to', '<=', self.date_end),
+            ('date_from', '<=', self.date_end), ('date_to', '>=', self.date_start),
             ('company_id', '=', self.company_id.id), ('state', 'in', ('validated', 'paid')),
         ]
         if self.payslip_run_ids:
             domain.append(('payslip_run_id', 'in', self.payslip_run_ids.ids))
         return self.env['hr.payslip'].search(domain, order='employee_id, date_from asc')
 
+    @staticmethod
+    def _is_deduction(code, name):
+        if code in DEDUCTION_CODES:
+            return True
+        name_l = (name or '').lower()
+        return any(kw in name_l for kw in DEDUCTION_KEYWORDS)
+
     def _compute_matrix(self):
         """Arma columnas dinámicamente a partir de los codigos de regla salarial que
         efectivamente aparecen en los recibos seleccionados (no una lista fija), porque
         distintas estructuras salariales pueden tener conjuntos de reglas distintos.
-        Devuelve (headers, rows, totals). Usado tanto por el visor como por el Excel para
-        que nunca queden desalineados."""
+        Devuelve (headers, rows, totals, column_kinds). column_kinds está alineado con
+        headers: None para las columnas fijas, 'add'/'sub' para las dinámicas (usado para
+        colorear el Excel). Usado tanto por el visor como por el Excel para que nunca
+        queden desalineados."""
         payslips = self._get_payslips()
 
         dynamic_codes = []
         dynamic_headers = []
+        dynamic_kinds = []
         for payslip in payslips:
             for line in payslip.line_ids:
-                if line.code and line.code not in dynamic_codes:
+                if line.code and line.code not in EXCLUDED_CODES and line.code not in dynamic_codes:
                     dynamic_codes.append(line.code)
                     dynamic_headers.append(line.name or line.code)
+                    dynamic_kinds.append('sub' if self._is_deduction(line.code, line.name) else 'add')
 
         headers = FIXED_HEADERS + dynamic_headers
+        column_kinds = [None] * len(FIXED_HEADERS) + dynamic_kinds
         rows = []
         for payslip in payslips:
             employee = payslip.employee_id
@@ -64,7 +95,7 @@ class WizardReporteDetalleNomina(models.TransientModel):
         for col in range(len(dynamic_codes)):
             totals.append(sum(row[len(FIXED_HEADERS) + col] for row in rows))
 
-        return headers, rows, totals
+        return headers, rows, totals, column_kinds
 
     def _build_preview_html(self, headers, rows, totals):
         n_fixed = len(FIXED_HEADERS)
@@ -98,12 +129,19 @@ class WizardReporteDetalleNomina(models.TransientModel):
             '</table></div>'
         )
 
-    def _build_xlsx(self, headers, rows, totals):
+    def _build_xlsx(self, headers, rows, totals, column_kinds):
         buffer, workbook = self.new_workbook()
         sheet = workbook.add_worksheet('Detalle de Nómina')
         bold = workbook.add_format({'bold': True})
         money = workbook.add_format({'num_format': '#,##0.00'})
         bold_money = workbook.add_format({'bold': True, 'num_format': '#,##0.00'})
+        # Verde claro para columnas que suman, rojo claro para las que restan.
+        add_header = workbook.add_format({'bold': True, 'bg_color': '#C6EFCE'})
+        add_money = workbook.add_format({'num_format': '#,##0.00', 'bg_color': '#C6EFCE'})
+        add_bold_money = workbook.add_format({'bold': True, 'num_format': '#,##0.00', 'bg_color': '#C6EFCE'})
+        sub_header = workbook.add_format({'bold': True, 'bg_color': '#FFC7CE'})
+        sub_money = workbook.add_format({'num_format': '#,##0.00', 'bg_color': '#FFC7CE'})
+        sub_bold_money = workbook.add_format({'bold': True, 'num_format': '#,##0.00', 'bg_color': '#FFC7CE'})
 
         n_cols = len(headers)
         n_fixed = len(FIXED_HEADERS)
@@ -112,28 +150,43 @@ class WizardReporteDetalleNomina(models.TransientModel):
                            f'Detalle de Nómina - Del {self.date_start.strftime("%d/%m/%Y")} '
                            f'al {self.date_end.strftime("%d/%m/%Y")}')
         for col, header in enumerate(headers):
-            sheet.write(2, col, header, bold)
+            kind = column_kinds[col]
+            fmt = add_header if kind == 'add' else sub_header if kind == 'sub' else bold
+            sheet.write(2, col, header, fmt)
 
         row_idx = 3
         for row in rows:
             for col, value in enumerate(row):
                 if col >= n_fixed:
-                    sheet.write_number(row_idx, col, value, money)
+                    kind = column_kinds[col]
+                    fmt = add_money if kind == 'add' else sub_money
+                    sheet.write_number(row_idx, col, value, fmt)
                 else:
                     sheet.write(row_idx, col, value)
             row_idx += 1
 
         for col, value in enumerate(totals):
             if col >= n_fixed:
-                sheet.write_number(row_idx, col, value, bold_money)
+                kind = column_kinds[col]
+                fmt = add_bold_money if kind == 'add' else sub_bold_money
+                sheet.write_number(row_idx, col, value, fmt)
             else:
                 sheet.write(row_idx, col, value or '', bold)
 
         return self.finalize_workbook(buffer, workbook, 'Detalle_Nomina.xlsx')
 
-    def action_generar(self):
+    def action_ver(self):
         self.ensure_one()
         self.check_date()
-        headers, rows, totals = self._compute_matrix()
-        self.preview_html = self._build_preview_html(headers, rows, totals)
-        return self._build_xlsx(headers, rows, totals)
+        headers, rows, totals, _kinds = self._compute_matrix()
+        self.write({
+            'preview_html': self._build_preview_html(headers, rows, totals),
+            'state': 'view',
+        })
+        return self._reopen()
+
+    def action_excel(self):
+        self.ensure_one()
+        self.check_date()
+        headers, rows, totals, kinds = self._compute_matrix()
+        return self._build_xlsx(headers, rows, totals, kinds)

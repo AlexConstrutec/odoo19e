@@ -12,18 +12,22 @@
                     <field name="date_end" required="1"/>
                     <field name="payslip_run_ids" widget="many2many_tags"/>
                 </group>
-                <div invisible="state != 'get'">
+                <div invisible="state != 'view'">
                     <h2>Detalle de Nómina</h2>
                     <div style="overflow-x:auto;">
                         <field name="preview_html" widget="html" nolabel="1"/>
                     </div>
+                </div>
+                <div invisible="state != 'get'">
+                    <h2>Descargar Archivo - Detalle de Nómina</h2>
                     <p>Archivo: <field name="data" readonly="1" filename="name"/></p>
                 </div>
                 <footer>
-                    <button name="action_generar" string="Generar Reporte" type="object" class="oe_highlight" invisible="state != 'choose'"/>
+                    <button name="action_ver" string="Visor" type="object" class="oe_highlight" invisible="state != 'choose'"/>
+                    <button name="action_excel" string="Excel" type="object" class="oe_highlight" invisible="state != 'choose'"/>
                     <button string="Cancelar" special="cancel" invisible="state != 'choose'"/>
-                    <button name="got_back" string="Atrás" type="object" class="oe_highlight" invisible="state != 'get'"/>
-                    <button string="Cerrar" special="cancel" invisible="state != 'get'"/>
+                    <button name="got_back" string="Atrás" type="object" class="oe_highlight" invisible="state not in ('view', 'get')"/>
+                    <button string="Cerrar" special="cancel" invisible="state not in ('view', 'get')"/>
                 </footer>
             </form>
         </field>
