@@ -28,6 +28,7 @@ class WizardReporteDetalleNomina(models.TransientModel):
     date_start = fields.Date(string='Del', required=True)
     date_end = fields.Date(string='Al', required=True)
     payslip_run_ids = fields.Many2many('hr.payslip.run', string='Lotes')
+    detalle_definition = fields.PropertiesDefinition('Definición de Conceptos')
 
     def _get_payslips(self):
         # Domain por solapamiento (no por contención estricta): toma cualquier recibo cuyo
@@ -57,10 +58,10 @@ class WizardReporteDetalleNomina(models.TransientModel):
         """Arma columnas dinámicamente a partir de los codigos de regla salarial que
         efectivamente aparecen en los recibos seleccionados (no una lista fija), porque
         distintas estructuras salariales pueden tener conjuntos de reglas distintos.
-        Devuelve (headers, rows, totals, column_kinds). column_kinds está alineado con
-        headers: None para las columnas fijas, 'add'/'sub' para las dinámicas (usado para
-        colorear el Excel). Usado tanto por el visor como por el Excel para que nunca
-        queden desalineados."""
+        Devuelve (headers, rows, totals, column_kinds, payslips). column_kinds está
+        alineado con headers: None para las columnas fijas, 'add'/'sub' para las
+        dinámicas. payslips está alineado 1 a 1 con rows (mismo orden). Usado tanto por
+        el visor como por el Excel para que nunca queden desalineados."""
         payslips = self._get_payslips()
 
         dynamic_codes = []
@@ -98,36 +99,7 @@ class WizardReporteDetalleNomina(models.TransientModel):
         for col in range(len(dynamic_codes)):
             totals.append(sum(row[len(FIXED_HEADERS) + col] for row in rows))
 
-        return headers, rows, totals, column_kinds
-
-    def _build_detail_lines(self):
-        """Formato largo (una fila por concepto de cada recibo) para el visor: a diferencia
-        de _compute_matrix() (formato ancho, columnas dinámicas, usado por el Excel), esto
-        se puede mostrar en una vista lista nativa de Odoo porque sus columnas son fijas
-        (Concepto/Monto/Tipo), sin importar cuántos códigos de regla distintos aparezcan."""
-        payslips = self._get_payslips()
-        lines = []
-        seq = 0
-        for payslip in payslips:
-            employee = payslip.employee_id
-            for line in payslip.line_ids:
-                if not line.code or line.code in EXCLUDED_CODES:
-                    continue
-                seq += 1
-                lines.append({
-                    'employee_id': employee.id,
-                    'codigo_empleado': employee.codigo_empleado or '',
-                    'job_id': employee.job_id.id,
-                    'department_id': employee.department_id.id,
-                    'payslip_run_id': payslip.payslip_run_id.id,
-                    'date_from': payslip.date_from,
-                    'date_to': payslip.date_to,
-                    'concepto': line.name or line.code,
-                    'monto': line.total,
-                    'tipo': 'sub' if self._is_deduction(line.code, line.name) else 'add',
-                    'sequence': seq,
-                })
-        return lines
+        return headers, rows, totals, column_kinds, payslips
 
     def _build_xlsx(self, headers, rows, totals, column_kinds):
         buffer, workbook = self.new_workbook()
@@ -185,12 +157,40 @@ class WizardReporteDetalleNomina(models.TransientModel):
         }
 
     def action_ver(self):
-        """Abre el detalle en una vista lista nativa de Odoo (formato largo, una fila por
-        concepto), no en este mismo wizard - más amigable/familiar que una tabla HTML
-        estática (sorteable, agrupable, con el exportador propio de Odoo)."""
+        """Abre el detalle en una vista lista nativa de Odoo: una fila por recibo, con
+        cada concepto como su propia columna (igual que el Excel), usando fields.Properties
+        - el mismo mecanismo que ya usa hr_payroll (hr.payslip.payslip_properties) para
+        exponer columnas dinámicas por estructura salarial en una vista nativa. Esto evita
+        tener que tocar el ListRenderer del cliente web (ya descartado antes, ver
+        [[feedback_cautela_produccion]]): el renderer ya sabe expandir un campo Properties
+        en una columna por propiedad definida."""
         self.ensure_one()
         self.check_date()
-        lines = self.env['wizard.reporte.detalle.nomina.line'].create(self._build_detail_lines())
+        headers, rows, totals, kinds, payslips = self._compute_matrix()
+        n_fixed = len(FIXED_HEADERS)
+        dynamic_headers = headers[n_fixed:]
+
+        property_names = [f'concepto_{i}' for i in range(len(dynamic_headers))]
+        self.detalle_definition = [
+            {'name': name, 'string': header, 'type': 'float', 'default': 0.0}
+            for name, header in zip(property_names, dynamic_headers)
+        ]
+
+        line_vals = []
+        for row, payslip in zip(rows, payslips):
+            employee = payslip.employee_id
+            line_vals.append({
+                'wizard_id': self.id,
+                'employee_id': employee.id,
+                'codigo_empleado': employee.codigo_empleado or '',
+                'job_id': employee.job_id.id,
+                'department_id': employee.department_id.id,
+                'payslip_run_id': payslip.payslip_run_id.id,
+                'date_from': payslip.date_from,
+                'date_to': payslip.date_to,
+                'detalle': {name: row[n_fixed + i] for i, name in enumerate(property_names)},
+            })
+        lines = self.env['wizard.reporte.detalle.nomina.line'].create(line_vals)
         return {
             'type': 'ir.actions.act_window',
             'name': 'Detalle de Nómina',
@@ -203,15 +203,16 @@ class WizardReporteDetalleNomina(models.TransientModel):
     def action_excel(self):
         self.ensure_one()
         self.check_date()
-        headers, rows, totals, kinds = self._compute_matrix()
+        headers, rows, totals, kinds, _payslips = self._compute_matrix()
         return self._build_xlsx(headers, rows, totals, kinds)
 
 
 class WizardReporteDetalleNominaLine(models.TransientModel):
     _name = 'wizard.reporte.detalle.nomina.line'
     _description = 'Línea de Detalle de Nómina (visor)'
-    _order = 'employee_id, date_from, sequence'
+    _order = 'employee_id, date_from'
 
+    wizard_id = fields.Many2one('wizard.reporte.detalle.nomina', required=True, ondelete='cascade')
     employee_id = fields.Many2one('hr.employee', string='Empleado')
     codigo_empleado = fields.Char(string='Código')
     job_id = fields.Many2one('hr.job', string='Puesto')
@@ -219,7 +220,4 @@ class WizardReporteDetalleNominaLine(models.TransientModel):
     payslip_run_id = fields.Many2one('hr.payslip.run', string='Lote')
     date_from = fields.Date(string='Del')
     date_to = fields.Date(string='Al')
-    concepto = fields.Char(string='Concepto')
-    monto = fields.Float(string='Monto')
-    tipo = fields.Selection([('add', 'Suma'), ('sub', 'Resta')], string='Tipo')
-    sequence = fields.Integer(string='Orden')
+    detalle = fields.Properties('Detalle', definition='wizard_id.detalle_definition')
