@@ -35,9 +35,14 @@ class WizardReporteDetalleNomina(models.TransientModel):
         # Domain por solapamiento (no por contención estricta): toma cualquier recibo cuyo
         # periodo se cruce con el rango Del/Al elegido, para no dejar fuera lotes cuyo
         # periodo no calza exactamente con las fechas seleccionadas.
+        # Estado: cualquiera excepto 'cancel' (no solo 'validated'/'paid' como los demás
+        # wizards de compliance de este módulo) - si el usuario generó varios lotes pero
+        # solo validó uno, los demás siguen en 'draft' y aun así deben aparecer aquí; este
+        # reporte es de revisión/exportación del detalle, no un reporte legal que dependa
+        # de que la nómina ya esté cerrada.
         domain = [
             ('date_from', '<=', self.date_end), ('date_to', '>=', self.date_start),
-            ('company_id', '=', self.company_id.id), ('state', 'in', ('validated', 'paid')),
+            ('company_id', '=', self.company_id.id), ('state', '!=', 'cancel'),
         ]
         if self.payslip_run_ids:
             domain.append(('payslip_run_id', 'in', self.payslip_run_ids.ids))
