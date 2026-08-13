@@ -23,7 +23,6 @@
         'report/constancia_laboral_templates.xml',
         'report/solicitud_irtra_templates.xml',
         'report/voucher_templates.xml',
-        'report/report_detalle_nomina_templates.xml',
         'data/voucher_email_template.xml',
         'views/hr_dias_laborados_mes_views.xml',
         'wizard/report_facturacion_views.xml',

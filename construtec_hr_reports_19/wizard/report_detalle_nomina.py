@@ -1,7 +1,5 @@
 import base64
 
-from markupsafe import Markup, escape
-
 from odoo import fields, models
 
 FIXED_HEADERS = ['Empleado', 'Código', 'Puesto', 'Departamento', 'Lote', 'Del', 'Al']
@@ -102,39 +100,34 @@ class WizardReporteDetalleNomina(models.TransientModel):
 
         return headers, rows, totals, column_kinds
 
-    def _build_preview_html(self, headers, rows, totals):
-        n_fixed = len(FIXED_HEADERS)
-
-        def fmt(value, is_amount):
-            if value is None:
-                return ''
-            if is_amount:
-                return f'{value:,.2f}'
-            return str(value)
-
-        header_cells = ''.join(f'<th style="border:1px solid #ccc;padding:4px;background:#f2f2f2;'
-                                f'white-space:nowrap;">{escape(h)}</th>' for h in headers)
-        body_rows = []
-        for row in rows:
-            cells = ''.join(
-                f'<td style="border:1px solid #ccc;padding:4px;text-align:{"right" if i >= n_fixed else "left"};'
-                f'white-space:nowrap;">{escape(fmt(value, i >= n_fixed))}</td>'
-                for i, value in enumerate(row))
-            body_rows.append(f'<tr>{cells}</tr>')
-        total_cells = ''.join(
-            f'<td style="border:1px solid #ccc;padding:4px;text-align:{"right" if i >= n_fixed else "left"};'
-            f'white-space:nowrap;font-weight:bold;">{escape(fmt(value, i >= n_fixed))}</td>'
-            for i, value in enumerate(totals))
-
-        # Markup (no un str plano) para que el reporte qweb-html lo pueda mostrar con
-        # t-out sin que se escape como texto - ver report_detalle_nomina_document.
-        return Markup(
-            '<div style="overflow-x:auto;">'
-            '<table style="border-collapse:collapse;font-size:12px;">'
-            f'<thead><tr>{header_cells}</tr></thead>'
-            f'<tbody>{"".join(body_rows)}<tr>{total_cells}</tr></tbody>'
-            '</table></div>'
-        )
+    def _build_detail_lines(self):
+        """Formato largo (una fila por concepto de cada recibo) para el visor: a diferencia
+        de _compute_matrix() (formato ancho, columnas dinámicas, usado por el Excel), esto
+        se puede mostrar en una vista lista nativa de Odoo porque sus columnas son fijas
+        (Concepto/Monto/Tipo), sin importar cuántos códigos de regla distintos aparezcan."""
+        payslips = self._get_payslips()
+        lines = []
+        seq = 0
+        for payslip in payslips:
+            employee = payslip.employee_id
+            for line in payslip.line_ids:
+                if not line.code or line.code in EXCLUDED_CODES:
+                    continue
+                seq += 1
+                lines.append({
+                    'employee_id': employee.id,
+                    'codigo_empleado': employee.codigo_empleado or '',
+                    'job_id': employee.job_id.id,
+                    'department_id': employee.department_id.id,
+                    'payslip_run_id': payslip.payslip_run_id.id,
+                    'date_from': payslip.date_from,
+                    'date_to': payslip.date_to,
+                    'concepto': line.name or line.code,
+                    'monto': line.total,
+                    'tipo': 'sub' if self._is_deduction(line.code, line.name) else 'add',
+                    'sequence': seq,
+                })
+        return lines
 
     def _build_xlsx(self, headers, rows, totals, column_kinds):
         buffer, workbook = self.new_workbook()
@@ -192,13 +185,41 @@ class WizardReporteDetalleNomina(models.TransientModel):
         }
 
     def action_ver(self):
-        """Abre el detalle en una pantalla nueva (reporte qweb-html), no en este mismo wizard."""
+        """Abre el detalle en una vista lista nativa de Odoo (formato largo, una fila por
+        concepto), no en este mismo wizard - más amigable/familiar que una tabla HTML
+        estática (sorteable, agrupable, con el exportador propio de Odoo)."""
         self.ensure_one()
         self.check_date()
-        return self.env.ref('construtec_hr_reports_19.action_report_detalle_nomina').report_action(self, config=False)
+        lines = self.env['wizard.reporte.detalle.nomina.line'].create(self._build_detail_lines())
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Detalle de Nómina',
+            'res_model': 'wizard.reporte.detalle.nomina.line',
+            'view_mode': 'list',
+            'domain': [('id', 'in', lines.ids)],
+            'target': 'current',
+        }
 
     def action_excel(self):
         self.ensure_one()
         self.check_date()
         headers, rows, totals, kinds = self._compute_matrix()
         return self._build_xlsx(headers, rows, totals, kinds)
+
+
+class WizardReporteDetalleNominaLine(models.TransientModel):
+    _name = 'wizard.reporte.detalle.nomina.line'
+    _description = 'Línea de Detalle de Nómina (visor)'
+    _order = 'employee_id, date_from, sequence'
+
+    employee_id = fields.Many2one('hr.employee', string='Empleado')
+    codigo_empleado = fields.Char(string='Código')
+    job_id = fields.Many2one('hr.job', string='Puesto')
+    department_id = fields.Many2one('hr.department', string='Departamento')
+    payslip_run_id = fields.Many2one('hr.payslip.run', string='Lote')
+    date_from = fields.Date(string='Del')
+    date_to = fields.Date(string='Al')
+    concepto = fields.Char(string='Concepto')
+    monto = fields.Float(string='Monto')
+    tipo = fields.Selection([('add', 'Suma'), ('sub', 'Resta')], string='Tipo')
+    sequence = fields.Integer(string='Orden')

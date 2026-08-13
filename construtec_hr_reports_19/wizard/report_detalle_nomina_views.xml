@@ -25,4 +25,24 @@
         <field name="view_mode">form</field>
         <field name="target">new</field>
     </record>
+
+    <record id="wizard_reporte_detalle_nomina_line_list_view" model="ir.ui.view">
+        <field name="name">wizard.reporte.detalle.nomina.line.list</field>
+        <field name="model">wizard.reporte.detalle.nomina.line</field>
+        <field name="arch" type="xml">
+            <list string="Detalle de Nómina" create="0" edit="0" delete="0"
+                  decoration-success="tipo == 'add'" decoration-danger="tipo == 'sub'">
+                <field name="employee_id"/>
+                <field name="codigo_empleado"/>
+                <field name="job_id" optional="hide"/>
+                <field name="department_id"/>
+                <field name="payslip_run_id"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <field name="concepto"/>
+                <field name="tipo" optional="hide"/>
+                <field name="monto" sum="Total"/>
+            </list>
+        </field>
+    </record>
 </odoo>

@@ -16,3 +16,5 @@ access_wizard_libro_sueldos_salarios_acc,wizard.libro.sueldos.salarios.acc,model
 access_wizard_planilla_sueldos_acc,wizard.planilla.sueldos.acc,model_wizard_planilla_sueldos,account.group_account_manager,1,1,1,1
 access_wizard_reporte_detalle_nomina,wizard.reporte.detalle.nomina,model_wizard_reporte_detalle_nomina,hr.group_hr_manager,1,1,1,1
 access_wizard_reporte_detalle_nomina_acc,wizard.reporte.detalle.nomina.acc,model_wizard_reporte_detalle_nomina,account.group_account_manager,1,1,1,1
+access_wizard_reporte_detalle_nomina_line,wizard.reporte.detalle.nomina.line,model_wizard_reporte_detalle_nomina_line,hr.group_hr_manager,1,1,1,1
+access_wizard_reporte_detalle_nomina_line_acc,wizard.reporte.detalle.nomina.line.acc,model_wizard_reporte_detalle_nomina_line,account.group_account_manager,1,1,1,1

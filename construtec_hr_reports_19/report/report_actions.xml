@@ -97,11 +97,4 @@
         <field name="paperformat_id" ref="paperformat_voucher"/>
     </record>
 
-    <record id="action_report_detalle_nomina" model="ir.actions.report">
-        <field name="name">Detalle de Nómina</field>
-        <field name="model">wizard.reporte.detalle.nomina</field>
-        <field name="report_type">qweb-html</field>
-        <field name="report_name">construtec_hr_reports_19.report_detalle_nomina_document</field>
-        <field name="report_file">construtec_hr_reports_19.report_detalle_nomina_document</field>
-    </record>
 </odoo>
