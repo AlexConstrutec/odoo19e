@@ -18,3 +18,9 @@ class PurchaseOrder(models.Model):
             'res_id': self.sat_document_id.id,
             'target': 'current',
         }
+
+    def unlink(self):
+        documentos_sat = self.sat_document_id
+        res = super().unlink()
+        documentos_sat._sat_revertir_a_pendiente()
+        return res

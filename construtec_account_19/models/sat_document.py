@@ -353,6 +353,23 @@ class ConstructecSatDocument(models.Model):
             'res_id': document.id,
         })
 
+    def _sat_revertir_a_pendiente(self):
+        """Si el asiento contable/orden de compra/pedido de venta generado a partir de
+        este documento se borra, el documento vuelve a 'pendiente' - para que se
+        pueda volver a convertir en vez de quedar con un estado "convertido" que
+        apunta a un registro que ya no existe. Llamado desde los unlink() de
+        account.move/purchase.order/sale.order en este módulo (cada uno tiene su
+        propio sat_document_id de vuelta hacia acá) - nunca desde aquí mismo."""
+        for document in self:
+            if document.state == 'pendiente':
+                continue
+            document.write({
+                'state': 'pendiente',
+                'move_id': False,
+                'purchase_order_id': False,
+                'sale_order_id': False,
+            })
+
     def action_convertir_a_factura(self):
         self.ensure_one()
         if self.state != 'pendiente':

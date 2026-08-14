@@ -21,6 +21,12 @@ class AccountMove(models.Model):
             'target': 'current',
         }
 
+    def unlink(self):
+        documentos_sat = self.sat_document_id
+        res = super().unlink()
+        documentos_sat._sat_revertir_a_pendiente()
+        return res
+
     partida_numero = fields.Integer(
         string='No. Partida',
         copy=False,
