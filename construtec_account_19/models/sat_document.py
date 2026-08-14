@@ -53,6 +53,13 @@ class ConstructecSatDocument(models.Model):
         help='UUID de autorización del DTE, tal como lo certifica la SAT. Es el identificador '
              'único usado para evitar reimportar el mismo documento.')
     tipo_dte = fields.Selection(TIPO_DTE_SELECTION, string='Tipo DTE', required=True)
+    numero_autorizacion_referencia = fields.Char(
+        string='No. Autorización Documento de Referencia',
+        help='Solo en Notas de Crédito/Débito (NCRE/NDEB): número de autorización del documento '
+             'que esta nota corrige, tal como lo trae el complemento "Notas" del propio DTE. Se '
+             'usa para vincular la nota con la factura ya convertida en Odoo, si ya existe.')
+    motivo_ajuste_nota = fields.Char(
+        string='Motivo de Ajuste', help='Campo "MotivoAjuste" del complemento de la nota, informativo.')
     serie = fields.Char(string='Serie')
     numero_documento = fields.Char(string='Número de Documento')
     fecha_certificacion = fields.Datetime(string='Fecha de Certificación', required=True)
@@ -230,6 +237,8 @@ class ConstructecSatDocument(models.Model):
                 'direction': direction,
                 'numero_autorizacion': numero_autorizacion,
                 'tipo_dte': vals.get('tipo_dte'),
+                'numero_autorizacion_referencia': vals.get('numero_autorizacion_referencia'),
+                'motivo_ajuste_nota': vals.get('motivo_ajuste_nota'),
                 'serie': vals.get('serie'),
                 'numero_documento': vals.get('numero_documento'),
                 'fecha_certificacion': vals.get('fecha_certificacion'),
@@ -359,19 +368,51 @@ class ConstructecSatDocument(models.Model):
                 'Completa la Cuenta Contable de todas las líneas antes de convertir.'))
 
         es_nota_credito = self.tipo_dte in TIPOS_DTE_NOTA_CREDITO
+        es_nota_debito = self.tipo_dte == 'NDEB'
         if self.direction == 'recibida':
             move_type = 'in_refund' if es_nota_credito else 'in_invoice'
         else:
             move_type = 'out_refund' if es_nota_credito else 'out_invoice'
 
+        # NCRE/NDEB: si el DTE trae a qué documento corrige (complemento "Notas",
+        # ver _extraer_referencia_nota en sat_document_import.py) y ese documento
+        # ya fue convertido en Odoo, se vincula el move resultante con el original
+        # (reversed_entry_id / debit_origin_id) - ver CLAUDE.md para el porqué:
+        # sin esto, la nota queda como un asiento suelto que hay que conciliar a
+        # mano, y no hay garantía de que el usuario le ponga los mismos impuestos
+        # que la factura original. Si no se encuentra (documento fuera de rango,
+        # aún no importado, o el DTE no traía el complemento), se seguía haciendo
+        # lo mismo que antes: se crea igual, sin vínculo, y se avisa por chatter.
+        documento_referencia = self.env['construtec.sat.document']
+        if (es_nota_credito or es_nota_debito) and self.numero_autorizacion_referencia:
+            documento_referencia = self.search([
+                ('numero_autorizacion', '=', self.numero_autorizacion_referencia),
+                ('move_id', '!=', False),
+            ], limit=1)
+
+        # Si el documento de referencia tiene un único impuesto uniforme en todas
+        # sus líneas, se usa como default para las líneas de la nota que todavía
+        # no tengan tax_ids propios - nunca se pisa uno ya puesto a mano, y si la
+        # factura original usó impuestos distintos por línea no se adivina cuál
+        # corresponde a cuál (mismo criterio de "no adivinar" del resto del
+        # módulo).
+        tax_ids_default = False
+        if documento_referencia and documento_referencia.move_id:
+            lineas_producto = documento_referencia.move_id.invoice_line_ids.filtered(
+                lambda l: l.display_type == 'product')
+            combinaciones_impuestos = {tuple(sorted(l.tax_ids.ids)) for l in lineas_producto}
+            if len(combinaciones_impuestos) == 1:
+                tax_ids_default = list(next(iter(combinaciones_impuestos)))
+
         invoice_line_ids = []
         for linea in self.line_ids:
+            tax_ids_linea = linea.tax_ids.ids or (tax_ids_default or [])
             vals = {
                 'name': linea.descripcion,
                 'quantity': linea.cantidad or 1.0,
                 'price_unit': linea.precio_unitario,
                 'account_id': linea.account_id.id,
-                'tax_ids': [(6, 0, linea.tax_ids.ids)],
+                'tax_ids': [(6, 0, tax_ids_linea)],
                 'analytic_distribution': linea.analytic_distribution,
             }
             if linea.product_id:
@@ -379,7 +420,7 @@ class ConstructecSatDocument(models.Model):
             invoice_line_ids.append((0, 0, vals))
 
         fecha = self.fecha_certificacion.date()
-        move = self.env['account.move'].create({
+        move_vals = {
             'move_type': move_type,
             'partner_id': self.partner_id.id,
             'invoice_date': fecha,
@@ -388,7 +429,23 @@ class ConstructecSatDocument(models.Model):
             'ref': self.numero_documento or self.numero_autorizacion,
             'invoice_line_ids': invoice_line_ids,
             'sat_document_id': self.id,
-        })
+        }
+        if documento_referencia and documento_referencia.move_id:
+            if es_nota_credito:
+                move_vals['reversed_entry_id'] = documento_referencia.move_id.id
+            elif es_nota_debito:
+                move_vals['debit_origin_id'] = documento_referencia.move_id.id
+
+        move = self.env['account.move'].create(move_vals)
+
+        if (es_nota_credito or es_nota_debito) and not (documento_referencia and documento_referencia.move_id):
+            move.message_post(body=self.env._(
+                'No se encontró en Odoo el documento de referencia de esta nota '
+                '(No. Autorización %(numero)s) - se creó sin vincular a la factura/nota '
+                'original. Verifica manualmente que los impuestos coincidan y concilia '
+                'a mano si corresponde.',
+                numero=self.numero_autorizacion_referencia or self.env._('no informado en el DTE'),
+            ))
 
         adjuntos = self.xml_attachment_id | self.pdf_attachment_id
         if adjuntos:

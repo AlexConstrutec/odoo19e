@@ -9,6 +9,7 @@
     'depends': [
         'base',
         'account',
+        'account_debit_note',
         'purchase_stock',
         'sale',
     ],

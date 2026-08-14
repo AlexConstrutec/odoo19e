@@ -101,6 +101,29 @@ DEFAULT_OUTBOX_PATH = r'C:\Users\Alex\Documents\n8n\sat-bot\data\outbox'
 
 NS = {'dte': 'http://www.sat.gob.gt/dte/fel/0.2.0'}
 
+# Complemento "Notas" (NCRE/NDEB): confirmado contra el propio template de
+# certificación que usa el l10n_gt_edi de Odoo (server\odoo\addons\l10n_gt_edi\
+# data\templates.xml, template dte_complemento_referencias) - una nota trae un
+# <dte:Complemento IDComplemento="Notas"> con un <cno:ReferenciasNota
+# NumeroAutorizacionDocumentoOrigen="..." MotivoAjuste="..."/> apuntando al
+# número de autorización del documento que corrige. Namespace en notación
+# Clark (sin prefijo en el mapa NS de arriba) porque solo se usa aquí.
+_NS_REFERENCIA_NOTA = 'http://www.sat.gob.gt/face2/ComplementoReferenciaNota/0.1.0'
+
+
+def _extraer_referencia_nota(root):
+    for complemento in root.findall('.//dte:Complemento', NS):
+        if complemento.get('IDComplemento') != 'Notas':
+            continue
+        referencia = complemento.find(f'{{{_NS_REFERENCIA_NOTA}}}ReferenciasNota')
+        if referencia is None:
+            continue
+        return {
+            'numero_autorizacion_referencia': referencia.get('NumeroAutorizacionDocumentoOrigen'),
+            'motivo_ajuste_nota': referencia.get('MotivoAjuste'),
+        }
+    return {'numero_autorizacion_referencia': None, 'motivo_ajuste_nota': None}
+
 # Nombre de subcarpeta de sección -> dirección del documento SAT. Confirmado con
 # datos reales: section_1 son documentos donde el Receptor del DTE es la cuenta
 # propia (compras/recibidas); section_2 son donde el Emisor es la cuenta propia
@@ -197,6 +220,7 @@ def _parse_dte_xml(xml_bytes: bytes) -> dict:
         'numero_autorizacion': (numero_autorizacion_el.text or '').strip()
         if numero_autorizacion_el is not None else '',
         'tipo_dte': datos_generales.get('Tipo') if datos_generales is not None else None,
+        **_extraer_referencia_nota(root),
         'moneda_codigo': datos_generales.get('CodigoMoneda') if datos_generales is not None else None,
         'serie': numero_autorizacion_el.get('Serie') if numero_autorizacion_el is not None else None,
         'numero_documento': numero_autorizacion_el.get('Numero') if numero_autorizacion_el is not None else None,

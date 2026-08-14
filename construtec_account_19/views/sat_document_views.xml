@@ -7,7 +7,14 @@
             <form string="Documento SAT">
                 <header>
                     <button name="action_convertir_a_factura" string="Convertir a Factura" type="object"
-                            class="oe_highlight" invisible="state != 'pendiente'"/>
+                            class="oe_highlight"
+                            invisible="state != 'pendiente' or tipo_dte in ('NCRE', 'NDEB')"/>
+                    <button name="action_convertir_a_factura" string="Convertir a Nota de Crédito" type="object"
+                            class="oe_highlight"
+                            invisible="state != 'pendiente' or tipo_dte != 'NCRE'"/>
+                    <button name="action_convertir_a_factura" string="Convertir a Nota de Débito" type="object"
+                            class="oe_highlight"
+                            invisible="state != 'pendiente' or tipo_dte != 'NDEB'"/>
                     <button name="action_convertir_a_orden_compra" string="Convertir a Orden de Compra" type="object"
                             invisible="state != 'pendiente' or direction != 'recibida'"/>
                     <button name="action_convertir_a_pedido_venta" string="Convertir a Pedido de Venta" type="object"
@@ -92,6 +99,12 @@
                             </field>
                         </page>
                         <page string="Detalle SAT">
+                            <group invisible="tipo_dte not in ('NCRE', 'NDEB')">
+                                <group string="Documento de Referencia (Nota)">
+                                    <field name="numero_autorizacion_referencia"/>
+                                    <field name="motivo_ajuste_nota"/>
+                                </group>
+                            </group>
                             <group>
                                 <group string="Emisor">
                                     <field name="nombre_comercial_emisor"/>
