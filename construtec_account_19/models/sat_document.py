@@ -127,6 +127,28 @@ class ConstructecSatDocument(models.Model):
         'Ya existe un documento SAT importado con este número de autorización.',
     )
 
+    @api.onchange('cuenta_contable_id')
+    def _onchange_cuenta_contable_id(self):
+        """Feedback inmediato en el formulario, antes de guardar - ver el write()
+        de más abajo para que la herencia también aplique al guardar/editar por
+        API o edición masiva en la vista lista (el onchange por sí solo no
+        cubre esos casos, solo la UI). Solo rellena líneas SIN cuenta propia -
+        una línea que ya tiene su propia cuenta contable prevalece sobre la del
+        encabezado (pedido explícito del usuario, ver CLAUDE.md)."""
+        if self.cuenta_contable_id:
+            for line in self.line_ids:
+                if not line.account_id:
+                    line.account_id = self.cuenta_contable_id
+
+    def write(self, vals):
+        res = super().write(vals)
+        if 'cuenta_contable_id' in vals:
+            for document in self:
+                if document.cuenta_contable_id:
+                    document.line_ids.filtered(lambda l: not l.account_id).write(
+                        {'account_id': document.cuenta_contable_id.id})
+        return res
+
     @api.model
     def create_from_dte(self, vals):
         """Punto de entrada único para el API externo (n8n, script, etc.).
@@ -550,3 +572,17 @@ class ConstructecSatDocumentLine(models.Model):
         help='Requerida para poder convertir el documento a factura. Se completa manualmente al '
              'revisar el documento importado - n8n no intenta mapearla automáticamente.')
     tax_ids = fields.Many2many('account.tax', string='Impuestos')
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        """Si se agrega una línea nueva a mano (ej. dividiendo una línea existente)
+        y el encabezado ya tiene cuenta_contable_id, la línea nueva la hereda por
+        defecto - sin pisar un account_id que el propio vals ya traiga explícito.
+        El caso masivo (crear todas las líneas al importar el documento) no se ve
+        afectado: en ese momento cuenta_contable_id todavía no está puesto."""
+        for vals in vals_list:
+            if not vals.get('account_id') and vals.get('document_id'):
+                document = self.env['construtec.sat.document'].browse(vals['document_id'])
+                if document.cuenta_contable_id:
+                    vals['account_id'] = document.cuenta_contable_id.id
+        return super().create(vals_list)
