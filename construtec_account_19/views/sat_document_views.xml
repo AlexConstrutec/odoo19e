@@ -60,6 +60,7 @@
                             <field name="monto_total"/>
                             <field name="monto_iva"/>
                             <field name="cuenta_analitica_id"/>
+                            <field name="cuenta_contable_id"/>
                         </group>
                         <group>
                             <field name="xml_attachment_id" readonly="1"/>
@@ -147,6 +148,7 @@
                 <field name="tipo_dte"/>
                 <field name="numero_autorizacion"/>
                 <field name="monto_total" sum="Total"/>
+                <field name="cuenta_contable_id"/>
                 <field name="anulado" optional="hide"/>
                 <field name="state" widget="badge"
                        decoration-success="state in ('convertido_factura', 'convertido_orden_compra')"

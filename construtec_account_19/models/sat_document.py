@@ -108,6 +108,7 @@ class ConstructecSatDocument(models.Model):
     xml_attachment_id = fields.Many2one('ir.attachment', string='XML', copy=False)
     pdf_attachment_id = fields.Many2one('ir.attachment', string='PDF', copy=False)
     cuenta_analitica_id = fields.Many2one('account.analytic.account', string='Cuenta Analítica')
+    cuenta_contable_id = fields.Many2one('account.account', string='Cuenta Contable')
     line_ids = fields.One2many('construtec.sat.document.line', 'document_id', string='Líneas')
     state = fields.Selection([
         ('pendiente', 'Pendiente'),
