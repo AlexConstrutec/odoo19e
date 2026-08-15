@@ -2,6 +2,7 @@ import logging
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
+from odoo.tools import float_is_zero
 
 _logger = logging.getLogger(__name__)
 
@@ -330,6 +331,25 @@ class ConstructecSatDocument(models.Model):
         company_vat = (self.env.company.vat or '').strip()
         return {company_vat} if company_vat else set()
 
+    def _sat_get_default_iva_tax(self):
+        """Impuesto de IVA a asignar por defecto en action_convertir_a_factura cuando
+        una línea trae monto_iva > 0 en el propio DTE pero no tiene tax_ids puesto a
+        mano. Se busca por tipo/importe (12%, purchase en recibidas o sale en
+        emitidas) en vez de por un external ID fijo: los impuestos que vienen de un
+        account.chart.template (ej. l10n_gt) se instancian con un ID distinto por
+        compañía, no hay un ID único reutilizable entre instalaciones. Si no
+        encuentra ninguno (plan de cuentas de Guatemala no aplicado, o ningún
+        impuesto de 12% configurado), regresa vacío - se deja sin tax_ids en vez de
+        adivinar con otro impuesto, igual que el resto de este módulo.
+        """
+        type_tax_use = 'purchase' if self.direction == 'recibida' else 'sale'
+        return self.env['account.tax'].search([
+            ('company_id', '=', self.company_id.id),
+            ('type_tax_use', '=', type_tax_use),
+            ('amount_type', '=', 'percent'),
+            ('amount', '=', 12.0),
+        ], limit=1)
+
     def _sat_find_or_create_partner(self, nit, name):
         if not nit:
             return self.env['res.partner']
@@ -423,7 +443,23 @@ class ConstructecSatDocument(models.Model):
 
         invoice_line_ids = []
         for linea in self.line_ids:
-            tax_ids_linea = linea.tax_ids.ids or (tax_ids_default or [])
+            if linea.tax_ids:
+                tax_ids_linea = linea.tax_ids.ids
+            elif tax_ids_default:
+                tax_ids_linea = tax_ids_default
+            elif not float_is_zero(linea.monto_iva, precision_digits=2):
+                # La línea SÍ trae IVA en el propio DTE pero nadie le puso tax_ids
+                # a mano todavía - se asigna la "etiqueta" de IVA correspondiente
+                # (por dirección: crédito fiscal en recibidas, IVA por pagar en
+                # emitidas) buscada por importe/tipo, no por un ID fijo de plantilla
+                # (los impuestos generados desde account.chart.template tienen un
+                # ID distinto por compañía, no uno fijo reutilizable entre
+                # instalaciones). Los demás impuestos específicos del DTE
+                # (monto_petroleo, etc.) NO se traducen a account.tax a propósito -
+                # ver CLAUDE.md, sección de impuestos.
+                tax_ids_linea = self._sat_get_default_iva_tax().ids
+            else:
+                tax_ids_linea = []
             vals = {
                 'name': linea.descripcion,
                 'quantity': linea.cantidad or 1.0,
