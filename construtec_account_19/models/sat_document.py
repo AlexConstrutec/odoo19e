@@ -477,6 +477,7 @@ class ConstructecSatDocument(models.Model):
             'move_type': move_type,
             'partner_id': self.partner_id.id,
             'invoice_date': fecha,
+            'invoice_date_due': fecha,
             'date': fecha,
             'currency_id': self.currency_id.id,
             'ref': self.numero_documento or self.numero_autorizacion,
