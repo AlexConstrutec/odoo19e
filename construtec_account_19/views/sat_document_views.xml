@@ -19,6 +19,8 @@
                             invisible="state != 'pendiente' or direction != 'recibida'"/>
                     <button name="action_convertir_a_pedido_venta" string="Convertir a Pedido de Venta" type="object"
                             invisible="state != 'pendiente' or direction != 'emitida'"/>
+                    <button name="action_aplicar_reglas_categorizacion" string="Aplicar Reglas de Categorización"
+                            type="object" invisible="state != 'pendiente'"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="pendiente,convertido_factura,convertido_orden_compra,convertido_pedido_venta"/>
                 </header>
@@ -206,6 +208,15 @@
         <field name="binding_view_types">list,form</field>
         <field name="state">code</field>
         <field name="code">action = records.action_convertir_a_factura_masivo()</field>
+    </record>
+
+    <record id="action_construtec_sat_document_aplicar_reglas_masivo" model="ir.actions.server">
+        <field name="name">Aplicar Reglas de Categorización</field>
+        <field name="model_id" ref="model_construtec_sat_document"/>
+        <field name="binding_model_id" ref="model_construtec_sat_document"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_aplicar_reglas_categorizacion()</field>
     </record>
 
     <record id="view_construtec_sat_document_line_detail_list" model="ir.ui.view">

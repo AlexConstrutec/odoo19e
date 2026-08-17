@@ -591,6 +591,38 @@ class ConstructecSatDocument(models.Model):
             },
         }
 
+    def action_aplicar_reglas_categorizacion(self):
+        """Reintenta las Reglas de Categorización (construtec.sat.categorization.rule)
+        sobre uno o varios documentos YA existentes - pensado para cuando se crea o
+        edita una regla después de haber importado las facturas, o para documentos
+        cuyo Excel llegó antes de que existiera la regla que necesitaban. Reusa
+        _sat_apply_to_line() (mismo método que corre automático al importar), así
+        que sigue sin pisar ningún account_id/tax_ids que una línea ya tenga.
+        Solo tiene efecto en documentos 'pendiente' - uno ya convertido no cambia
+        nada al tocar sus líneas."""
+        categorization_model = self.env['construtec.sat.categorization.rule']
+        documentos_procesados = 0
+        lineas_actualizadas = 0
+        for document in self:
+            if document.state != 'pendiente':
+                continue
+            documentos_procesados += 1
+            for line in document.line_ids:
+                if categorization_model._sat_apply_to_line(document, line):
+                    lineas_actualizadas += 1
+
+        mensaje = f"Documentos revisados: {documentos_procesados} | Líneas actualizadas: {lineas_actualizadas}"
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Reglas de Categorización',
+                'message': mensaje,
+                'sticky': False,
+                'type': 'success',
+            },
+        }
+
     def action_ver_factura(self):
         self.ensure_one()
         return {

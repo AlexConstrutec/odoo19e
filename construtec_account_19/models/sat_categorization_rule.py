@@ -105,15 +105,18 @@ class ConstructecSatCategorizationRule(models.Model):
 
     @api.model
     def _sat_apply_to_line(self, document, line):
-        """Aplica la primera regla que coincida a una línea recién creada -
-        llamado desde create_from_dte() en sat_document.py, igual que el
-        catálogo de productos (_sat_register_from_line). Nunca pisa un
-        account_id/tax_ids que la línea ya traiga (no debería traer ninguno
-        recién creada desde el DTE, pero por si acaso) - es una SUGERENCIA
-        editable antes de convertir, no una asignación definitiva."""
+        """Aplica la primera regla que coincida a una línea - llamado desde
+        create_from_dte()/update_from_excel_row() en sat_document.py (línea recién
+        creada o recién con montos de Excel), y también desde
+        action_aplicar_reglas_categorizacion() para reintentar sobre un documento
+        ya existente (ej. reglas creadas después de haber importado la factura).
+        Nunca pisa un account_id/tax_ids que la línea ya traiga - es una
+        SUGERENCIA editable antes de convertir, no una asignación definitiva.
+        Devuelve True si de verdad cambió algo (para poder tallar cuántas líneas
+        se actualizaron), False si no había regla o no había nada que rellenar."""
         regla = self._sat_find_matching_rule(document, line.descripcion)
         if not regla:
-            return
+            return False
         vals = {}
         if regla.account_id and not line.account_id:
             vals['account_id'] = regla.account_id.id
@@ -121,3 +124,5 @@ class ConstructecSatCategorizationRule(models.Model):
             vals['tax_ids'] = [(6, 0, regla.tax_ids.ids)]
         if vals:
             line.write(vals)
+            return True
+        return False
