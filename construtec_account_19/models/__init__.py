@@ -4,5 +4,6 @@ from . import purchase_order
 from . import sale_order
 from . import sat_document
 from . import sat_document_import
+from . import sat_categorization_rule
 from . import sat_import_log
 from . import sat_product_catalog

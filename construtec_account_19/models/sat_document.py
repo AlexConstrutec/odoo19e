@@ -274,12 +274,25 @@ class ConstructecSatDocument(models.Model):
             # SAT en sí se guarde si algo sale mal aquí (ej. carrera entre dos
             # importaciones concurrentes chocando con la restricción unique).
             catalog_model = self.env['construtec.sat.product.catalog']
+            categorization_model = self.env['construtec.sat.categorization.rule']
             for line in document.line_ids:
                 try:
                     catalog_model._sat_register_from_line(document, line)
                 except Exception:
                     _logger.exception(
                         'No se pudo registrar en el catálogo de productos la línea "%s" del documento %s',
+                        line.descripcion, numero_autorizacion,
+                    )
+                # Reglas de categorización (ver construtec.sat.categorization.rule):
+                # solo aplican aquí las reglas SIN campo_condicion, porque los montos
+                # de impuestos específicos (monto_petroleo, etc.) todavía no existen
+                # en este punto - solo el Excel del portal los trae (ver
+                # update_from_excel_row, que vuelve a intentarlo cuando ya están).
+                try:
+                    categorization_model._sat_apply_to_line(document, line)
+                except Exception:
+                    _logger.exception(
+                        'No se pudo aplicar una regla de categorización a la línea "%s" del documento %s',
                         line.descripcion, numero_autorizacion,
                     )
 
@@ -314,6 +327,23 @@ class ConstructecSatDocument(models.Model):
         if not document:
             return False
         document.write(vals)
+
+        # Recién aquí existen de verdad los montos de impuestos específicos
+        # (monto_petroleo, etc. - ver EXCEL_HEADER_MAP en sat_document_import.py),
+        # así que es el momento de reintentar las reglas de categorización que
+        # tienen campo_condicion - al importar el XML esos montos siempre eran
+        # cero. Solo si el documento sigue pendiente: si ya se convirtió, tocar
+        # line_ids aquí no cambiaría nada en la factura ya generada.
+        if document.state == 'pendiente':
+            categorization_model = self.env['construtec.sat.categorization.rule']
+            for line in document.line_ids:
+                try:
+                    categorization_model._sat_apply_to_line(document, line)
+                except Exception:
+                    _logger.exception(
+                        'No se pudo aplicar una regla de categorización a la línea "%s" del documento %s',
+                        line.descripcion, numero_autorizacion,
+                    )
         return True
 
     @api.model

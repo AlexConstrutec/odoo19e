@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_construtec_sat_categorization_rule_form" model="ir.ui.view">
+        <field name="name">construtec.sat.categorization.rule.form</field>
+        <field name="model">construtec.sat.categorization.rule</field>
+        <field name="arch" type="xml">
+            <form string="Regla de Categorización">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Ej. Combustible Diésel"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="palabras_clave" placeholder="diesel, gasoil"/>
+                            <field name="campo_condicion"/>
+                            <field name="direction"/>
+                        </group>
+                        <group>
+                            <field name="account_id"/>
+                            <field name="tax_ids" widget="many2many_tags"/>
+                            <field name="sequence"/>
+                            <field name="active"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_construtec_sat_categorization_rule_list" model="ir.ui.view">
+        <field name="name">construtec.sat.categorization.rule.list</field>
+        <field name="model">construtec.sat.categorization.rule</field>
+        <field name="arch" type="xml">
+            <list string="Reglas de Categorización" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="palabras_clave"/>
+                <field name="campo_condicion" optional="hide"/>
+                <field name="direction" optional="hide"/>
+                <field name="account_id"/>
+                <field name="tax_ids" widget="many2many_tags"/>
+                <field name="active" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_construtec_sat_categorization_rule" model="ir.actions.act_window">
+        <field name="name">Reglas de Categorización</field>
+        <field name="res_model">construtec.sat.categorization.rule</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_construtec_sat_categorization_rule" action="action_construtec_sat_categorization_rule"
+              parent="menu_construtec_sat_document_root" sequence="8"/>
+</odoo>

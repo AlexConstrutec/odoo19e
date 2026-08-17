@@ -22,6 +22,7 @@
         'views/sat_document_views.xml',
         'views/sat_import_log_views.xml',
         'views/sat_product_catalog_views.xml',
+        'views/sat_categorization_rule_views.xml',
         'data/ir_cron_sat_product_catalog.xml',
     ],
     'application': False,
