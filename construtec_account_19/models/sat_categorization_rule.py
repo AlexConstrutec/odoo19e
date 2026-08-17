@@ -41,6 +41,13 @@ class ConstructecSatCategorizationRule(models.Model):
         ('recibida', 'Recibida'),
         ('emitida', 'Emitida'),
     ], string='Dirección', help='Vacío = aplica a ambas direcciones.')
+    partner_ids = fields.Many2many(
+        'res.partner', string='Contactos',
+        help='Vacío = aplica a cualquier contacto. Si se especifican, la regla solo aplica cuando '
+             'el documento es de uno de estos - útil para acotar una regla a los proveedores de '
+             'los que de verdad se esperan ese tipo de facturas (ej. solo las gasolineras conocidas '
+             'para una regla de combustible), en vez de que cualquier "diesel" mencionado en una '
+             'descripción la dispare.')
     palabras_clave = fields.Char(
         string='Palabras Clave', required=True,
         help='Separadas por coma. La regla aplica si la descripción de la línea contiene AL MENOS '
@@ -72,9 +79,9 @@ class ConstructecSatCategorizationRule(models.Model):
     def _sat_find_matching_rule(self, document, descripcion):
         """Primera regla (por secuencia) que coincide con esta línea - ver
         _sat_apply_to_line() para cómo se usa. `document` se necesita para el
-        company_id/direction y para poder evaluar campo_condicion (un campo del
-        propio encabezado, no de la línea - la SAT reporta estos impuestos
-        específicos a nivel de documento, no desglosados por línea)."""
+        company_id/direction/partner_id y para poder evaluar campo_condicion (un
+        campo del propio encabezado, no de la línea - la SAT reporta estos
+        impuestos específicos a nivel de documento, no desglosados por línea)."""
         if not descripcion:
             return self.browse()
         descripcion_normalizada = _strip_accents_upper(descripcion)
@@ -82,6 +89,7 @@ class ConstructecSatCategorizationRule(models.Model):
         reglas = self.search([
             ('company_id', '=', document.company_id.id),
             ('direction', 'in', [document.direction, False]),
+            '|', ('partner_ids', '=', False), ('partner_ids', 'in', document.partner_id.ids),
         ])
         for regla in reglas:
             palabras = [

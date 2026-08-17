@@ -14,6 +14,7 @@
                             <field name="palabras_clave" placeholder="diesel, gasoil"/>
                             <field name="campo_condicion"/>
                             <field name="direction"/>
+                            <field name="partner_ids" widget="many2many_tags"/>
                         </group>
                         <group>
                             <field name="account_id"/>
@@ -38,6 +39,7 @@
                 <field name="palabras_clave"/>
                 <field name="campo_condicion" optional="hide"/>
                 <field name="direction" optional="hide"/>
+                <field name="partner_ids" widget="many2many_tags" optional="hide"/>
                 <field name="account_id"/>
                 <field name="tax_ids" widget="many2many_tags"/>
                 <field name="active" optional="hide"/>
