@@ -511,6 +511,56 @@ class ConstructecSatDocument(models.Model):
 
         return self.action_ver_factura()
 
+    def action_convertir_a_factura_masivo(self):
+        """Versión en lote de action_convertir_a_factura(), para seleccionar varios
+        documentos SAT en la vista lista (compras, ventas, notas de crédito/débito -
+        cualquier mezcla) y convertirlos de una vez, desde el menú Acciones. Reusa
+        exactamente la misma lógica/validaciones por documento (move_type según
+        dirección + tipo_dte, vínculo con el documento de referencia si aplica,
+        etc.) - esto solo la llama en bucle.
+
+        Un documento con error (ej. sin Cuenta Contable en alguna línea, o ya
+        convertido) NO detiene el resto: se sigue con los demás y se reporta un
+        resumen al final. Cada intento corre en su propio savepoint - si algo
+        falla a nivel de base de datos (no solo una validación de UserError antes
+        de tocar la BD), evita que ese fallo deje la transacción de todo el lote
+        en un estado inválido para los documentos restantes.
+        """
+        convertidos = 0
+        ya_convertidos = 0
+        errores = []
+        for document in self:
+            if document.state != 'pendiente':
+                ya_convertidos += 1
+                continue
+            try:
+                with self.env.cr.savepoint():
+                    document.action_convertir_a_factura()
+                convertidos += 1
+            except Exception as exc:
+                _logger.exception(
+                    'Conversión masiva a factura/nota: error al convertir %s', document.numero_autorizacion)
+                errores.append(f'{document.numero_autorizacion}: {exc}')
+
+        if errores:
+            _logger.warning('Conversión masiva a factura/nota: %s errores.\n%s', len(errores), '\n'.join(errores))
+
+        mensaje = (
+            f"Convertidos: {convertidos} | "
+            f"Ya convertidos (omitidos): {ya_convertidos} | "
+            f"Errores: {len(errores)}"
+        )
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Conversión masiva a Factura/Nota',
+                'message': mensaje,
+                'sticky': bool(errores),
+                'type': 'warning' if errores else 'success',
+            },
+        }
+
     def action_ver_factura(self):
         self.ensure_one()
         return {

@@ -199,6 +199,15 @@
         <field name="context">{'search_default_pendientes': 1}</field>
     </record>
 
+    <record id="action_construtec_sat_document_convertir_masivo" model="ir.actions.server">
+        <field name="name">Convertir a Factura/Nota</field>
+        <field name="model_id" ref="model_construtec_sat_document"/>
+        <field name="binding_model_id" ref="model_construtec_sat_document"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_convertir_a_factura_masivo()</field>
+    </record>
+
     <record id="view_construtec_sat_document_line_detail_list" model="ir.ui.view">
         <field name="name">construtec.sat.document.line.detail.list</field>
         <field name="model">construtec.sat.document.line</field>
