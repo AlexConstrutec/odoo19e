@@ -26,6 +26,10 @@ _KNOWN_WORDS_RAW = {
     # Términos legales / societarios
     'ANONIMA', 'COMPAÑIA', 'SUCESION',
     # Sustantivos terminados en "-ción"/"-sión", muy comunes en nombres comerciales
+    # (ANULACION agregada por MotivoAjuste de notas de crédito reales, ver
+    # _extraer_referencia_nota - el resto de ese campo es texto libre del
+    # emisor y probablemente se queda con "?" sin resolver, a propósito)
+    'ANULACION',
     'ADMINISTRACION', 'CONSTRUCCION', 'DISTRIBUCION', 'IMPORTACION', 'EXPORTACION',
     'PRODUCCION', 'OPERACION', 'ASOCIACION', 'EDUCACION', 'COMUNICACION',
     'ORGANIZACION', 'INFORMACION', 'NACION', 'INVERSION', 'INVERSIONES',
@@ -101,28 +105,30 @@ DEFAULT_OUTBOX_PATH = r'C:\Users\Alex\Documents\n8n\sat-bot\data\outbox'
 
 NS = {'dte': 'http://www.sat.gob.gt/dte/fel/0.2.0'}
 
-# Complemento "Notas" (NCRE/NDEB): confirmado contra el propio template de
-# certificación que usa el l10n_gt_edi de Odoo (server\odoo\addons\l10n_gt_edi\
-# data\templates.xml, template dte_complemento_referencias) - una nota trae un
-# <dte:Complemento IDComplemento="Notas"> con un <cno:ReferenciasNota
+# Complemento de referencia (NCRE/NDEB): una nota trae un <cno:ReferenciasNota
 # NumeroAutorizacionDocumentoOrigen="..." MotivoAjuste="..."/> apuntando al
-# número de autorización del documento que corrige. Namespace en notación
-# Clark (sin prefijo en el mapa NS de arriba) porque solo se usa aquí.
+# número de autorización del documento que corrige. El template propio de
+# l10n_gt_edi (server\odoo\addons\l10n_gt_edi\data\templates.xml,
+# dte_complemento_referencias) emite el elemento padre como
+# <dte:Complemento IDComplemento="Notas">, pero un DTE real (certificado por
+# INFILE) trae en cambio IDComplemento="ReferenciasNota" - confirmado contra
+# un XML real cuyo NumeroAutorizacionDocumentoOrigen se estaba perdiendo por
+# completo porque el código filtraba estrictamente por IDComplemento="Notas".
+# Por eso se busca <cno:ReferenciasNota> directamente en todo el árbol, por
+# su namespace (que sí es estable), sin condicionar al valor exacto de
+# IDComplemento del <Complemento> padre. Namespace en notación Clark (sin
+# prefijo en el mapa NS de arriba) porque solo se usa aquí.
 _NS_REFERENCIA_NOTA = 'http://www.sat.gob.gt/face2/ComplementoReferenciaNota/0.1.0'
 
 
 def _extraer_referencia_nota(root):
-    for complemento in root.findall('.//dte:Complemento', NS):
-        if complemento.get('IDComplemento') != 'Notas':
-            continue
-        referencia = complemento.find(f'{{{_NS_REFERENCIA_NOTA}}}ReferenciasNota')
-        if referencia is None:
-            continue
-        return {
-            'numero_autorizacion_referencia': referencia.get('NumeroAutorizacionDocumentoOrigen'),
-            'motivo_ajuste_nota': referencia.get('MotivoAjuste'),
-        }
-    return {'numero_autorizacion_referencia': None, 'motivo_ajuste_nota': None}
+    referencia = root.find(f'.//{{{_NS_REFERENCIA_NOTA}}}ReferenciasNota')
+    if referencia is None:
+        return {'numero_autorizacion_referencia': None, 'motivo_ajuste_nota': None}
+    return {
+        'numero_autorizacion_referencia': referencia.get('NumeroAutorizacionDocumentoOrigen'),
+        'motivo_ajuste_nota': _fix_mangled_accents(referencia.get('MotivoAjuste')),
+    }
 
 # Nombre de subcarpeta de sección -> dirección del documento SAT. Confirmado con
 # datos reales: section_1 son documentos donde el Receptor del DTE es la cuenta
