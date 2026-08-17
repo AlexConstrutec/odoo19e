@@ -25,7 +25,6 @@ class WizardReportFacturacion(models.TransientModel):
             version = payslip.version_id
             analytic = self.analytic_account(version.analytic_distribution)
             key = (
-                version.empresa_facturar.name or '',
                 payslip.company_id.name,
                 version.department_id.parent_id.name or '',
                 analytic.name or '',
@@ -43,24 +42,23 @@ class WizardReportFacturacion(models.TransientModel):
         buffer, workbook = self.new_workbook()
         sheet = workbook.add_worksheet('Reporte de Facturación')
         bold = workbook.add_format({'bold': True})
-        headers = ['Empresa Recibe', 'Empresa Factura', 'Departamento', 'Centro de Costo', 'Sueldos',
+        headers = ['Empresa Recibe', 'Departamento', 'Centro de Costo', 'Sueldos',
                    'Prestaciones', 'Alimentación', 'Fac.Salarios', 'Fac.Prestaciones', 'Tipo Facturación']
         for col, header in enumerate(headers):
             sheet.write(0, col, header, bold)
 
         row = 1
-        for (empresa_facturar, empresa_recibe, departamento, centro_costo), bucket in groups.items():
+        for (empresa_recibe, departamento, centro_costo), bucket in groups.items():
             analytic = bucket['analytic']
             sheet.write(row, 0, empresa_recibe)
-            sheet.write(row, 1, empresa_facturar)
-            sheet.write(row, 2, departamento)
-            sheet.write(row, 3, centro_costo)
-            sheet.write(row, 4, (bucket['bruto'] - bucket['alimentacion']) * 1.12)
-            sheet.write(row, 5, bucket['prestaciones'] * 1.12)
-            sheet.write(row, 6, bucket['alimentacion'] * 1.12)
+            sheet.write(row, 1, departamento)
+            sheet.write(row, 2, centro_costo)
+            sheet.write(row, 3, (bucket['bruto'] - bucket['alimentacion']) * 1.12)
+            sheet.write(row, 4, bucket['prestaciones'] * 1.12)
+            sheet.write(row, 5, bucket['alimentacion'] * 1.12)
+            sheet.write(row, 6, '')
             sheet.write(row, 7, '')
-            sheet.write(row, 8, '')
-            sheet.write(row, 9, analytic.plan_id.name if analytic else '')
+            sheet.write(row, 8, analytic.plan_id.name if analytic else '')
             row += 1
 
         return self.finalize_workbook(buffer, workbook, 'Reporte_Facturacion.xlsx')

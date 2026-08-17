@@ -2,7 +2,7 @@ from odoo import fields, models
 
 COLUMNS = [
     'Mes', 'Fecha Del', 'Fecha Al', 'Referencia de Nómina', 'Nombre de empleado', 'Departamento', 'Area',
-    'Fecha de contrato', 'Status', 'Puesto', 'Bono Anual', 'Aguinaldo', 'Indemnización', 'Vacaciones',
+    'Fecha de contrato', 'Puesto', 'Bono Anual', 'Aguinaldo', 'Indemnización', 'Vacaciones',
     'Total de Prestaciones',
 ]
 
@@ -32,7 +32,6 @@ def prestaciones_row(payslip):
         version.department_id.parent_id.name or '',
         employee.department_id.name or '',
         version.contract_date_start or employee._get_first_contract_date() or '',
-        version.estado_contrato.name or '',
         employee.job_id.name or '',
         bono14,
         aguinaldo,
@@ -138,13 +137,13 @@ class WizardPasivoLaboralEmpleado(models.TransientModel):
                     sheet.write_number(row, col, value, money)
                 else:
                     sheet.write(row, col, value)
-            for i, key in enumerate(data_row[10:14]):
+            for i, key in enumerate(data_row[9:13]):
                 totals[i] += key
             row += 1
 
         sheet.write(row, 4, self.employee_id.name, bold)
         for i, total in enumerate(totals):
-            sheet.write_number(row, 10 + i, total, workbook.add_format({'bold': True, 'num_format': '#,##0.00'}))
-        sheet.write_number(row, 14, sum(totals), workbook.add_format({'bold': True, 'num_format': '#,##0.00'}))
+            sheet.write_number(row, 9 + i, total, workbook.add_format({'bold': True, 'num_format': '#,##0.00'}))
+        sheet.write_number(row, 13, sum(totals), workbook.add_format({'bold': True, 'num_format': '#,##0.00'}))
 
         return self.finalize_workbook(buffer, workbook, 'Pasivo_Laboral_Empleado.xlsx')

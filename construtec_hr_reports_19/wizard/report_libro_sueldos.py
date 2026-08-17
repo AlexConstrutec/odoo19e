@@ -31,8 +31,8 @@ class WizardLibroSueldosSalarios(models.TransientModel):
         version = payslip.version_id
         if '100HE' in struct_name:
             vheb = sum(line.total for line in payslip.line_ids if line.code == 'VHEB')
-            if version.horas_extra_valor > 0 and vheb > 0:
-                return vheb / version.horas_extra_valor
+            if version.x_horas_extra_valor > 0 and vheb > 0:
+                return vheb / version.x_horas_extra_valor
             return 0.0
         if '100BH' in struct_name:
             horas = sum(
@@ -63,7 +63,7 @@ class WizardLibroSueldosSalarios(models.TransientModel):
         return [
             employee.name,
             employee.edad,
-            dict(employee._fields['sex'].selection).get(employee.sex, ''),
+            self.selection_label(employee, 'sex'),
             employee.country_of_birth.name or '',
             employee.job_title or '',
             employee.igss or '',
@@ -90,7 +90,7 @@ class WizardLibroSueldosSalarios(models.TransientModel):
             bono_incentivo,
             devoluciones,
             codes.get('NET', 0.0),
-            payslip.payment_ids[:1].ref or '',
+            payslip.payment_ids[:1].memo or '',
             '',
         ]
 

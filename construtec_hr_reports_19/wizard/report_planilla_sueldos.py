@@ -1,7 +1,7 @@
 from odoo import fields, models
 
 COLUMNS = [
-    'Mes', 'Código de Planilla', 'Departamento', 'Área', 'Nombre del empleado', 'Status', 'Cod. de empleado',
+    'Mes', 'Código de Planilla', 'Departamento', 'Área', 'Nombre del empleado', 'Cod. de empleado',
     'Fecha de ingreso', 'Fecha fin Contrato', 'Puesto', 'Días', 'Salario base', 'Bonificación Incentivo',
     'Bonificación Fija', 'Bonificación por ajuste', 'Bonificación por asueto', 'Bonificación por productividad',
     'Alimentación', 'Horas Extras', 'Bonificación por Horas', 'Bonificaciones Extras', 'Salario devengado',
@@ -10,7 +10,7 @@ COLUMNS = [
     'Irtra', 'Intecap', 'Bono anual Reserva', 'Aguinaldo Reserva', 'Indemnización Reserva', 'Vacaciones Reserva',
     'Total Reserva Para Prestaciones', 'Gratificación', 'Devolución de ISR', 'Bono Anual Pago', 'Aguinaldo Pago',
     'Indemnización Pago', 'Vacaciones Pago', 'Líquido a recibir', 'Banco a depositar', 'Cuenta a Depositar',
-    'Observaciones', 'Centro de Costo', 'Empresa que debe Facturar', 'Tipo Facturación',
+    'Observaciones', 'Centro de Costo', 'Tipo Facturación',
     'Fecha desde Nómina', 'Fecha hasta Nómina',
 ]
 
@@ -49,7 +49,6 @@ class WizardPlanillaSueldos(models.TransientModel):
             version.department_id.parent_id.name or '',
             employee.department_id.name or '',
             employee.name,
-            version.estado_contrato.name or '',
             employee.codigo_empleado or '',
             version.contract_date_start or employee._get_first_contract_date() or '',
             version.contract_date_end or '',
@@ -94,7 +93,6 @@ class WizardPlanillaSueldos(models.TransientModel):
             bank_account.acc_number or '' if bank_account else '',
             '',
             centro_costo,
-            version.empresa_facturar.name or '',
             tipo_facturacion,
             payslip.date_from.strftime('%d/%m/%Y'),
             payslip.date_to.strftime('%d/%m/%Y'),

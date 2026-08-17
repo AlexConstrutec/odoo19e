@@ -19,7 +19,6 @@ class WizardReporteLiquidacionEmpleados(models.TransientModel):
     date_end = fields.Date(string='Al', required=True)
     employee_id = fields.Many2many(
         'hr.employee', string='Empleados', required=True,
-        domain=[('version_id.estado_contrato.name', 'not in', ['Proveedores', 'Practicante'])],
         context={'active_test': False})
 
     def _employee_row(self, employee, payslips):

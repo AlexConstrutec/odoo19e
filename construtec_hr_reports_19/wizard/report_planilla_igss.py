@@ -5,7 +5,7 @@ from odoo import fields, models
 COLUMNS = [
     'Inicio de contrato', 'Fin de contrato', 'No. Afiliación', 'Nombres y Apellidos', 'Salario Base',
     'Horas Extras', 'Vacaciones', 'Total', 'IGSS Laboral', 'Complemento IGSS Laboral', 'IGSS Patronal',
-    'Complemento IGSS Patronal', 'IRTRA', 'INTECAP', 'Departamento', 'Área', 'Puesto', 'Tiempo de Contrato',
+    'Complemento IGSS Patronal', 'IRTRA', 'INTECAP', 'Departamento', 'Área', 'Puesto',
     'Cantidad de Días laborados en el mes', 'Cantidad horas laborados del mes',
 ]
 
@@ -47,7 +47,6 @@ class WizardReportePlanillaIGSS(models.TransientModel):
             horas_extras = vacaciones = igss_lab = c_igss_lab = igss_pat = c_igss_pat = irtra = intecap = 0.0
             salario_base = 0.0
             dias = 0
-            tiempo_contrato = ''
             for payslip in slips:
                 for line in payslip.line_ids:
                     if line.code == 'VHEB':
@@ -68,7 +67,6 @@ class WizardReportePlanillaIGSS(models.TransientModel):
                         intecap += line.total
                 salario_base += payslip.basic_wage
                 dias += (payslip.date_to - payslip.date_from).days + 1
-                tiempo_contrato = self.selection_label(payslip.version_id, 'tiempo_contrato')
 
             version = slips[:1].version_id
             data_row = [
@@ -84,7 +82,6 @@ class WizardReportePlanillaIGSS(models.TransientModel):
                 version.department_id.parent_id.name or '',
                 employee.department_id.name or '',
                 employee.job_id.name or '',
-                tiempo_contrato,
                 dias,
                 dias * 8,
             ]

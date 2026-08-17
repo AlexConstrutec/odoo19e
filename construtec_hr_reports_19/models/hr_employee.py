@@ -158,8 +158,8 @@ class HrEmployee(models.Model):
         version = self.version_id
         if not version:
             return 0.0
-        total = version.wage + version.bonificacion_incentivo + version.bonificacion_fija \
-            + version.bonificacion_productividad
+        total = version.wage + version.x_bonificacion_incentivo + version.x_bonificacion_fija \
+            + version.x_bonificacion_productividad
         return round(total, 2)
 
     def getIGSS(self):
