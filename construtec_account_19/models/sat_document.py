@@ -648,6 +648,47 @@ class ConstructecSatDocument(models.Model):
         'monto_cemento', 'monto_bebidas_no_alcoholicas', 'monto_tarifa_portuaria',
     ]
 
+    def _sat_verificar_enlace_nota(self, document):
+        """Para una NCRE/NDEB YA CONVERTIDA: si su numero_autorizacion_referencia
+        apunta a un documento que a su vez ya tiene move_id, pero el move de ESTA
+        nota todavía no quedó vinculado (reversed_entry_id/debit_origin_id vacío -
+        típicamente porque al convertirla la primera vez el documento original
+        todavía no se había importado/convertido), lo vincula ahora. Para NCRE
+        además intenta conciliar de una vez si ambos moves ya están posteados
+        (_reconcile_reversed_moves, el mismo mecanismo que Odoo dispara solo al
+        postear - aquí hay que llamarlo a mano porque el posteo ya pasó hace
+        rato). Devuelve True si corrigió algo, False si no había nada que
+        arreglar (ya estaba vinculado, no es nota, o la referencia sigue sin
+        encontrarse)."""
+        es_nota_credito = document.tipo_dte in TIPOS_DTE_NOTA_CREDITO
+        es_nota_debito = document.tipo_dte == 'NDEB'
+        if not (es_nota_credito or es_nota_debito):
+            return False
+        if not document.move_id or not document.numero_autorizacion_referencia:
+            return False
+
+        campo_enlace = 'reversed_entry_id' if es_nota_credito else 'debit_origin_id'
+        if document.move_id[campo_enlace]:
+            return False  # ya estaba vinculada, nada que hacer
+
+        referencia = self.search([
+            ('numero_autorizacion', '=', document.numero_autorizacion_referencia),
+            ('move_id', '!=', False),
+        ], limit=1)
+        if not (referencia and referencia.move_id):
+            return False
+
+        document.move_id.write({campo_enlace: referencia.move_id.id})
+        if es_nota_credito and document.move_id.state == 'posted' and referencia.move_id.state == 'posted':
+            referencia.move_id._reconcile_reversed_moves(document.move_id, False)
+        document.move_id.message_post(body=self.env._(
+            'Rectificar desde XML: se encontró y vinculó el documento de referencia '
+            '(No. Autorización %(numero)s), que no estaba disponible cuando se convirtió '
+            'esta nota originalmente.',
+            numero=document.numero_autorizacion_referencia,
+        ))
+        return True
+
     def action_rectificar_desde_xml(self):
         """Botón/acción "Rectificar desde XML": vuelve a leer el XML YA ADJUNTO a
         este documento con el parser actual (_parse_dte_xml) y refresca los campos
@@ -668,9 +709,12 @@ class ConstructecSatDocument(models.Model):
 
         Tras rectificar, reintenta las Reglas de Categorización sobre las líneas
         (por si un monto que antes estaba en 0, como monto_petroleo, ahora
-        satisface la condición de alguna regla). Solo tiene efecto en documentos
-        'pendiente' que además tengan un XML adjunto - se omiten sin error los
-        que no.
+        satisface la condición de alguna regla). Requiere un XML adjunto - se
+        omiten sin error los documentos que no lo tengan.
+
+        Para NCRE/NDEB YA CONVERTIDAS (state != 'pendiente'), en vez del refresco
+        de encabezado (ya no tendría efecto contable), se verifica/corrige el
+        vínculo con su documento de referencia - ver _sat_verificar_enlace_nota().
         """
         # Import diferido (no al nivel del módulo): sat_document_import.py extiende
         # este mismo modelo (_inherit = 'construtec.sat.document') - un import al
@@ -682,31 +726,38 @@ class ConstructecSatDocument(models.Model):
 
         categorization_model = self.env['construtec.sat.categorization.rule']
         rectificados = 0
+        enlaces_corregidos = 0
         omitidos = 0
         errores = []
         for document in self:
-            if document.state != 'pendiente' or not document.xml_attachment_id:
+            if not document.xml_attachment_id:
                 omitidos += 1
                 continue
             try:
                 with self.env.cr.savepoint():
-                    xml_bytes = base64.b64decode(document.xml_attachment_id.datas)
-                    datos = _parse_dte_xml(xml_bytes)
-                    vals = {
-                        campo: datos[campo] for campo in self._CAMPOS_RECTIFICABLES_DESDE_XML
-                        if campo in datos
-                    }
-                    document.write(vals)
-                    for line in document.line_ids:
-                        categorization_model._sat_apply_to_line(document, line)
-                rectificados += 1
+                    if document.state == 'pendiente':
+                        xml_bytes = base64.b64decode(document.xml_attachment_id.datas)
+                        datos = _parse_dte_xml(xml_bytes)
+                        vals = {
+                            campo: datos[campo] for campo in self._CAMPOS_RECTIFICABLES_DESDE_XML
+                            if campo in datos
+                        }
+                        document.write(vals)
+                        for line in document.line_ids:
+                            categorization_model._sat_apply_to_line(document, line)
+                        rectificados += 1
+                    elif self._sat_verificar_enlace_nota(document):
+                        enlaces_corregidos += 1
+                    else:
+                        omitidos += 1
             except Exception as exc:
                 _logger.exception('Rectificar desde XML: error en documento %s', document.numero_autorizacion)
                 errores.append(f'{document.numero_autorizacion}: {exc}')
 
         mensaje = (
-            f"Rectificados: {rectificados} | "
-            f"Omitidos (ya convertidos o sin XML): {omitidos} | "
+            f"Encabezados corregidos: {rectificados} | "
+            f"Enlaces de nota corregidos: {enlaces_corregidos} | "
+            f"Omitidos: {omitidos} | "
             f"Errores: {len(errores)}"
         )
         return {
