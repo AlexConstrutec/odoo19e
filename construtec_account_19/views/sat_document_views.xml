@@ -21,6 +21,8 @@
                             invisible="state != 'pendiente' or direction != 'emitida'"/>
                     <button name="action_aplicar_reglas_categorizacion" string="Aplicar Reglas de Categorización"
                             type="object" invisible="state != 'pendiente'"/>
+                    <button name="action_rectificar_desde_xml" string="Rectificar desde XML"
+                            type="object" invisible="state != 'pendiente' or not xml_attachment_id"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="pendiente,convertido_factura,convertido_orden_compra,convertido_pedido_venta"/>
                 </header>
@@ -217,6 +219,15 @@
         <field name="binding_view_types">list,form</field>
         <field name="state">code</field>
         <field name="code">action = records.action_aplicar_reglas_categorizacion()</field>
+    </record>
+
+    <record id="action_construtec_sat_document_rectificar_xml_masivo" model="ir.actions.server">
+        <field name="name">Rectificar desde XML</field>
+        <field name="model_id" ref="model_construtec_sat_document"/>
+        <field name="binding_model_id" ref="model_construtec_sat_document"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_rectificar_desde_xml()</field>
     </record>
 
     <record id="view_construtec_sat_document_line_detail_list" model="ir.ui.view">

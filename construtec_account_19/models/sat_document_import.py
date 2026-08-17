@@ -170,12 +170,42 @@ def _normalize_header(text: str) -> str:
     return text.strip().lower()
 
 
+# NombreCorto -> campo del encabezado, para <Totales><TotalImpuestos><TotalImpuesto
+# NombreCorto="..." TotalMontoImpuesto="..."/>. Solo IVA y PETROLEO están
+# confirmados contra un XML real (una factura de combustible real traía
+# NombreCorto="PETROLEO" en este mismo bloque, y el parser lo estaba
+# descartando por completo - monto_petroleo se quedaba en 0 aunque el XML SÍ
+# traía el dato). Los otros 9 campos de impuestos específicos
+# (monto_timbre_prensa, etc.) todavía no se han visto en este bloque en un
+# documento real - agregar aquí en cuanto aparezca uno, mismo criterio que
+# TIPO_DTE_SELECTION. Hasta entonces siguen viniendo solo del Excel del
+# portal (ver EXCEL_HEADER_MAP más abajo).
+_NOMBRE_CORTO_A_CAMPO = {
+    'IVA': 'monto_iva',
+    'PETROLEO': 'monto_petroleo',
+}
+
+
 def _parse_dte_datetime(raw: str) -> str:
     """'2026-08-03T17:12:45-06:00' -> '2026-08-03 23:12:45' (UTC, formato Odoo)."""
     dt = datetime.fromisoformat(raw)
     if dt.tzinfo is not None:
         dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
     return dt.strftime('%Y-%m-%d %H:%M:%S')
+
+
+def _extraer_totales_impuestos(root):
+    """Ver _NOMBRE_CORTO_A_CAMPO - default 0.0 para los campos confirmados que no
+    aparezcan en este documento en particular (ej. un documento sin combustible
+    no trae PETROLEO), igual que ya hacía _parse_dte_xml solo para IVA."""
+    valores = dict.fromkeys(_NOMBRE_CORTO_A_CAMPO.values(), 0.0)
+    for total_impuesto in root.findall('.//dte:Totales/dte:TotalImpuestos/dte:TotalImpuesto', NS):
+        campo = _NOMBRE_CORTO_A_CAMPO.get(total_impuesto.get('NombreCorto'))
+        if not campo:
+            continue
+        monto = total_impuesto.get('TotalMontoImpuesto')
+        valores[campo] = float(monto) if monto else 0.0
+    return valores
 
 
 def _parse_dte_xml(xml_bytes: bytes) -> dict:
@@ -188,13 +218,20 @@ def _parse_dte_xml(xml_bytes: bytes) -> dict:
     certificacion = root.find('.//dte:Certificacion', NS)
     numero_autorizacion_el = root.find('.//dte:NumeroAutorizacion', NS)
     gran_total_el = root.find('.//dte:Totales/dte:GranTotal', NS)
-    total_iva_el = root.find(
-        ".//dte:Totales/dte:TotalImpuestos/dte:TotalImpuesto[@NombreCorto='IVA']", NS)
+    totales_impuestos = _extraer_totales_impuestos(root)
 
     lines = []
     for item in root.findall('.//dte:Items/dte:Item', NS):
         monto_iva_linea = 0.0
         for impuesto in item.findall('.//dte:Impuestos/dte:Impuesto', NS):
+            # Solo IVA - un ítem de combustible trae también un Impuesto
+            # NombreCorto="PETROLEO" aquí mismo, y sumarlo aquí también
+            # inflaba monto_iva de la línea con un monto que no es IVA. No hay
+            # campo de línea para los impuestos específicos (son totales de
+            # documento, ver arriba) - se descartan a este nivel a propósito.
+            nombre_corto_el = impuesto.find('dte:NombreCorto', NS)
+            if nombre_corto_el is not None and nombre_corto_el.text != 'IVA':
+                continue
             monto_el = impuesto.find('dte:MontoImpuesto', NS)
             if monto_el is not None and monto_el.text:
                 monto_iva_linea += float(monto_el.text)
@@ -238,7 +275,7 @@ def _parse_dte_xml(xml_bytes: bytes) -> dict:
         'nombre_certificador': _fix_mangled_accents(certificacion.find('dte:NombreCertificador', NS).text)
         if certificacion is not None and certificacion.find('dte:NombreCertificador', NS) is not None else None,
         'monto_total': float(gran_total_el.text) if gran_total_el is not None and gran_total_el.text else 0.0,
-        'monto_iva': float(total_iva_el.get('TotalMontoImpuesto')) if total_iva_el is not None else 0.0,
+        **totales_impuestos,
         'lines': lines,
     }
 
@@ -481,6 +518,7 @@ class ConstructecSatDocument(models.Model):
                 'message': mensaje,
                 'sticky': resumen.get('error', 0) > 0,
                 'type': 'warning' if resumen.get('error', 0) > 0 else 'success',
+                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
             },
         }
 
@@ -544,5 +582,6 @@ class ConstructecSatDocument(models.Model):
                 'message': mensaje,
                 'sticky': len(sin_resolver) > 0,
                 'type': 'warning' if sin_resolver else 'success',
+                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
             },
         }

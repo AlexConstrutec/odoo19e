@@ -1,3 +1,4 @@
+import base64
 import logging
 
 from odoo import api, fields, models
@@ -256,6 +257,7 @@ class ConstructecSatDocument(models.Model):
                 'partner_id': partner.id if partner else False,
                 'monto_total': vals.get('monto_total', 0.0),
                 'monto_iva': vals.get('monto_iva', 0.0),
+                'monto_petroleo': vals.get('monto_petroleo', 0.0),
                 'line_ids': line_ids,
             })
 
@@ -588,6 +590,12 @@ class ConstructecSatDocument(models.Model):
                 'message': mensaje,
                 'sticky': bool(errores),
                 'type': 'warning' if errores else 'success',
+                # Sin esto, si el botón se dispara desde el formulario abierto de UNO
+                # de los documentos convertidos, ese formulario se queda mostrando
+                # los datos viejos (state='Pendiente', botones de conversión, etc.)
+                # hasta que el usuario refresca la página a mano - una notificación
+                # sola no hace que el cliente web vuelva a leer el registro.
+                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
             },
         }
 
@@ -620,6 +628,96 @@ class ConstructecSatDocument(models.Model):
                 'message': mensaje,
                 'sticky': False,
                 'type': 'success',
+                # Igual que en action_convertir_a_factura_masivo: sin esto, el
+                # formulario abierto del documento sigue mostrando las líneas sin
+                # cuenta/impuestos aunque el backend sí las haya rellenado - hay
+                # que forzar al cliente web a releer el registro.
+                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
+            },
+        }
+
+    _CAMPOS_RECTIFICABLES_DESDE_XML = [
+        'tipo_dte', 'numero_autorizacion_referencia', 'motivo_ajuste_nota',
+        'serie', 'numero_documento', 'fecha_certificacion',
+        'nit_emisor', 'nombre_emisor', 'nombre_comercial_emisor', 'direccion_emisor',
+        'codigo_establecimiento', 'nit_receptor', 'nombre_receptor',
+        'nit_certificador', 'nombre_certificador', 'moneda_codigo',
+        'monto_total', 'monto_iva', 'monto_petroleo', 'monto_turismo_hospedaje',
+        'monto_turismo_pasajes', 'monto_timbre_prensa', 'monto_bomberos',
+        'monto_tasa_municipal', 'monto_bebidas_alcoholicas', 'monto_tabaco',
+        'monto_cemento', 'monto_bebidas_no_alcoholicas', 'monto_tarifa_portuaria',
+    ]
+
+    def action_rectificar_desde_xml(self):
+        """Botón/acción "Rectificar desde XML": vuelve a leer el XML YA ADJUNTO a
+        este documento con el parser actual (_parse_dte_xml) y refresca los campos
+        de encabezado que salen de ahí - caso real que lo motivó: una factura de
+        combustible cuyo Impuesto Petróleo quedó en 0.00 porque, al momento de
+        importarla, el parser solo leía el TotalImpuesto de NombreCorto='IVA' del
+        header y descartaba cualquier otro (como PETROLEO) - ya corregido en
+        _parse_dte_xml, pero los documentos importados ANTES de ese fix se
+        quedaron con el dato viejo. Sirve en general para cualquier corrección al
+        parser, no solo esta.
+
+        Deliberadamente NO toca numero_autorizacion (es la clave de búsqueda),
+        direction, partner_id, state, ni line_ids - solo los campos listados en
+        _CAMPOS_RECTIFICABLES_DESDE_XML, que son exactamente los que
+        create_from_dte() ya escribe desde el mismo parser al crear el documento.
+        No re-resuelve el contacto ni toca las líneas (cuentas/impuestos/producto
+        ya asignados a mano) para no pisar decisiones ya tomadas por el usuario.
+
+        Tras rectificar, reintenta las Reglas de Categorización sobre las líneas
+        (por si un monto que antes estaba en 0, como monto_petroleo, ahora
+        satisface la condición de alguna regla). Solo tiene efecto en documentos
+        'pendiente' que además tengan un XML adjunto - se omiten sin error los
+        que no.
+        """
+        # Import diferido (no al nivel del módulo): sat_document_import.py extiende
+        # este mismo modelo (_inherit = 'construtec.sat.document') - un import al
+        # nivel de módulo aquí arriba dispara su ejecución ANTES de que esta clase
+        # termine de definirse con _name, y el registro de Odoo revienta con
+        # "Model 'construtec.sat.document' does not exist in registry." (bug real,
+        # encontrado y corregido durante el desarrollo de esta misma acción).
+        from .sat_document_import import _parse_dte_xml
+
+        categorization_model = self.env['construtec.sat.categorization.rule']
+        rectificados = 0
+        omitidos = 0
+        errores = []
+        for document in self:
+            if document.state != 'pendiente' or not document.xml_attachment_id:
+                omitidos += 1
+                continue
+            try:
+                with self.env.cr.savepoint():
+                    xml_bytes = base64.b64decode(document.xml_attachment_id.datas)
+                    datos = _parse_dte_xml(xml_bytes)
+                    vals = {
+                        campo: datos[campo] for campo in self._CAMPOS_RECTIFICABLES_DESDE_XML
+                        if campo in datos
+                    }
+                    document.write(vals)
+                    for line in document.line_ids:
+                        categorization_model._sat_apply_to_line(document, line)
+                rectificados += 1
+            except Exception as exc:
+                _logger.exception('Rectificar desde XML: error en documento %s', document.numero_autorizacion)
+                errores.append(f'{document.numero_autorizacion}: {exc}')
+
+        mensaje = (
+            f"Rectificados: {rectificados} | "
+            f"Omitidos (ya convertidos o sin XML): {omitidos} | "
+            f"Errores: {len(errores)}"
+        )
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Rectificar desde XML',
+                'message': mensaje,
+                'sticky': bool(errores),
+                'type': 'warning' if errores else 'success',
+                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
             },
         }
 

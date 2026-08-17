@@ -278,12 +278,17 @@ class ConstructecSatProductCatalog(models.Model):
                 'message': mensaje,
                 'sticky': False,
                 'type': 'success',
+                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
             },
         }
 
     def action_retry_sync(self):
         for entry in self:
             entry._sat_sync_to_community()
+        # Sin esto, el formulario abierto se queda mostrando sync_state/sync_error
+        # viejos (ej. "error") aunque el reintento sí haya funcionado - hace falta
+        # forzar al cliente web a releer el registro, no solo escribirlo en la BD.
+        return {'type': 'ir.actions.client', 'tag': 'soft_reload'}
 
     @api.model
     def _cron_retry_pending_sync(self):
@@ -314,5 +319,6 @@ class ConstructecSatProductCatalog(models.Model):
                 'message': mensaje,
                 'sticky': con_error > 0,
                 'type': 'warning' if con_error > 0 else 'success',
+                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
             },
         }
