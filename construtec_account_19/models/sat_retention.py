@@ -1,8 +1,19 @@
 import logging
 
 from odoo import api, fields, models
+from odoo.exceptions import UserError
+from odoo.tools import float_is_zero
 
 _logger = logging.getLogger(__name__)
+
+# Código de la cuenta contable "IVA Retenido a Favor" (activo corriente) - ya
+# creada a mano por el contador en el plan de cuentas real, espejo de la
+# 110702 "ISR Retenido a Favor" que ya existía para el caso de ISR. Se busca
+# por código, no por un external ID fijo (mismo criterio que
+# _sat_get_default_iva_tax en sat_document.py) - un ID de cuenta varía por
+# instalación/compañía, el código no.
+_CODIGO_CUENTA_IVA_RETENIDO = '110705'
+_CODIGO_DIARIO_RETENCIONES = 'RETIVA'
 
 
 class ConstructecSatRetention(models.Model):
@@ -107,6 +118,52 @@ class ConstructecSatRetention(models.Model):
             },
         }
 
+    def action_aplicar_retenciones_contables(self):
+        """Registra, para cada línea ya vinculada a una factura, un pago parcial
+        (account.payment) por el monto de la retención - conciliándolo contra el
+        saldo de esa factura. Ver ConstructecSatRetentionLine.action_aplicar_retencion_contable
+        para el detalle contable; esto solo es el loop masivo por encabezado, con
+        savepoint por línea para que un error en una no tumbe el resto del lote."""
+        aplicadas = 0
+        omitidas = 0
+        errores = []
+        for retention in self:
+            if retention.anulado or retention.requiere_revision_manual:
+                omitidas += len(retention.line_ids)
+                continue
+            for line in retention.line_ids.filtered(lambda l: not l.payment_id):
+                try:
+                    with self.env.cr.savepoint():
+                        aplicada = line.action_aplicar_retencion_contable()
+                        if aplicada:
+                            aplicadas += 1
+                        else:
+                            omitidas += 1
+                except UserError as exc:
+                    omitidas += 1
+                    errores.append(str(exc))
+                except Exception as exc:
+                    omitidas += 1
+                    errores.append(str(exc))
+                    _logger.exception(
+                        'No se pudo aplicar la retención de la línea %s (constancia %s)',
+                        line.id, retention.numero_constancia,
+                    )
+        message = self.env._('Aplicadas: %(a)s | Omitidas: %(o)s', a=aplicadas, o=omitidas)
+        if errores:
+            message += '\n' + '\n'.join(errores[:5])
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': self.env._('Aplicar Retenciones a Facturas'),
+                'message': message,
+                'type': 'success' if not errores else 'warning',
+                'sticky': bool(errores),
+                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
+            },
+        }
+
     @api.model
     def _sat_find_partner_by_nit(self, nit):
         if not nit:
@@ -201,6 +258,11 @@ class ConstructecSatRetentionLine(models.Model):
              'importado - en ese caso usa el botón "Vincular Facturas" del encabezado una vez exista).')
     move_id = fields.Many2one(related='sat_document_id.move_id', string='Factura', store=True)
     partner_id = fields.Many2one(related='sat_document_id.partner_id', string='Cliente', store=True)
+    payment_id = fields.Many2one(
+        'account.payment', string='Pago de Retención Aplicado', readonly=True, copy=False,
+        help='Pago registrado y conciliado contra la factura por el monto de esta línea - ver '
+             'action_aplicar_retencion_contable(). Vacío mientras la retención solo está archivada/vinculada '
+             'pero no se ha reflejado contablemente todavía.')
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -209,6 +271,121 @@ class ConstructecSatRetentionLine(models.Model):
             if not line.sat_document_id:
                 line._sat_buscar_documento()
         return lines
+
+    def _sat_get_retencion_iva_account(self, company):
+        """Cuenta 'IVA Retenido a Favor' (activo corriente, código 110705) - ya
+        creada a mano en el plan de cuentas real por el contador, espejo de la
+        110702 'ISR Retenido a Favor' que ya existía para ISR. Deliberadamente
+        NO se auto-crea (a diferencia del diario de abajo): el usuario confirmó
+        que esta cuenta ya existe en producción, así que si no aparece aquí es
+        una señal real de que falta configurar algo, no algo que adivinar."""
+        account = self.env['account.account'].search([
+            ('code', '=', _CODIGO_CUENTA_IVA_RETENIDO),
+            ('company_ids', 'in', company.id),
+        ], limit=1)
+        if not account:
+            raise UserError(self.env._(
+                'No se encontró la cuenta %(codigo)s "IVA Retenido a Favor" en %(empresa)s. Créala primero '
+                '(cuenta de tipo Activo Corriente) antes de aplicar retenciones contablemente.',
+                codigo=_CODIGO_CUENTA_IVA_RETENIDO, empresa=company.name,
+            ))
+        return account
+
+    def _sat_get_or_create_retencion_journal(self, company):
+        """Diario dedicado para los 'pagos' que en realidad son retenciones (no
+        dinero real de banco/caja) - mismo patrón usado en varias
+        localizaciones de Odoo para retenciones: un diario tipo 'cash' cuya
+        cuenta de contrapartida (payment_account_id de su línea de método de
+        pago) es la cuenta de activo de retención, en vez de una cuenta
+        bancaria real. A diferencia de la cuenta 110705 (que ya existe, creada
+        a mano), este diario no tiene por qué existir de antemano en ninguna
+        instalación - se busca por código fijo y se crea solo si falta."""
+        journal = self.env['account.journal'].search([
+            ('code', '=', _CODIGO_DIARIO_RETENCIONES),
+            ('company_id', '=', company.id),
+        ], limit=1)
+        if journal:
+            return journal
+
+        account = self._sat_get_retencion_iva_account(company)
+        journal = self.env['account.journal'].create({
+            'name': 'Retenciones IVA',
+            'code': _CODIGO_DIARIO_RETENCIONES,
+            'type': 'cash',
+            'company_id': company.id,
+            'default_account_id': account.id,
+        })
+        # El método de pago (ej. "Manual") de un diario cash/bank se computa
+        # solo al crearlo - su payment_account_id es lo que Odoo usa como
+        # contrapartida real al contabilizar un account.payment con este
+        # diario (confirmado leyendo account_payment.py/_compute_outstanding_account_id
+        # en el código fuente de Odoo 19 - NO es el default_account_id de
+        # arriba, ese es solo la cuenta "general" del diario).
+        for method_line in journal.inbound_payment_method_line_ids:
+            method_line.payment_account_id = account.id
+        return journal
+
+    def action_aplicar_retencion_contable(self):
+        """Registra un account.payment (inbound, cliente) por el monto de esta
+        línea usando el diario dedicado de retenciones, y lo concilia contra la
+        línea por cobrar de la factura vinculada - dejando el saldo de la
+        factura reducido exactamente en ese monto (conciliación parcial nativa
+        de Odoo si la factura tiene más saldo que solo esta retención, ej. el
+        resto se cobra en efectivo/banco después).
+
+        Devuelve True si aplicó algo nuevo, False si no había nada que hacer
+        (ya aplicado, retención anulada, monto en cero) - nunca "adivina" un
+        monto ni fuerza la aplicación de una constancia marcada
+        requiere_revision_manual, cuyos montos por línea podrían no ser
+        confiables."""
+        self.ensure_one()
+        if self.payment_id:
+            return False
+        if self.retention_id.anulado:
+            return False
+        if self.retention_id.requiere_revision_manual:
+            raise UserError(self.env._(
+                'La constancia %(numero)s requiere revisión manual (el layout del PDF no se pudo parsear '
+                'con confianza) - confirma/corrige los montos de línea antes de aplicarla contablemente.',
+                numero=self.retention_id.numero_constancia,
+            ))
+        if not self.sat_document_id or not self.move_id:
+            raise UserError(self.env._(
+                'La línea Serie %(serie)s / Factura %(factura)s de la constancia %(numero)s no está vinculada '
+                'a ninguna factura todavía - vincúlala primero (botón "Vincular Facturas").',
+                serie=self.serie, factura=self.numero_factura, numero=self.retention_id.numero_constancia,
+            ))
+        if self.move_id.state != 'posted':
+            raise UserError(self.env._(
+                'La factura %(factura)s todavía no está contabilizada (borrador) - contabilízala antes de '
+                'aplicar la retención.', factura=self.move_id.name,
+            ))
+        if float_is_zero(self.monto_retencion, precision_digits=self.currency_id.decimal_places or 2):
+            return False
+
+        company = self.move_id.company_id
+        journal = self._sat_get_or_create_retencion_journal(company)
+        payment = self.env['account.payment'].create({
+            'payment_type': 'inbound',
+            'partner_type': 'customer',
+            'partner_id': self.move_id.partner_id.id,
+            'amount': self.monto_retencion,
+            'journal_id': journal.id,
+            'currency_id': self.currency_id.id,
+            'date': self.retention_id.fecha_emision or self.move_id.invoice_date or fields.Date.context_today(self),
+            'memo': self.env._(
+                'Retención IVA - Constancia %(numero)s', numero=self.retention_id.numero_constancia),
+        })
+        payment.action_post()
+
+        receivable_line = payment.move_id.line_ids.filtered(
+            lambda l: l.account_id.account_type == 'asset_receivable' and not l.reconciled)
+        invoice_receivable = self.move_id.line_ids.filtered(
+            lambda l: l.account_id.account_type == 'asset_receivable' and not l.reconciled)
+        (receivable_line + invoice_receivable).reconcile()
+
+        self.payment_id = payment.id
+        return True
 
     def _sat_buscar_documento(self):
         self.ensure_one()

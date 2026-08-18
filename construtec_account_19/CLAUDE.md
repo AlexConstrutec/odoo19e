@@ -337,9 +337,76 @@ sales), never `recibida`.
     feature) have reached production yet — `run_sat_upload_retenciones_to_odoo.py` will fail
     with a missing-method/model XML-RPC fault against Odoo.sh until Ajustes > Apps > Construtec
     Contabilidad > Actualizar is run there (same standing reminder as the rest of this file).
-  - **Still not built**: the n8n workflow chaining download → upload (the two scripts exist and
-    are each independently verified; only the workflow wiring them together, mirroring the
-    other 3 SAT workflows, is missing).
+  - **n8n workflow built**: "SAT - Descargar Retenciones de IVA" (Schedule Trigger, same 8am/6pm
+    cadence as the other 3 SAT workflows, duplicated from "SAT - Descargar documentos recientes")
+    → Execute Command running `run_sat_download_retenciones.py` (no args, uses its own 45-day
+    default) → Execute Workflow node calling **"SAT - Subir Retenciones a Odoo"** (duplicated from
+    "SAT - Subir XML/PDF descargados a Odoo", Execute Command running
+    `run_sat_upload_retenciones_to_odoo.py`). Both published/active in the local n8n instance.
+
+### Conciliación contable de la retención contra la factura (NO automática por defecto)
+
+Hasta aquí, todo lo anterior (`create_from_pdf`, `_sat_buscar_documento`, `action_vincular_facturas`)
+solo **archiva y vincula** la constancia con la factura — no toca la contabilidad ni el saldo
+pendiente de la factura. Eso es un hueco real (detectado por el usuario, no contemplado en el
+diseño original): sin esto, una factura con retención se queda mostrando saldo pendiente por el
+monto retenido para siempre, aunque en la práctica el cliente nunca la va a pagar en efectivo -
+la SAT reconoce esos Q como ya cobrados vía la retención (un crédito fiscal a favor de Construtec,
+aplicable contra su propio IVA por pagar).
+
+- **Cuenta `110705 "IVA Retenido a Favor"` (activo corriente)** — ya existe en el plan de cuentas
+  real de producción (creada a mano por el contador, espejo de la `110702 "ISR Retenido a Favor"`
+  que ya existía para el caso de ISR - confirmado que **no** hay ninguna cuenta/impuesto para IVA
+  retenido en ventas en el `l10n_gt` stock de Odoo: ese módulo solo modela retenciones cuando
+  Construtec es quien retiene a un proveedor, `type_tax_use='purchase'`, nunca el caso inverso).
+  `_sat_get_retencion_iva_account()` la busca por **código**, no por ID fijo (mismo criterio que
+  `_sat_get_default_iva_tax` en `sat_document.py`) - y **deliberadamente no la auto-crea**: el
+  usuario confirmó que ya existe en producción, así que si no aparece es una señal real de
+  configuración faltante, no algo que adivinar.
+- **Diario dedicado `"Retenciones IVA"` (código `RETIVA`, tipo `cash`)** — a diferencia de la
+  cuenta de arriba, este SÍ se auto-crea la primera vez que hace falta
+  (`_sat_get_or_create_retencion_journal()`), porque no hay ninguna razón para que exista de
+  antemano en ninguna instalación. Es el mismo patrón usado en varias localizaciones
+  latinoamericanas de Odoo para modelar retenciones: un diario tipo banco/caja cuya cuenta de
+  contrapartida no es una cuenta bancaria real, sino la cuenta de activo de retención - confirmado
+  contra el código fuente de Odoo 19 (`account/models/account_payment.py`,
+  `_compute_outstanding_account_id`) que la cuenta de contrapartida real de un `account.payment`
+  es `payment_method_line_id.payment_account_id`, **no** `journal_id.default_account_id` (ese es
+  solo la cuenta "general" del diario) - por eso el código, tras crear el diario, escribe
+  `payment_account_id` en la línea de método de pago entrante (`inbound_payment_method_line_ids`)
+  generada automáticamente al crearlo.
+- **`ConstructecSatRetentionLine.action_aplicar_retencion_contable()`** — por línea: crea un
+  `account.payment` (`payment_type='inbound'`, `partner_type='customer'`, monto = `monto_retencion`
+  de esa línea, diario = el de arriba), lo postea, y **concilia manualmente**
+  (`account.move.line.reconcile()`, no ocurre solo al postear) la línea por cobrar de ese pago
+  contra la línea por cobrar de la factura vinculada (`move_id`). Si la factura tiene más saldo
+  que solo esta retención (ej. el resto se cobra en efectivo/banco después), la conciliación queda
+  **parcial** de forma nativa (Odoo reparte automáticamente cuando los montos no calzan
+  exactamente) - no hace falta lógica extra para ese caso. Guarda el pago en el nuevo campo
+  `payment_id` de la línea (idempotente: una segunda llamada es no-op si ya está seteado).
+  Validaciones antes de aplicar (todas con `UserError` explícito, nunca falla en silencio):
+  factura vinculada y **posteada** (`move_id.state == 'posted'`), constancia no anulada, constancia
+  no marcada `requiere_revision_manual` (sus montos por línea podrían no ser confiables), monto de
+  retención distinto de cero.
+- **`ConstructecSatRetention.action_aplicar_retenciones_contables()`** — botón de encabezado
+  ("Aplicar Retención a Factura(s)", visible solo si `state == 'vinculada'` y ni anulada ni
+  requiere revisión) + acción de servidor para selección múltiple en la lista (mismo patrón
+  `binding_model_id`/`binding_view_types` que el resto del módulo) - loop por línea con
+  `self.env.cr.savepoint()` individual, para que una línea con problema (ej. factura todavía en
+  borrador) no tumbe el resto del lote. Deliberadamente un **botón manual, no automático al
+  vincular** - mismo criterio que el resto de este módulo para cualquier acción que toque el libro
+  mayor real (ej. `action_convertir_a_factura`): el usuario decide cuándo aplicar, no se dispara
+  solo.
+- **Verificado end-to-end contra una factura real** en `construtec_test` (2026-08-18): se convirtió
+  y posteó el `construtec.sat.document` real ya vinculado a la constancia `1771521747491`
+  (factura de Q50,400.00, retención de Q810.00 según el PDF real), se llamó
+  `action_aplicar_retencion_contable()`, y el resultado fue exacto: diario `RETIVA` creado con
+  `payment_account_id=110705` en su método de pago, pago `PRETIV/2026/00001` posteado, factura con
+  `amount_residual` reducido de `50400.0` a `49590.0` (exactamente `-810`, matemáticamente
+  correcto) y `payment_state` pasó a `'partial'` (correcto - falta el cobro real de los 49,590
+  restantes), asiento del pago con `Debe 110705 IVA Retenido a Favor 810.00` /
+  `Haber 110201 Clientes 810.00` con la línea de Clientes `reconciled=True`. Una segunda llamada
+  sobre la misma línea correctamente no hizo nada (`False`, ya tenía `payment_id`).
 
 ## Common commands
 

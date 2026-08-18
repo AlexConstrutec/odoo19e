@@ -26,6 +26,9 @@
                 <header>
                     <button name="action_vincular_facturas" type="object" string="Vincular Facturas"
                             invisible="state == 'vinculada'"/>
+                    <button name="action_aplicar_retenciones_contables" type="object"
+                            string="Aplicar Retención a Factura(s)" class="btn-primary"
+                            invisible="state != 'vinculada' or anulado or requiere_revision_manual"/>
                     <field name="state" widget="statusbar" statusbar_visible="pendiente,parcial,vinculada"/>
                 </header>
                 <sheet>
@@ -78,6 +81,7 @@
                                     <field name="sat_document_id"/>
                                     <field name="move_id"/>
                                     <field name="partner_id"/>
+                                    <field name="payment_id" optional="show"/>
                                     <field name="currency_id" column_invisible="1"/>
                                 </list>
                             </field>
@@ -112,6 +116,15 @@
         <field name="name">Constancias de Retención de IVA</field>
         <field name="res_model">construtec.sat.retention</field>
         <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_construtec_sat_retention_aplicar_masivo" model="ir.actions.server">
+        <field name="name">Aplicar Retención a Factura(s)</field>
+        <field name="model_id" ref="model_construtec_sat_retention"/>
+        <field name="binding_model_id" ref="model_construtec_sat_retention"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_aplicar_retenciones_contables()</field>
     </record>
 
     <record id="view_construtec_sat_retention_import_wizard_form" model="ir.ui.view">
