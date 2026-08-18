@@ -264,11 +264,31 @@ sales), never `recibida`.
     match). `RETENCIONES_DOWNLOAD_DIR` (default `sat-bot/data/retenciones`) is wired directly
     into Chrome's own download directory (`config.download_dir`), same mechanism the other
     bot scripts use — no separate move/rename step needed since SAT already names the file by
-    número de constancia.
+    número de constancia. `RETENCIONES_SOLO_DIAGNOSTICO=1` walks every page and logs counts
+    without downloading anything — meant for sizing up a search before committing to a real
+    pull against production.
+  - **Pagination — a second real bug, found and fixed the same session**: `formContent:tblRetenedor`
+    is a standard PrimeFaces paginated datatable (confirmed: a 106-row result only rendered
+    100 `<tr>` in the DOM for page 1, with a `"Página 1 de 2"` `.ui-paginator-current` label) —
+    an initial version that only read `//tbody/tr` once would have silently downloaded just
+    the first page and looked complete. Fixed by looping: collect+download the current page's
+    rows, then click `a.ui-paginator-next` (PrimeFaces standard; gains `ui-state-disabled` on
+    the last page — that's the loop's exit condition) and wait for `.ui-paginator-current`'s
+    text to change before continuing. Verified end-to-end (2026-08-17) with the exact wide
+    range a human had successfully used manually (01/01/2026–17/08/2026, screenshot evidence):
+    **106 real constancias found across 2 pages, all 106 PDFs downloaded** — including
+    `1786455043496.pdf`, the same 7-invoice constancia already parsed and linked in
+    `construtec_test` earlier this session (another real shared record between the bot and
+    the Odoo model, this time the multi-invoice case). 9 of the 106 initially landed as
+    `<numero> (1).pdf` — Chrome's own collision-rename, since those 9 were already on disk
+    from an earlier narrower test — confirmed byte-identical to the originals and removed;
+    this only happens when re-running an overlapping range against files already downloaded,
+    not a bug in the search/download logic itself.
   - **Still not built**: `run_sat_upload_retenciones_to_odoo.py` (would call
     `construtec.sat.retention.create_from_pdf` over XML-RPC per downloaded PDF, same shape as
     `run_sat_upload_to_odoo.py`) and the n8n workflow chaining download → upload. The download
-    side alone is now proven to work; wiring it into Odoo is the next real step.
+    side (search, date range, pagination, PDF download) is now fully proven end-to-end against
+    the real portal; wiring the 106 already-downloaded PDFs into Odoo is the next real step.
 
 ## Common commands
 
