@@ -46,11 +46,16 @@ class ConstructecSatRetention(models.Model):
              'líneas (monto_retencion_total) para poder detectar una discrepancia si el parseo de alguna línea '
              'salió mal.')
     pdf_attachment_id = fields.Many2one('ir.attachment', string='PDF', copy=False)
+    anulado = fields.Boolean(
+        string='Anulada', help='El PDF trae el sello "Anulada el DD-MM-YYYY" - el sello descoloca el orden de '
+                                'lectura de todo el documento, por lo que los montos por línea normalmente no se '
+                                'pudieron recuperar (ver requiere_revision_manual) y no representan un movimiento '
+                                'contable real de todos modos.')
+    fecha_anulacion = fields.Date(string='Fecha de Anulación')
     requiere_revision_manual = fields.Boolean(
         string='Requiere Revisión Manual',
-        help='El PDF trae más de 1 factura y el layout de la tabla DETALLE no se pudo emparejar automáticamente '
-             'con los pares Serie/Número (aún no se ha verificado contra un PDF real con varias facturas) - '
-             'revisa manualmente los montos por línea.')
+        help='El layout del PDF no calzó con ninguno de los patrones conocidos (constancia anulada, o algún otro '
+             'caso todavía no visto) - revisa manualmente los montos por línea.')
     line_ids = fields.One2many('construtec.sat.retention.line', 'retention_id', string='Facturas Cubiertas')
     state = fields.Selection([
         ('pendiente', 'Pendiente de Vincular'),
@@ -143,6 +148,8 @@ class ConstructecSatRetention(models.Model):
             'cantidad_facturas': vals.get('cantidad_facturas', 0),
             'monto_retencion_pdf': vals.get('monto_retencion_pdf', 0.0),
             'requiere_revision_manual': vals.get('requiere_revision_manual', False),
+            'anulado': vals.get('anulado', False),
+            'fecha_anulacion': vals.get('fecha_anulacion'),
             'line_ids': [(0, 0, {
                 'serie': linea.get('serie'),
                 'numero_factura': linea.get('numero_factura'),

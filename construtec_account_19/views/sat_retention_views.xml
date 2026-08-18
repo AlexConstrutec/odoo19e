@@ -4,12 +4,14 @@
         <field name="name">construtec.sat.retention.list</field>
         <field name="model">construtec.sat.retention</field>
         <field name="arch" type="xml">
-            <list string="Constancias de Retención de IVA" decoration-warning="requiere_revision_manual">
+            <list string="Constancias de Retención de IVA" decoration-warning="requiere_revision_manual"
+                  decoration-muted="anulado">
                 <field name="numero_constancia"/>
                 <field name="fecha_emision"/>
                 <field name="nombre_agente_retenedor"/>
                 <field name="cantidad_facturas"/>
                 <field name="monto_retencion_pdf" sum="Retención"/>
+                <field name="anulado" optional="show"/>
                 <field name="state" widget="badge" decoration-success="state == 'vinculada'"
                        decoration-warning="state == 'parcial'" decoration-danger="state == 'pendiente'"/>
             </list>
@@ -27,9 +29,12 @@
                     <field name="state" widget="statusbar" statusbar_visible="pendiente,parcial,vinculada"/>
                 </header>
                 <sheet>
+                    <div class="alert alert-info" role="alert" invisible="not anulado">
+                        Esta constancia fue anulada<span invisible="not fecha_anulacion"> el <field name="fecha_anulacion" readonly="1" nolabel="1"/></span>.
+                    </div>
                     <div class="alert alert-warning" role="alert" invisible="not requiere_revision_manual">
-                        La cantidad de facturas declaradas no coincide con las filas de detalle leídas del PDF -
-                        revisa/completa los montos de cada línea manualmente.
+                        El layout de este PDF no calzó con los patrones conocidos - revisa/completa los montos de
+                        cada línea manualmente.
                     </div>
                     <div class="oe_title">
                         <h1><field name="numero_constancia"/></h1>
@@ -38,6 +43,7 @@
                         <group>
                             <field name="fecha_emision"/>
                             <field name="cantidad_facturas"/>
+                            <field name="anulado"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
                         <group>
@@ -93,6 +99,7 @@
                 <filter string="Pendientes" name="pendientes" domain="[('state', '=', 'pendiente')]"/>
                 <filter string="Parcialmente Vinculadas" name="parciales" domain="[('state', '=', 'parcial')]"/>
                 <filter string="Requiere Revisión Manual" name="revision" domain="[('requiere_revision_manual', '=', True)]"/>
+                <filter string="Anuladas" name="anuladas" domain="[('anulado', '=', True)]"/>
                 <group>
                     <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
                     <filter string="Agente Retenedor" name="group_agente" context="{'group_by': 'nombre_agente_retenedor'}"/>

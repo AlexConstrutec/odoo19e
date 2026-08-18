@@ -88,14 +88,36 @@ def _parse_constancia_pdf(pdf_bytes):
         dia, mes, anio = m.groups()
         vals['fecha_emision'] = f'{anio}-{int(mes):02d}-{int(dia):02d}'
 
-    # Total de la constancia - siempre en "DETALLE DE CONSTANCIA" de la página
-    # 1, sea de 1 o de varias facturas (en el caso de varias, es la suma
-    # agregada, no una fila real de factura - solo se usa para contrastar
-    # contra la suma de las líneas, ver monto_retencion_total en el modelo).
+    # Anulada: el sello/marca de "Anulada el DD-MM-YYYY" descoloca por completo
+    # el orden de lectura de pdfminer.six en el resto del documento (Serie,
+    # Concepto, Tarifa e Importe terminan en líneas separadas, lejos unas de
+    # otras) - confirmado real contra una constancia anulada. No vale la pena
+    # forzar un regex posicional para ese caso (una retención anulada no tiene
+    # efecto contable real de todos modos); se detecta y se guarda para que
+    # quede visible por qué esa constancia necesita revisión manual, en vez
+    # de fallar en silencio.
+    m_anulada = re.search(r'Anulada el (\d{2})-(\d{2})-(\d{4})', full_text)
+    if m_anulada:
+        dia_a, mes_a, anio_a = m_anulada.groups()
+        vals['anulado'] = True
+        vals['fecha_anulacion'] = f'{anio_a}-{mes_a}-{dia_a}'
+
+    # Total de la constancia - normalmente en "DETALLE DE CONSTANCIA" de la
+    # página 1 ("...RETENCIÓN <fila> TOTAL Q<monto>"), sea de 1 o de varias
+    # facturas (en el caso de varias, es la suma agregada, no una fila real de
+    # factura). Confirmado real: en algunas constancias de 1 factura, la fila
+    # de DETALLE solo imprime UN monto (falta el de "RETENCIÓN") y "TOTAL" no
+    # queda seguido de su cifra en esa misma posición - el monto real aparece
+    # más abajo, junto al total en letras ("Cantidad en letras: ... Q<monto>",
+    # presente en todas las constancias vistas) - se usa como respaldo.
     m = re.search(
         r'CONCEPTO\s+TARIFA\s+IMPORTE NETO DEL BIEN\s+RETENCI.N\s+(.*?)\s*TOTAL\s+Q([\d,]+\.\d{2})',
         full_text)
-    vals['monto_retencion_pdf'] = float(m.group(2).replace(',', '')) if m else 0.0
+    if m:
+        vals['monto_retencion_pdf'] = float(m.group(2).replace(',', ''))
+    else:
+        m_total_letras = re.search(r'Cantidad en letras:.*?Q([\d,]+\.\d{2})', full_text)
+        vals['monto_retencion_pdf'] = float(m_total_letras.group(1).replace(',', '')) if m_total_letras else 0.0
 
     # Layout de varias facturas: tabla "DETALLE DE RETENCIONES" (página 2).
     m_multi = re.search(
@@ -153,9 +175,34 @@ def _parse_constancia_pdf(pdf_bytes):
             vals['cantidad_facturas'] = len(facturas_single)
             vals['lines'] = [{**factura, **detalle} for factura, detalle in zip(facturas_single, detalle_rows)]
             vals['requiere_revision_manual'] = False
+        elif len(facturas_single) == 1 and not detalle_rows and not m_anulada:
+            # Confirmado real: en algunas constancias de 1 sola factura, la
+            # fila de DETALLE DE CONSTANCIA solo imprime el monto de
+            # "IMPORTE NETO DEL BIEN" (falta el de "RETENCIÓN" en esa misma
+            # posición), lo que hace fallar _ROW_PATTERN (que exige los 2
+            # montos). Con una sola factura, la retención de esa única línea
+            # es matemáticamente igual al total de la constancia (ya
+            # recuperado arriba, con su propio respaldo vía "Cantidad en
+            # letras") - no es una suposición, es la única cifra posible.
+            m_un_monto = re.search(
+                r'CONCEPTO\s+TARIFA\s+IMPORTE NETO DEL BIEN\s+RETENCI.N\s+(.*?)\s*TOTAL', full_text)
+            fila_un_monto = re.search(
+                r'([A-Za-zÀ-ÿ\s]+?)\s+(\d+)%\s+Q([\d,]+\.\d{2})',
+                m_un_monto.group(1)) if m_un_monto else None
+            vals['cantidad_facturas'] = 1
+            vals['lines'] = [{
+                **facturas_single[0],
+                'concepto': _fix_pdf_accents(fila_un_monto.group(1).strip()) if fila_un_monto else None,
+                'tarifa': float(fila_un_monto.group(2)) if fila_un_monto else 0.0,
+                'monto_importe_neto': float(fila_un_monto.group(3).replace(',', '')) if fila_un_monto else 0.0,
+                'monto_retencion': vals['monto_retencion_pdf'],
+            }]
+            vals['requiere_revision_manual'] = False
         else:
-            # Ninguno de los dos layouts conocidos calzó - no se adivina cómo
-            # repartir los montos, se deja para revisión manual.
+            # Ninguno de los layouts conocidos calzó (incluye el caso
+            # "Anulada", cuyo sello descoloca el orden de lectura de todo el
+            # documento) - no se adivina cómo repartir los montos, se deja
+            # para revisión manual.
             vals['cantidad_facturas'] = len(facturas_single) or len(detalle_rows)
             vals['lines'] = facturas_single or [dict(fila) for fila in detalle_rows]
             vals['requiere_revision_manual'] = True

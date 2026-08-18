@@ -284,11 +284,62 @@ sales), never `recibida`.
     from an earlier narrower test — confirmed byte-identical to the originals and removed;
     this only happens when re-running an overlapping range against files already downloaded,
     not a bug in the search/download logic itself.
-  - **Still not built**: `run_sat_upload_retenciones_to_odoo.py` (would call
-    `construtec.sat.retention.create_from_pdf` over XML-RPC per downloaded PDF, same shape as
-    `run_sat_upload_to_odoo.py`) and the n8n workflow chaining download → upload. The download
-    side (search, date range, pagination, PDF download) is now fully proven end-to-end against
-    the real portal; wiring the 106 already-downloaded PDFs into Odoo is the next real step.
+  - **Default search window: last 45 days.** Guatemala's IVA law (Decreto 20-2006 / Acuerdo
+    Gubernativo 5-2013) requires the withholding agent to issue the constancia within 5
+    business days of payment, but gives them until the first 15 business days of the
+    *following* month to file their sworn withholding declaration with SAT — likely the actual
+    trigger for a constancia becoming visible in Agencia Virtual, not the issuance date. Measured
+    against the real 106-constancia backfill (111 invoice↔retention pairs spanning all of 2026
+    to date): observed delay ranges 0–28 days, median 6, p95 19, p99/max 28, **0% past 30 days**.
+    `RETENCIONES_FECHA_DESDE`/`_HASTA` default to `hoy - 45 días` / `hoy` when not set via env
+    var (computed in `main()`, not a CLI arg — so a bare Schedule Trigger call always searches
+    the right rolling window with no wiring needed), giving margin over the observed max plus
+    the legal declaration-filing window.
+  - **`run_sat_upload_retenciones_to_odoo.py`** — built, same shape as `run_sat_upload_to_odoo.py`:
+    reads every PDF in `data/retenciones/`, calls `construtec.sat.retention.create_from_pdf` over
+    XML-RPC, deletes the local file on success, moves it to `data/retenciones_duplicados/` on
+    `skipped_duplicate`, leaves it in place on error for the next run to retry. Verified for real
+    against a local Odoo instance serving `construtec_test` (not production — Odoo.sh still
+    needs the module upgrade first, see the module's parent `CLAUDE.md`): all 106 backfilled PDFs
+    uploaded successfully (0 errors, 0 duplicates) via actual XML-RPC calls, not just
+    `odoo-bin shell`.
+  - **Two more real parsing bugs found and fixed from the 106-PDF backfill** (18/106 — 17% —
+    initially landed with `requiere_revision_manual=True`, down to 3/106 after these fixes):
+    1. **Single-invoice constancias where the DETALLE DE CONSTANCIA row only prints ONE peso
+       amount** (missing the "RETENCIÓN" figure right after "IMPORTE NETO DEL BIEN" in that
+       position) **and** "TOTAL" isn't immediately followed by its own amount either — the real
+       total instead only appears once, near the "Cantidad en letras" (amount-in-words) section
+       at the very end of the document. Fixed with two changes: (a) `monto_retencion_pdf` falls
+       back to a `Cantidad en letras:.*?Q([\d,]+\.\d{2})` regex when the primary
+       `TOTAL\s+Q(...)` anchor doesn't match (that informational section is present in every
+       constancia seen so far); (b) when exactly 1 Serie/Número pair is found but the DETALLE
+       row's 2-amount pattern fails, the single line's `monto_retencion` is set to
+       `monto_retencion_pdf` directly — **not a guess**: with exactly 1 invoice, that line's
+       retention is mathematically forced to equal the constancia's own total, the same
+       "only when there's exactly one logical value" reasoning already used for the automatic
+       IVA tax default in `sat_document.py`. `monto_importe_neto`/`tarifa`/`concepto` are
+       recovered from a looser single-amount variant of the row regex.
+    2. **Anulada (voided) constancias** carry an "Anulada el DD-MM-YYYY" stamp that scrambles
+       pdfminer.six's reading order across the *entire* rest of the document (Serie, Concepto,
+       Tarifa, and the importe end up on disconnected lines, sometimes appearing before their
+       own section headers) — confirmed real on 3 of the 106. Rather than chasing a positional
+       fix for a layout this disordered (and for a retention that has zero real accounting
+       effect anyway, since it's void), the parser now just detects the stamp
+       (`Anulada el (\d{2})-(\d{2})-(\d{4})`) and sets the new `anulado`/`fecha_anulacion`
+       fields — `requiere_revision_manual` stays `True` for these (the line amounts genuinely
+       aren't recoverable from text alone), but now the form/list clearly explain *why*
+       instead of leaving it an unexplained parsing failure. Verified: re-parsing all 106 stored
+       PDF attachments with the fixed parser gives 103/106 fully resolved automatically and
+       exactly the 3 real anuladas flagged for manual review, all 3 correctly carrying
+       `anulado=True` — confirmed by deleting and recreating all 106 records from their stored
+       attachments and getting the same clean split.
+  - **Odoo.sh not yet updated**: none of this session's commits (including this whole retention
+    feature) have reached production yet — `run_sat_upload_retenciones_to_odoo.py` will fail
+    with a missing-method/model XML-RPC fault against Odoo.sh until Ajustes > Apps > Construtec
+    Contabilidad > Actualizar is run there (same standing reminder as the rest of this file).
+  - **Still not built**: the n8n workflow chaining download → upload (the two scripts exist and
+    are each independently verified; only the workflow wiring them together, mirroring the
+    other 3 SAT workflows, is missing).
 
 ## Common commands
 
