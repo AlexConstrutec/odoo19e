@@ -27,6 +27,29 @@ class AccountMove(models.Model):
         documentos_sat._sat_revertir_a_pendiente()
         return res
 
+    def action_post(self):
+        res = super().action_post()
+        # Si esta factura ya tenía una constancia de retención vinculada
+        # ANTES de contabilizarse (ej. la retención se importó primero y
+        # construtec.sat.retention.line._sat_buscar_documento ya había
+        # resuelto sat_document_id, pero move_id todavía no existía o no
+        # estaba posted) - ahora que ya quedó posted, se intenta aplicar el
+        # asiento de la retención. El caso inverso (retención importada
+        # DESPUÉS de que la factura ya está posted) lo cubre
+        # _sat_intentar_aplicar_retencion_automatica desde el otro lado, al
+        # vincular. Solo aplica a direction='emitida' (una recibida nunca
+        # tiene una retención que Construtec haya recibido).
+        moves_emitidas = self.filtered(
+            lambda m: m.sat_document_id and m.sat_document_id.direction == 'emitida')
+        if moves_emitidas:
+            lineas_pendientes = self.env['construtec.sat.retention.line'].search([
+                ('sat_document_id', 'in', moves_emitidas.sat_document_id.ids),
+                ('payment_id', '=', False),
+            ])
+            for linea in lineas_pendientes:
+                linea._sat_intentar_aplicar_retencion_automatica()
+        return res
+
     partida_numero = fields.Integer(
         string='No. Partida',
         copy=False,

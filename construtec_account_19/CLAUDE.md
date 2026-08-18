@@ -408,6 +408,54 @@ aplicable contra su propio IVA por pagar).
   `Haber 110201 Clientes 810.00` con la línea de Clientes `reconciled=True`. Una segunda llamada
   sobre la misma línea correctamente no hizo nada (`False`, ya tenía `payment_id`).
 
+**Aplicación automática en ambos órdenes posibles** (pregunta real del usuario: "¿y si la
+factura se convierte DESPUÉS de que ya existe la retención?") — el botón/acción masiva de arriba
+sigue existiendo para revisión manual o para reintentar un caso que falló, pero desde
+2026-08-18 la conciliación se intenta sola en los dos momentos donde pasa a ser posible, sin
+esperar a que alguien la dispare a mano:
+
+- **Retención importada primero, factura posteada después**: `AccountMove.action_post()`
+  (`models/account_move.py`) se sobrescribe para, tras postear, buscar líneas de
+  `construtec.sat.retention.line` con `sat_document_id` apuntando a los moves recién posteados
+  (solo `direction='emitida'`, filtradas por `payment_id=False`) e intentar aplicarlas. Verificado
+  real: convertir un `construtec.sat.document` con una constancia ya vinculada de antes, dejarlo
+  en borrador, y al llamar `action_post()` el pago se generó solo (`PRETIV/2026/00002`, monto
+  `2278.86`) sin llamar ningún botón.
+- **Factura ya posteada, retención importada/vinculada después** (el caso más común, dado el
+  rango de 45 días del bot): `ConstructecSatRetentionLine._sat_buscar_documento()` ahora, tras
+  resolver `sat_document_id`, llama `_sat_intentar_aplicar_retencion_automatica()` - que solo
+  actúa si `move_id` ya existe y está `posted` y todavía no tiene `payment_id`. Verificado real:
+  factura ya convertida y posteada de antes, se desvinculó y re-vinculó una línea (simulando que
+  la constancia llega después) y el pago se generó solo (`PRETIV/2026/00004`, monto `14933.89`,
+  residual de la factura bajó exactamente ese monto).
+- Ambos caminos comparten `_sat_intentar_aplicar_retencion_automatica()`, que envuelve
+  `action_aplicar_retencion_contable()` en un `try/except` silencioso (solo deja rastro en el log
+  del servidor) - un problema ahí (ej. falta la cuenta 110705, factura sin `account_id` en sus
+  líneas) nunca debe tumbar ni el posteo de la factura ni la vinculación de la línea, ambos son
+  operaciones más importantes que la conciliación automática. Si la aplicación automática falla,
+  la línea queda vinculada pero sin `payment_id` - visible en la vista para aplicarla a mano
+  después con el botón.
+
+**Filtro de compañía, en dos capas distintas** (pregunta real del usuario: "¿solo se traen las
+retenciones de esta compañía?"):
+
+1. **Al importar** (`create_from_pdf`): mismo criterio que `_sat_nits_permitidos()` en
+   `sat_document.py` - si `res.company.vat` está configurado y el "NIT del contribuyente" del PDF
+   (quien recibió la retención) no coincide, la constancia se rechaza sin crear nada
+   (`state='nit_no_permitido'`, igual convención de estado que `create_from_dte`). Pensado para
+   cuando el bot algún día corra contra varios NITs (ver memoria `sat_bot_multitenant_vision`) y
+   el outbox pueda traer mezcladas constancias de más de una cuenta SAT. Verificado con un PDF
+   simulado (mock de `_parse_constancia_pdf`) con NIT `999999999` contra una compañía con NIT
+   `120360268`: rechazado, `search_count` en 0.
+2. **Al vincular** (`_sat_buscar_documento`): el `search` de `construtec.sat.document` ahora
+   exige `company_id = self.retention_id.company_id.id` - resguardo complementario y distinto al
+   de arriba, para una instalación multi-compañía real dentro del mismo Odoo (evita que una
+   constancia empareje por error el documento SAT de OTRA compañía que casualmente comparta
+   serie+número).
+- `run_sat_upload_retenciones_to_odoo.py` actualizado para el nuevo estado: un PDF con
+  `nit_no_permitido` se mueve a `data/retenciones_rechazados/` (no se borra, no se reintenta
+  indefinidamente), mismo patrón que `data/rechazados/` en el script de subida de XML de facturas.
+
 ## Common commands
 
 ```

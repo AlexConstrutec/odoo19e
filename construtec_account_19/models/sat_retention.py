@@ -177,7 +177,7 @@ class ConstructecSatRetention(models.Model):
         para el detalle del parseo. Idempotente por numero_constancia, igual que
         construtec.sat.document.create_from_dte.
 
-        Devuelve un dict con `state` ('success' | 'skipped_duplicate') y
+        Devuelve un dict con `state` ('success' | 'skipped_duplicate' | 'nit_no_permitido') y
         `retention_id`.
         """
         from .sat_retention_import import _parse_constancia_pdf
@@ -190,6 +190,23 @@ class ConstructecSatRetention(models.Model):
         existing = self.search([('numero_constancia', '=', numero_constancia)], limit=1)
         if existing:
             return {'state': 'skipped_duplicate', 'retention_id': existing.id}
+
+        # Mismo criterio que _sat_nits_permitidos() en sat_document.py: el bot
+        # de descarga podría algún día correr contra varios NITs (ver memoria
+        # "sat_bot_multitenant_vision"), así que antes de crear nada se
+        # confirma que "NIT del contribuyente" del PDF (quien recibió la
+        # retención) sea el de ESTA compañía - reutiliza res.company.vat, no
+        # un parámetro aparte que mantener sincronizado. Si la compañía no
+        # tiene NIT configurado, no se filtra nada (mismo comportamiento que
+        # el filtro de sat.document).
+        company_vat = (self.env.company.vat or '').strip()
+        nit_contribuyente = (vals.get('nit_contribuyente') or '').strip()
+        if company_vat and nit_contribuyente and nit_contribuyente != company_vat:
+            _logger.warning(
+                'Constancia %s rechazada: NIT del contribuyente (%s) no coincide con el NIT de %s (%s).',
+                numero_constancia, nit_contribuyente, self.env.company.name, company_vat,
+            )
+            return {'state': 'nit_no_permitido', 'retention_id': False}
 
         agente_partner = self._sat_find_partner_by_nit(vals.get('nit_agente_retenedor'))
 
@@ -395,6 +412,37 @@ class ConstructecSatRetentionLine(models.Model):
             ('direction', '=', 'emitida'),
             ('serie', '=', self.serie),
             ('numero_documento', '=', self.numero_factura),
+            # Filtro de compañía: sin esto, en una instalación multi-compañía
+            # una constancia de una compañía podría emparejar por error el
+            # documento SAT de OTRA compañía que casualmente comparta
+            # serie+número (poco probable pero no imposible - dos NITs
+            # distintos usando el mismo rango de numeración de su propio
+            # certificador). Es un resguardo distinto y complementario al
+            # filtro de NIT en create_from_pdf (ese evita que entre una
+            # constancia que no es de esta compañía; este evita que, ya
+            # dentro, empareje con el documento SAT equivocado).
+            ('company_id', '=', self.retention_id.company_id.id),
         ], limit=1)
         if documento:
             self.sat_document_id = documento.id
+            # Si la factura ya existe y ya está contabilizada (posted), la
+            # retención pudo haberse importado DESPUÉS de la factura (el caso
+            # más común, dado el rango de 45 días del bot) - se intenta
+            # aplicar el asiento ya mismo en vez de esperar a que alguien
+            # apriete el botón manual. Nunca falla en silencio hacia arriba:
+            # si algo sale mal (ej. falta la cuenta 110705), se registra en el
+            # log y la línea queda vinculada pero sin aplicar, para
+            # completarla a mano después.
+            self._sat_intentar_aplicar_retencion_automatica()
+
+    def _sat_intentar_aplicar_retencion_automatica(self):
+        self.ensure_one()
+        if not self.move_id or self.move_id.state != 'posted' or self.payment_id:
+            return
+        try:
+            self.action_aplicar_retencion_contable()
+        except Exception:
+            _logger.exception(
+                'No se pudo aplicar automáticamente la retención de la línea %s (constancia %s, factura %s)',
+                self.id, self.retention_id.numero_constancia, self.move_id.name,
+            )
