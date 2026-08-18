@@ -220,31 +220,55 @@ sales), never `recibida`.
   trailing `K` (Guatemalan NIT check digit — the 7-invoice PDF's own agent NIT is `543386K`,
   the first NIT seen in this module with that suffix). If a future PDF matches **neither**
   layout, the parser still falls back to `requiere_revision_manual=True` rather than guessing.
-- **Bot automation — DRAFT ONLY, not yet run against the real portal**:
-  `C:\Users\Alex\Documents\n8n\sat-bot\run_sat_download_retenciones.py` is a new,
-  independent script (same `SAT_ENV_FILE`/env-loading pattern as the other 3 wrapper
-  scripts). `open_retenciones_iva_menu()` (high confidence — mirrors the *already-confirmed*
-  menu pattern in `run_sat_download_only.py::open_dte_menu_cuenta_personal`, which navigates
-  the same PrimeFaces root menu via `btnContraerMenu` + hover chains over
-  `ui-menuitem-text` spans to reach Servicios Tributarios > Factura Electrónica en Línea
-  (FEL); this only changes the 2nd/3rd-level item text to "Constancias de Retenciones y
-  Exenciones" > "Constancias de Retención del IVA e ISR Recibidas", same root menu). Past
-  that point — the search screen's fields, the results table, and how an individual PDF is
-  downloaded per row — is an **unverified guess** built only from screenshots, since there's
-  no way to confirm real selectors without live portal access. Rather than shipping
-  Selenium code against invented selectors (which would fail silently/confusingly), the
-  script instead: (1) navigates to the screen, (2) dumps every visible interactive
-  element's tag/id/class/text to `retenciones_page_dump.txt` next to the script, and (3)
-  attempts a best-effort search+download using the most common patterns already seen
-  elsewhere in this same portal (PrimeFaces `ui-*`/Angular Material `mat-*`), with every
-  step wrapped so a wrong guess is logged, never a hard crash. **Next step**: run this once
-  against the real portal, and use the resulting page dump to replace the guessed
-  search/download selectors with real ones (same "no tengo acceso al portal real... yo
-  entrego la estructura completa... la integro una vez tengas los selectores reales"
-  approach already used for the original DTE bot in its early iterations).
-  `run_sat_upload_retenciones_to_odoo.py` (calling `construtec.sat.retention.create_from_pdf`
-  over XML-RPC, same shape as `run_sat_upload_to_odoo.py`) is **not yet built** — pending the
-  download side actually working first.
+- **Bot automation — VERIFIED end-to-end against the real portal**:
+  `C:\Users\Alex\Documents\n8n\sat-bot\run_sat_download_retenciones.py` (same
+  `SAT_ENV_FILE`/env-loading pattern as the other 3 wrapper scripts) logs in, opens
+  Servicios Tributarios > Constancias de Retenciones y Exenciones > Constancias de
+  Retención del IVA e ISR Recibidas (`open_retenciones_iva_menu()`, mirroring the
+  already-confirmed menu pattern in `run_sat_download_only.py::open_dte_menu_cuenta_personal`),
+  fills the "PARÁMETROS DE BÚSQUEDA" panel (real PrimeFaces form: `formContent:itDel_input`/
+  `formContent:itAl_input` for the date range, `formContent:itNumConstancia` for a specific
+  constancia number, `formContent:btnBuscar`), and downloads the PDF for every row in the
+  results table (`formContent:tblRetenedor`, one `<a id="...{n}:linkPDF">` commandLink per
+  row — a plain form submit, not AJAX, so Chrome just downloads it like any file). Verified
+  end-to-end (2026-08-17): searched 19/02/2026–19/02/2026, got 9 real results, downloaded all
+  9 PDFs (`data/retenciones/<numero_constancia>.pdf` — confirmed the filename SAT serves
+  *is* the número de constancia, no extra mapping needed), and one of them
+  (`1771521747491.pdf`) is byte-for-byte the same document already parsed and linked in
+  `construtec_test` earlier — closing the loop between the bot and the Odoo model with a real
+  shared record, not just two things that happened to look similar.
+  - **Real bug found and fixed, not a portal limitation as first suspected**: the date
+    inputs are `readonly` (can't `send_keys` into them directly — confirmed, does nothing
+    silently) so the calendar popup has to be driven by clicks. The popup's
+    `.ui-datepicker-title` looked like it should be plain text ("Agosto 2026"), so the first
+    version parsed it as such and drove Prev/Next buttons to step month-by-month — but this
+    particular calendar instance has `changeMonth`/`changeYear` enabled, so
+    `.ui-datepicker-title` actually contains **two `<select>` elements** (month, year), and
+    reading `.text` off it concatenates every option from both ("Ene Feb Mar...2016
+    2017...2026"). The month/year comparison silently never matched, so Prev/Next never
+    actually moved past the current month — and the specific day being targeted (19 for
+    Feb, 21 for Jul) just happened to also exist as a *future* day within the *current*
+    month (August), which really is disabled (can't search a date that hasn't happened yet).
+    That's what looked exactly like "the portal only allows searching the current month" —
+    a real dead end that turned out to be a self-inflicted parsing bug, not a server-side
+    restriction. Confirmed by testing the exact wide range (01/01/2026–17/08/2026) a human
+    successfully used in the live portal (screenshot evidence, 100+ real rows) — the bug
+    reproduced with narrower single-day ranges but the wide range coincidentally never hit
+    a "day not yet in this month" collision, which is what made it look date-range-related
+    at first. Fixed by using Selenium's `Select` on `.ui-datepicker-month`/`.ui-datepicker-year`
+    directly instead of parsing title text or clicking Prev/Next at all — no
+    per-month iteration needed, any date is reachable in 2 selects + 1 day click.
+  - **`RETENCIONES_FECHA_DESDE`/`RETENCIONES_FECHA_HASTA`** (env vars, `DD/MM/YYYY`) drive the
+    search range; `RETENCIONES_NUMERO_CONSTANCIA` narrows to one specific constancia (combines
+    with the date range — confirmed it does **not** override/ignore the date filter, both must
+    match). `RETENCIONES_DOWNLOAD_DIR` (default `sat-bot/data/retenciones`) is wired directly
+    into Chrome's own download directory (`config.download_dir`), same mechanism the other
+    bot scripts use — no separate move/rename step needed since SAT already names the file by
+    número de constancia.
+  - **Still not built**: `run_sat_upload_retenciones_to_odoo.py` (would call
+    `construtec.sat.retention.create_from_pdf` over XML-RPC per downloaded PDF, same shape as
+    `run_sat_upload_to_odoo.py`) and the n8n workflow chaining download → upload. The download
+    side alone is now proven to work; wiring it into Odoo is the next real step.
 
 ## Common commands
 
