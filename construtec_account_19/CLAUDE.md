@@ -344,6 +344,20 @@ sales), never `recibida`.
     "SAT - Subir XML/PDF descargados a Odoo", Execute Command running
     `run_sat_upload_retenciones_to_odoo.py`). Both published/active in the local n8n instance.
 
+**Bug real en producción, encontrado y corregido**: la vista de formulario de
+`construtec.sat.retention` incluye `<chatter/>`, pero el modelo no heredaba `mail.thread` -
+al abrir cualquier constancia ya creada, el controlador `mail/data` del cliente web fallaba con
+`AttributeError: 'construtec.sat.retention' object has no attribute '_get_thread_with_access'`
+(RPC_ERROR visible para el usuario, reportado real contra producción tras subir las primeras 106
+constancias). A diferencia de `construtec.sat.document` (que deliberadamente no tiene
+`mail.thread` y por eso los mensajes de auditoría se postean en `move_id.message_post()`, ver más
+abajo), aquí sí vale la pena un chatter real - es un buen lugar para dejar rastro de cuándo se
+aplicó una retención o por qué falló. Arreglado agregando
+`_inherit = ['mail.thread', 'mail.activity.mixin']` al modelo. Verificado llamando directamente
+`_get_thread_with_access()`/`message_post()` contra un registro real en `construtec_test` (no se
+pudo probar contra el cliente web mismo sin iniciar sesión con contraseña real, algo que no se
+hace por este medio) - ambos métodos ya existen y funcionan tras el fix.
+
 ### Conciliación contable de la retención contra la factura (NO automática por defecto)
 
 Hasta aquí, todo lo anterior (`create_from_pdf`, `_sat_buscar_documento`, `action_vincular_facturas`)

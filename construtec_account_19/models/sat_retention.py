@@ -18,6 +18,7 @@ _CODIGO_DIARIO_RETENCIONES = 'RETIVA'
 
 class ConstructecSatRetention(models.Model):
     _name = 'construtec.sat.retention'
+    _inherit = ['mail.thread', 'mail.activity.mixin']
     _description = 'Constancia de Retención de IVA (Agencia Virtual SAT)'
     _order = 'fecha_emision desc'
 
