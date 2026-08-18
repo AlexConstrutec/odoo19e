@@ -112,6 +112,123 @@ This is the **mirror image** of `construtec_materials_sync_19` (which receives C
   3. A dedicated, minimally-privileged integration user + API Key on **Community**, granted access to *only* that mirror model (mirror the `group_materials_sync_integration` pattern from `construtec_materials_sync_19/security/materials_sync_security.xml` — create-**and**-write here, since updates are required, but still nothing broader).
   4. Whatever user/API Key gets created there must then be entered into Enterprise's 4 system parameters above.
 
+## Constancias de Retención de IVA (modelo separado de construtec.sat.document)
+
+A user request to also archive "Constancias de Retención del IVA e ISR Recibidas" (a
+different Agencia Virtual screen: Servicios Tributarios > Constancias de Retenciones y
+Exenciones > Constancias de Retención del IVA e ISR Recibidas) — **deliberately a
+separate model**, not part of `construtec.sat.document`, per explicit user request ("no
+lo podemos trabajar en documento SAT"). A Constancia certifies that a client withheld
+part of the IVA when paying Construtec for a sale — since this screen is "Retenciones
+**Recibidas**", it always relates to `direction='emitida'` documents (Construtec's own
+sales), never `recibida`.
+
+- **`construtec.sat.retention`** (`models/sat_retention.py`) — header: `numero_constancia`
+  (unique, the PDF's own "Número de Constancia"), `fecha_emision`, `nit_agente_retenedor`/
+  `nombre_agente_retenedor` (the client who withheld), `agente_retenedor_partner_id`
+  (resolved by NIT via **search only, no create** — deliberately different from
+  `construtec.sat.document._sat_find_or_create_partner`, since this field is informational/
+  reporting only, not the source of a real accounting record), `tipo_agente_retencion`
+  (e.g. "CONTRIBUYENTES ESPECIALES"), `cantidad_facturas`, `monto_retencion_pdf` (the PDF's
+  own "TOTAL" row, kept separate from `monto_retencion_total`/`monto_importe_neto_total`
+  — both `compute='...', store=True` sums over `line_ids` — specifically so a
+  parsing mismatch between the two is visible instead of silently trusted), `pdf_attachment_id`,
+  `requiere_revision_manual` (see multi-invoice caveat below), and `state`
+  (`pendiente`/`parcial`/`vinculada`, computed from how many lines have `sat_document_id` set).
+- **`construtec.sat.retention.line`** — one row per invoice the constancia covers: `serie`/
+  `numero_factura` (from the PDF), `concepto`/`tarifa`/`monto_importe_neto`/`monto_retencion`
+  (from the PDF's "DETALLE DE CONSTANCIA" table), and `sat_document_id` (Many2one
+  `construtec.sat.document`, domain `direction='emitida'`) — **resolved automatically on
+  `create()`** by searching `construtec.sat.document` for a matching `serie` +
+  `numero_documento` (confirmed from the real PDF: a Constancia references the original
+  invoice via **Serie + Número de Factura**, NOT the DTE's `numero_autorizacion` UUID — those
+  are exactly the existing `construtec.sat.document.serie`/`.numero_documento` fields, no new
+  matching key needed). `move_id`/`partner_id` are `related` fields off `sat_document_id` for
+  quick access. If no matching document exists yet (e.g. the constancia was imported before
+  the corresponding sales invoice), the line is created unlinked and the header's
+  **"Vincular Facturas"** button (`action_vincular_facturas`, fills-blanks-only, same
+  "suggestion, not a silent lock-in" convention as `construtec.sat.categorization.rule`)
+  retries the search later.
+- **`create_from_pdf(pdf_base64, pdf_filename=None)`** (`@api.model`, `models/sat_retention.py`)
+  is the entry point, idempotent on `numero_constancia` (returns `state='skipped_duplicate'`
+  on a repeat, same pattern as `construtec.sat.document.create_from_dte`). Parses via
+  `_parse_constancia_pdf` (`models/sat_retention_import.py`), creates the header + lines +
+  `ir.attachment` in one transaction, and resolves `agente_retenedor_partner_id`. Reachable
+  from the UI via **`construtec.sat.retention.import.wizard`** (menu "Documentos SAT" >
+  "Importar Constancia (PDF)") — a simple upload-a-PDF-and-click-Importar wizard, since
+  there's no automated download path from the bot yet for this screen (see below).
+- **PDF parsing** (`_parse_constancia_pdf`, `models/sat_retention_import.py`) uses
+  `pdfminer.six` (`extract_text`), **not** `PyPDF2` — both are already available in Odoo's
+  bundled Python (no new dependency). `PyPDF2.extract_text()` was tried first and discarded:
+  besides the same accent corruption described below, its table-cell reading order is
+  unreliable for this form (date and Serie code came out concatenated with no separator,
+  DETALLE DE CONSTANCIA columns out of visual order). `pdfminer.six` puts each value on its
+  own line, which is reliable enough to anchor on fixed label text with regex (the form is a
+  fixed SAT layout, "SAT-2229"). Fields extracted: `numero_constancia`, `nit_contribuyente`/
+  `nombre_contribuyente` (should match Construtec's own NIT, since this is "Recibidas"),
+  `fecha_emision` (from separate Día/Mes/Año labels), `cantidad_facturas` + a list of
+  Serie/Número-de-Factura pairs, the DETALLE DE CONSTANCIA rows (concepto/tarifa/importe/
+  retención — matched by regex on the `Q[\d,]+\.\d{2}`/`\d+%` value shapes, not by position,
+  since concepto is free text), the PDF's own "TOTAL" retention amount, and
+  `nit_agente_retenedor`/`nombre_agente_retenedor`/`tipo_agente_retencion`. Verified against
+  the one real PDF available (`1771521747491.pdf`, `construtec_test`): every field extracted
+  correctly, and the line's `serie`/`numero_factura` (`0E34E0C2`/`2323663424`) correctly
+  auto-matched a REAL `construtec.sat.document` already present in `construtec_test`
+  (`direction='emitida'`, same serie/numero, `nombre_receptor` matching the PDF's own agente
+  retenedor name) — a genuine end-to-end match against real data, not just a parsing test.
+  Also verified: re-importing the same PDF returns `skipped_duplicate`; `action_vincular_facturas`
+  is a no-op both when already linked and when no matching document exists yet (correctly
+  stays `pendiente`, never guesses a wrong match).
+- **A second, DIFFERENT accent-corruption bug from the one `_fix_mangled_accents` was built
+  for**: the DTE XML corruption (see below) replaces an accented character with a literal
+  `?`; this PDF's corruption (a font-encoding issue inside the PDF itself, from
+  `pdfminer.six`'s extraction) replaces it with the Unicode replacement character `�`
+  (U+FFFD) instead — confirmed on real fixed form labels ("RETENCIÓN" → "RETENCI�N",
+  "AÑO"/"DÍA" → "A�O"/"D�A"). `_fix_pdf_accents()` (`sat_retention_import.py`) reuses the
+  *same* `_KNOWN_WORDS_RAW` dictionary from `sat_document_import.py` by replacing `�` with
+  `?` before calling `_fix_mangled_accents()` — avoids maintaining two separate word lists
+  for what is, once normalized, the same "recover an accented character by dictionary match,
+  never guess" problem. Only applied to free-text fields (contact/agent names, `concepto`,
+  `tipo_agente_retencion`) — never needed for the numeric/code fields that actually drive the
+  invoice-matching logic.
+- **Multi-invoice case (`cantidad_facturas > 1`) is UNVERIFIED** — the only real PDF
+  available at the time this was built covers exactly 1 invoice. The parser's regex
+  extracts however many Serie/Número pairs and DETALLE rows it finds; if both counts match,
+  it zips them together positionally (assumed same reading order, not yet confirmed against
+  a real multi-invoice PDF). If the counts DON'T match (e.g. one aggregated DETALLE row
+  covering several invoices), it does **not** guess how to split the amounts — same
+  "don't guess" rule as `_fix_mangled_accents`/`sat_product_catalog`'s código extraction —
+  it creates one line per Serie/Número pair with blank amounts and sets
+  `requiere_revision_manual=True` (shown as a warning banner on the form, plus a search
+  filter) so a human fills in the real per-invoice amounts by hand. **Next step, pending
+  the user**: get a real multi-invoice Constancia PDF to confirm the actual DETALLE table
+  layout in that case and remove this caveat.
+- **Bot automation — DRAFT ONLY, not yet run against the real portal**:
+  `C:\Users\Alex\Documents\n8n\sat-bot\run_sat_download_retenciones.py` is a new,
+  independent script (same `SAT_ENV_FILE`/env-loading pattern as the other 3 wrapper
+  scripts). `open_retenciones_iva_menu()` (high confidence — mirrors the *already-confirmed*
+  menu pattern in `run_sat_download_only.py::open_dte_menu_cuenta_personal`, which navigates
+  the same PrimeFaces root menu via `btnContraerMenu` + hover chains over
+  `ui-menuitem-text` spans to reach Servicios Tributarios > Factura Electrónica en Línea
+  (FEL); this only changes the 2nd/3rd-level item text to "Constancias de Retenciones y
+  Exenciones" > "Constancias de Retención del IVA e ISR Recibidas", same root menu). Past
+  that point — the search screen's fields, the results table, and how an individual PDF is
+  downloaded per row — is an **unverified guess** built only from screenshots, since there's
+  no way to confirm real selectors without live portal access. Rather than shipping
+  Selenium code against invented selectors (which would fail silently/confusingly), the
+  script instead: (1) navigates to the screen, (2) dumps every visible interactive
+  element's tag/id/class/text to `retenciones_page_dump.txt` next to the script, and (3)
+  attempts a best-effort search+download using the most common patterns already seen
+  elsewhere in this same portal (PrimeFaces `ui-*`/Angular Material `mat-*`), with every
+  step wrapped so a wrong guess is logged, never a hard crash. **Next step**: run this once
+  against the real portal, and use the resulting page dump to replace the guessed
+  search/download selectors with real ones (same "no tengo acceso al portal real... yo
+  entrego la estructura completa... la integro una vez tengas los selectores reales"
+  approach already used for the original DTE bot in its early iterations).
+  `run_sat_upload_retenciones_to_odoo.py` (calling `construtec.sat.retention.create_from_pdf`
+  over XML-RPC, same shape as `run_sat_upload_to_odoo.py`) is **not yet built** — pending the
+  download side actually working first.
+
 ## Common commands
 
 ```

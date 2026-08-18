@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_construtec_sat_retention_list" model="ir.ui.view">
+        <field name="name">construtec.sat.retention.list</field>
+        <field name="model">construtec.sat.retention</field>
+        <field name="arch" type="xml">
+            <list string="Constancias de Retención de IVA" decoration-warning="requiere_revision_manual">
+                <field name="numero_constancia"/>
+                <field name="fecha_emision"/>
+                <field name="nombre_agente_retenedor"/>
+                <field name="cantidad_facturas"/>
+                <field name="monto_retencion_pdf" sum="Retención"/>
+                <field name="state" widget="badge" decoration-success="state == 'vinculada'"
+                       decoration-warning="state == 'parcial'" decoration-danger="state == 'pendiente'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_construtec_sat_retention_form" model="ir.ui.view">
+        <field name="name">construtec.sat.retention.form</field>
+        <field name="model">construtec.sat.retention</field>
+        <field name="arch" type="xml">
+            <form string="Constancia de Retención de IVA">
+                <header>
+                    <button name="action_vincular_facturas" type="object" string="Vincular Facturas"
+                            invisible="state == 'vinculada'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="pendiente,parcial,vinculada"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-warning" role="alert" invisible="not requiere_revision_manual">
+                        La cantidad de facturas declaradas no coincide con las filas de detalle leídas del PDF -
+                        revisa/completa los montos de cada línea manualmente.
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="numero_constancia"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="fecha_emision"/>
+                            <field name="cantidad_facturas"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group>
+                            <field name="nit_agente_retenedor"/>
+                            <field name="nombre_agente_retenedor"/>
+                            <field name="agente_retenedor_partner_id"/>
+                            <field name="tipo_agente_retencion"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group>
+                            <field name="nit_contribuyente"/>
+                            <field name="nombre_contribuyente"/>
+                        </group>
+                        <group>
+                            <field name="monto_importe_neto_total"/>
+                            <field name="monto_retencion_total"/>
+                            <field name="monto_retencion_pdf"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Facturas Cubiertas">
+                            <field name="line_ids">
+                                <list editable="bottom" decoration-danger="not sat_document_id">
+                                    <field name="serie"/>
+                                    <field name="numero_factura"/>
+                                    <field name="concepto"/>
+                                    <field name="tarifa"/>
+                                    <field name="monto_importe_neto"/>
+                                    <field name="monto_retencion"/>
+                                    <field name="sat_document_id"/>
+                                    <field name="move_id"/>
+                                    <field name="partner_id"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_construtec_sat_retention_search" model="ir.ui.view">
+        <field name="name">construtec.sat.retention.search</field>
+        <field name="model">construtec.sat.retention</field>
+        <field name="arch" type="xml">
+            <search string="Constancias de Retención de IVA">
+                <field name="numero_constancia"/>
+                <field name="nombre_agente_retenedor"/>
+                <filter string="Pendientes" name="pendientes" domain="[('state', '=', 'pendiente')]"/>
+                <filter string="Parcialmente Vinculadas" name="parciales" domain="[('state', '=', 'parcial')]"/>
+                <filter string="Requiere Revisión Manual" name="revision" domain="[('requiere_revision_manual', '=', True)]"/>
+                <group>
+                    <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
+                    <filter string="Agente Retenedor" name="group_agente" context="{'group_by': 'nombre_agente_retenedor'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_construtec_sat_retention" model="ir.actions.act_window">
+        <field name="name">Constancias de Retención de IVA</field>
+        <field name="res_model">construtec.sat.retention</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_construtec_sat_retention_import_wizard_form" model="ir.ui.view">
+        <field name="name">construtec.sat.retention.import.wizard.form</field>
+        <field name="model">construtec.sat.retention.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Importar Constancia de Retención de IVA">
+                <group>
+                    <field name="pdf_filename" invisible="1"/>
+                    <field name="pdf_file" filename="pdf_filename" required="1"/>
+                </group>
+                <footer>
+                    <button name="action_importar" type="object" string="Importar" class="btn-primary"/>
+                    <button string="Cancelar" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_construtec_sat_retention_import_wizard" model="ir.actions.act_window">
+        <field name="name">Importar Constancia (PDF)</field>
+        <field name="res_model">construtec.sat.retention.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_construtec_sat_retention" action="action_construtec_sat_retention"
+              parent="menu_construtec_sat_document_root" sequence="5"/>
+    <menuitem id="menu_construtec_sat_retention_import" action="action_construtec_sat_retention_import_wizard"
+              parent="menu_construtec_sat_document_root" sequence="6"/>
+</odoo>
