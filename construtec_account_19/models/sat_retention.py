@@ -58,6 +58,11 @@ class ConstructecSatRetention(models.Model):
              'líneas (monto_retencion_total) para poder detectar una discrepancia si el parseo de alguna línea '
              'salió mal.')
     pdf_attachment_id = fields.Many2one('ir.attachment', string='PDF', copy=False)
+    pdf_file = fields.Binary(
+        string='PDF de la Constancia', related='pdf_attachment_id.datas', readonly=True,
+        help='Mismo archivo que pdf_attachment_id, expuesto como campo Binary (con visor de PDF embebido en '
+             'el formulario) en vez de solo como adjunto - más cómodo de ver sin salir del registro.')
+    pdf_filename = fields.Char(related='pdf_attachment_id.name', readonly=True)
     anulado = fields.Boolean(
         string='Anulada', help='El PDF trae el sello "Anulada el DD-MM-YYYY" - el sello descoloca el orden de '
                                 'lectura de todo el documento, por lo que los montos por línea normalmente no se '
@@ -403,6 +408,16 @@ class ConstructecSatRetentionLine(models.Model):
         (receivable_line + invoice_receivable).reconcile()
 
         self.payment_id = payment.id
+
+        # El pago es el asiento NUEVO que esta accion genera (la factura ya
+        # existia posted de antes) - el mensaje va en su propio chatter,
+        # dejando explicito a que factura/constancia corresponde ese pago sin
+        # tener que abrir la conciliacion para averiguarlo.
+        payment.message_post(body=self.env._(
+            'Retención de %(monto)s aplicada contra la factura %(factura)s (constancia %(numero)s).',
+            monto=self.monto_retencion, factura=self.move_id.name, numero=self.retention_id.numero_constancia,
+        ))
+
         return True
 
     def _sat_buscar_documento(self):

@@ -411,6 +411,16 @@ aplicable contra su propio IVA por pagar).
   vincular** - mismo criterio que el resto de este módulo para cualquier acción que toque el libro
   mayor real (ej. `action_convertir_a_factura`): el usuario decide cuándo aplicar, no se dispara
   solo.
+- **PDF visible como campo Binary** (`pdf_file`, `related='pdf_attachment_id.datas'`, más
+  `pdf_filename` related) - mismo archivo que `pdf_attachment_id`, sin duplicar el binario en el
+  registro, pero expuesto como campo propio para poder usar `widget="pdf_viewer"` en la vista
+  (pestaña "PDF" del formulario) y verlo embebido sin salir del registro ni ir a la lista de
+  adjuntos.
+- **Mensaje de chatter en el pago, no en la factura ni en la constancia** (decisión explícita del
+  usuario): `action_aplicar_retencion_contable()` postea en `payment.message_post(...)` - el pago
+  es el asiento NUEVO que esta acción genera (la factura ya existía posteada de antes), así que
+  ahí es donde tiene sentido dejar constancia de a qué factura/constancia corresponde. `account.payment`
+  ya trae `mail.thread` de fábrica en Odoo stock, no hizo falta añadir nada para esto.
 - **Verificado end-to-end contra una factura real** en `construtec_test` (2026-08-18): se convirtió
   y posteó el `construtec.sat.document` real ya vinculado a la constancia `1771521747491`
   (factura de Q50,400.00, retención de Q810.00 según el PDF real), se llamó

@@ -86,6 +86,10 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="PDF">
+                            <field name="pdf_filename" invisible="1"/>
+                            <field name="pdf_file" widget="pdf_viewer" filename="pdf_filename" nolabel="1"/>
+                        </page>
                     </notebook>
                 </sheet>
                 <chatter/>
