@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.payment.order.sync</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="account.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='account']" position="inside">
+                <block title="Solicitudes de Pago" name="payment_order_request_settings">
+                    <setting id="payment_order_role" string="Rol de esta instalación"
+                             help="Solicitante: captura y aprueba Solicitudes de Pago y las sincroniza. Procesador: recibe Solicitudes aprobadas y las convierte en Órdenes de Pago reales.">
+                        <field name="payment_order_role" widget="radio"/>
+                    </setting>
+                </block>
+                <block title="Sincronización de Solicitudes de Pago" name="payment_order_sync_settings"
+                       invisible="payment_order_role != 'solicitante'">
+                    <setting id="payment_order_sync_enabled" string="Sincronización Habilitada"
+                             help="Al aprobar una Solicitud de Pago, la envía a la instalación Procesadora configurada abajo.">
+                        <field name="payment_order_sync_enabled"/>
+                    </setting>
+                    <setting string="Credenciales de la instalación Procesadora"
+                             invisible="not payment_order_sync_enabled">
+                        <div class="content-group">
+                            <div class="row mt16">
+                                <label for="payment_order_sync_url" class="col-lg-3 o_light_label"/>
+                                <field name="payment_order_sync_url" placeholder="https://enterprise.miempresa.com"/>
+                            </div>
+                            <div class="row mt8">
+                                <label for="payment_order_sync_db" class="col-lg-3 o_light_label"/>
+                                <field name="payment_order_sync_db"/>
+                            </div>
+                            <div class="row mt8">
+                                <label for="payment_order_sync_login" class="col-lg-3 o_light_label"/>
+                                <field name="payment_order_sync_login"/>
+                            </div>
+                            <div class="row mt8">
+                                <label for="payment_order_sync_api_key" class="col-lg-3 o_light_label"/>
+                                <field name="payment_order_sync_api_key" password="True"/>
+                            </div>
+                            <div class="text-muted mt8">
+                                Use un usuario de integración dedicado en la instalación Procesadora con
+                                permisos mínimos (solo crear Solicitudes de Pago) y su API Key
+                                (no su contraseña). Genere la API Key desde Ajustes &gt; Mi Perfil &gt;
+                                Seguridad de la cuenta &gt; Nueva clave API.
+                            </div>
+                            <div class="mt8">
+                                <button name="action_test_payment_order_sync_connection" type="object"
+                                        string="Probar conexión" class="btn btn-secondary" icon="fa-plug"/>
+                            </div>
+                        </div>
+                    </setting>
+                    <setting string="Registro de sincronización" invisible="not payment_order_sync_enabled">
+                        <field name="payment_order_sync_log_ids" nolabel="1">
+                            <list create="0" delete="0">
+                                <field name="create_date" string="Fecha"/>
+                                <field name="success"/>
+                                <field name="message"/>
+                            </list>
+                        </field>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>
