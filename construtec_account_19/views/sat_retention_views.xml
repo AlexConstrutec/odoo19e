@@ -64,6 +64,7 @@
                                 <list editable="bottom" decoration-danger="not sat_document_id">
                                     <field name="serie"/>
                                     <field name="numero_factura"/>
+                                    <field name="fecha_factura" optional="show"/>
                                     <field name="concepto"/>
                                     <field name="tarifa"/>
                                     <field name="monto_importe_neto"/>

@@ -191,18 +191,35 @@ sales), never `recibida`.
   never guess" problem. Only applied to free-text fields (contact/agent names, `concepto`,
   `tipo_agente_retencion`) — never needed for the numeric/code fields that actually drive the
   invoice-matching logic.
-- **Multi-invoice case (`cantidad_facturas > 1`) is UNVERIFIED** — the only real PDF
-  available at the time this was built covers exactly 1 invoice. The parser's regex
-  extracts however many Serie/Número pairs and DETALLE rows it finds; if both counts match,
-  it zips them together positionally (assumed same reading order, not yet confirmed against
-  a real multi-invoice PDF). If the counts DON'T match (e.g. one aggregated DETALLE row
-  covering several invoices), it does **not** guess how to split the amounts — same
-  "don't guess" rule as `_fix_mangled_accents`/`sat_product_catalog`'s código extraction —
-  it creates one line per Serie/Número pair with blank amounts and sets
-  `requiere_revision_manual=True` (shown as a warning banner on the form, plus a search
-  filter) so a human fills in the real per-invoice amounts by hand. **Next step, pending
-  the user**: get a real multi-invoice Constancia PDF to confirm the actual DETALLE table
-  layout in that case and remove this caveat.
+- **Multi-invoice case (`cantidad_facturas > 1`) — CONFIRMED against a real 7-invoice PDF**.
+  Turns out the form uses two genuinely different layouts, not just "more rows in the same
+  table": for exactly 1 invoice, the Serie/Número pair sits directly on the single page next
+  to a 1-row "DETALLE DE CONSTANCIA"; for more than 1, that page carries only an **aggregated**
+  total (no per-invoice data at all) and a **second page** appears with a completely different
+  table, "DETALLE DE RETENCIONES" — one row per invoice, columns Serie/Factura/Fecha, followed
+  by **3 repeated groups** of Tarifa/Importe/Retención (only one of the three is non-zero per
+  row in both real examples seen — the other two read `0%`/`Q0.00`, seemingly reserved slots for
+  other retention-rate categories that didn't apply to Construtec's own retentions). Parsing:
+  detect this second layout by anchoring on the "Serie Factura Fecha Tarifa Importe Retención
+  Tarifa Importe Retención Tarifa Importe Retención" header (case-insensitive — this header
+  prints as "Retención", title case, unlike "DETALLE DE CONSTANCIA"'s all-caps "RETENCIÓN"
+  column, a real formatting difference between the two tables); a per-invoice `tarifa`/
+  `monto_importe_neto`/`monto_retencion` is computed by summing the 3 buckets (naturally
+  `0 + 0 + X = X`) and taking whichever bucket's tarifa is non-zero. `cantidad_facturas` is
+  derived from `len(lines)` in both layouts (**not** from a "Cantidad de Facturas" label
+  position — that value's exact position in the extracted text differs between the 1-invoice
+  and multi-invoice layouts, confirmed real and not worth chasing positionally once the line
+  count itself is authoritative). `construtec.sat.retention.line.fecha_factura` (new field) only
+  gets populated in the multi-invoice layout — the per-invoice date the DETALLE DE RETENCIONES
+  table happens to expose that the single-invoice layout doesn't repeat. Verified via
+  `odoo-bin shell` against the real 7-invoice PDF: all 7 Serie/Número pairs correctly parsed
+  and **every one auto-matched a real `construtec.sat.document` already in `construtec_test`**
+  (`state` went straight to `vinculada`), and the sum of the 7 lines' `monto_retencion` matched
+  the PDF's own page-1 aggregated total exactly (`594.54`) — a real, non-coincidental
+  cross-check. `nit_agente_retenedor`/`nit_contribuyente` regexes were also widened to accept a
+  trailing `K` (Guatemalan NIT check digit — the 7-invoice PDF's own agent NIT is `543386K`,
+  the first NIT seen in this module with that suffix). If a future PDF matches **neither**
+  layout, the parser still falls back to `requiere_revision_manual=True` rather than guessing.
 - **Bot automation — DRAFT ONLY, not yet run against the real portal**:
   `C:\Users\Alex\Documents\n8n\sat-bot\run_sat_download_retenciones.py` is a new,
   independent script (same `SAT_ENV_FILE`/env-loading pattern as the other 3 wrapper

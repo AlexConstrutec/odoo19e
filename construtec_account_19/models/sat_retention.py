@@ -146,6 +146,7 @@ class ConstructecSatRetention(models.Model):
             'line_ids': [(0, 0, {
                 'serie': linea.get('serie'),
                 'numero_factura': linea.get('numero_factura'),
+                'fecha_factura': linea.get('fecha_factura'),
                 'concepto': linea.get('concepto'),
                 'tarifa': linea.get('tarifa', 0.0),
                 'monto_importe_neto': linea.get('monto_importe_neto', 0.0),
@@ -173,6 +174,11 @@ class ConstructecSatRetentionLine(models.Model):
         'construtec.sat.retention', string='Constancia', required=True, ondelete='cascade')
     serie = fields.Char(string='Serie')
     numero_factura = fields.Char(string='Número de Factura')
+    fecha_factura = fields.Date(
+        string='Fecha de la Factura',
+        help='Solo viene en constancias que cubren varias facturas (tabla "DETALLE DE RETENCIONES" del PDF) - '
+             'en una constancia de 1 sola factura el PDF no repite esta fecha por línea, solo la fecha de '
+             'emisión de la constancia misma (fecha_emision del encabezado).')
     concepto = fields.Char(string='Concepto')
     tarifa = fields.Float(string='Tarifa (%)')
     currency_id = fields.Many2one(related='retention_id.currency_id', string='Moneda', store=True)
