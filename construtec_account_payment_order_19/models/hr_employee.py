@@ -28,6 +28,7 @@ class HrEmployee(models.Model):
         string='Banco', compute='_compute_mi_info_bancaria', compute_sudo=True)
 
     @api.depends('user_id', 'cuenta_bancaria_raw', 'banco_nombre_raw')
+    @api.depends_context('uid')
     def _compute_mi_info_bancaria(self):
         for employee in self:
             if employee.user_id and employee.user_id == self.env.user:
@@ -36,3 +37,28 @@ class HrEmployee(models.Model):
             else:
                 employee.cuenta_bancaria = False
                 employee.banco_nombre = False
+
+    telefono_trabajo = fields.Char(
+        string='Teléfono de Trabajo',
+        help='Sincronizado desde el "Work Phone" (`work_phone`) de Enterprise. No es sensible '
+             '(Odoo core no lo restringe), visible para cualquier usuario igual que puesto/'
+             'departamento.')
+
+    telefono_personal_raw = fields.Char(
+        string='Teléfono Personal (todos, interno)', groups='hr.group_hr_manager', copy=False,
+        help='Sincronizado desde el "Private Phone" (`private_phone`) de Enterprise, que Odoo '
+             'mismo restringe a RR.HH. por defecto - mismo tratamiento que cuenta_bancaria_raw: '
+             'un usuario normal no debe poder leer el teléfono personal de otro empleado.')
+    telefono_personal = fields.Char(
+        string='Teléfono Personal', compute='_compute_mi_telefono_personal', compute_sudo=True,
+        help='Igual que cuenta_bancaria: solo resuelve a un valor real para el propio empleado '
+             'vinculado al usuario actual.')
+
+    @api.depends('user_id', 'telefono_personal_raw')
+    @api.depends_context('uid')
+    def _compute_mi_telefono_personal(self):
+        for employee in self:
+            if employee.user_id and employee.user_id == self.env.user:
+                employee.telefono_personal = employee.sudo().telefono_personal_raw
+            else:
+                employee.telefono_personal = False

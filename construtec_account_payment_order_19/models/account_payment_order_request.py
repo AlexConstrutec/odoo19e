@@ -107,10 +107,13 @@ class AccountPaymentOrderRequest(models.Model):
                 employee = rec.employee_id.sudo()
                 rec.puesto = employee.job_title or rec.puesto
                 rec.departamento = employee.department_id.name or rec.departamento
-                # cuenta_bancaria/banco_nombre solo resuelven a un valor real cuando
-                # employee_id es el empleado vinculado al usuario actual - ver hr_employee.py.
+                # cuenta_bancaria/banco_nombre/telefono_personal solo resuelven a un valor real
+                # cuando employee_id es el empleado vinculado al usuario actual - hr_employee.py.
                 rec.cuenta_acreditar = rec.employee_id.cuenta_bancaria or rec.cuenta_acreditar
                 rec.banco = rec.employee_id.banco_nombre or rec.banco
+                # Teléfono: preferir el de trabajo; si no hay, caer al personal.
+                rec.telefono = (employee.telefono_trabajo or rec.employee_id.telefono_personal
+                                 or rec.telefono)
 
     @api.onchange('analytic_account_id')
     def _onchange_analytic_account_id(self):
@@ -150,6 +153,7 @@ class AccountPaymentOrderRequest(models.Model):
         vals.setdefault('departamento', employee.sudo().department_id.name or False)
         vals.setdefault('cuenta_acreditar', employee.cuenta_bancaria or False)
         vals.setdefault('banco', employee.banco_nombre or False)
+        vals.setdefault('telefono', employee.telefono_trabajo or employee.telefono_personal or False)
 
     def _fill_derived_vals_from_analytic_account(self, vals):
         analytic_account_id = vals.get('analytic_account_id')

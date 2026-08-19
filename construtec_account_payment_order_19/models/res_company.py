@@ -132,6 +132,8 @@ class ResCompany(models.Model):
                 'department_id': department.id if department else False,
                 'cuenta_bancaria_raw': emp.get('acc_number') or False,
                 'banco_nombre_raw': emp.get('bank_name') or False,
+                'telefono_trabajo': emp.get('work_phone') or False,
+                'telefono_personal_raw': emp.get('private_phone') or False,
                 'enterprise_employee_ref': enterprise_ref,
                 'company_id': self.id,
             }
