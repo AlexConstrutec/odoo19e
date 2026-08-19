@@ -24,10 +24,18 @@ class AccountPaymentOrderRequest(models.Model):
         ('synced', 'Sincronizada'),
     ], string='Origen', default='local', required=True, readonly=True, copy=False)
 
-    justificacion_tipo = fields.Selection([
-        ('viaticos', 'Viáticos'),
-        # 'materiales' se agrega en una fase futura (migración de construtec_materials_19).
-    ], string='Tipo de Justificación', required=True, default='viaticos')
+    justificacion_tipo_id = fields.Many2one(
+        'account.payment.order.justification.type', string='Tipo de Justificación', required=True,
+        default=lambda self: self.env.ref(
+            'construtec_account_payment_order_19.justification_type_viaticos', raise_if_not_found=False),
+        help='Catálogo (no un Selection fijo) para poder agregar tipos nuevos sin tocar código '
+             '- p. ej. "Materiales" en una fase futura (migración de construtec_materials_19). '
+             'Nunca se envía como id a la instalación Procesadora, solo el nombre - ver '
+             '_prepare_sync_vals()/create().')
+    es_viaticos = fields.Boolean(
+        compute='_compute_es_viaticos',
+        help='Auxiliar para mostrar/ocultar la pestaña "Viáticos" - comparar contra un id no es '
+             'seguro en una vista (`invisible=`), así que se resuelve aquí en Python.')
 
     requested_by_id = fields.Many2one('res.users', string='Solicitado por',
                                        default=lambda self: self.env.user, readonly=True, copy=False)
@@ -119,6 +127,13 @@ class AccountPaymentOrderRequest(models.Model):
                 # Correo: de trabajo -> personal, mismo criterio que teléfono.
                 rec.correo = employee.work_email or employee.private_email or rec.correo
 
+    @api.depends('justificacion_tipo_id')
+    def _compute_es_viaticos(self):
+        viaticos_type = self.env.ref(
+            'construtec_account_payment_order_19.justification_type_viaticos', raise_if_not_found=False)
+        for rec in self:
+            rec.es_viaticos = bool(viaticos_type) and rec.justificacion_tipo_id == viaticos_type
+
     @api.onchange('analytic_account_id')
     def _onchange_analytic_account_id(self):
         for rec in self:
@@ -138,9 +153,20 @@ class AccountPaymentOrderRequest(models.Model):
             if vals.get('name', '/') == '/':
                 vals['name'] = self.env['ir.sequence'].next_by_code(
                     'account.payment.order.request.sequence') or '/'
+            self._resolve_justificacion_tipo_name(vals)
             self._fill_derived_vals_from_employee(vals)
             self._fill_derived_vals_from_analytic_account(vals)
         return super().create(vals_list)
+
+    def _resolve_justificacion_tipo_name(self, vals):
+        """Resuelve `justificacion_tipo_name` (texto plano, lo único que viaja desde la
+        instalación Solicitante - ver _prepare_sync_vals()) hacia un `justificacion_tipo_id`
+        real de ESTA base, buscando/creando por nombre. No-op si ya viene un id (creación
+        local normal, vía formulario)."""
+        name = vals.pop('justificacion_tipo_name', None)
+        if name and not vals.get('justificacion_tipo_id'):
+            justification_type = self.env['account.payment.order.justification.type']._find_or_create_by_name(name)
+            vals['justificacion_tipo_id'] = justification_type.id
 
     def _fill_derived_vals_from_employee(self, vals):
         """Same autocompletado que _onchange_employee_id, pero para create() por API/script
@@ -192,9 +218,13 @@ class AccountPaymentOrderRequest(models.Model):
 
     def action_submit(self):
         for rec in self:
-            if rec.justificacion_tipo == 'viaticos' and not rec.viaticos_line_ids:
+            if rec.es_viaticos and not rec.viaticos_line_ids:
                 raise UserError(self.env._(
                     'Agregue al menos una línea de viáticos antes de enviar la solicitud.'))
+            if rec.viaticos_line_ids.filtered(lambda line: not line.employee_id):
+                raise UserError(self.env._(
+                    'Todas las líneas de viáticos deben tener un empleado seleccionado antes '
+                    'de enviar la solicitud.'))
             if not (rec.cuenta_acreditar and rec.tipo_cuenta and rec.banco
                     and rec.periodo_del and rec.periodo_al):
                 raise UserError(self.env._(
@@ -242,7 +272,7 @@ class AccountPaymentOrderRequest(models.Model):
         return {
             'external_ref': self.name,
             'origin': 'synced',
-            'justificacion_tipo': self.justificacion_tipo,
+            'justificacion_tipo_name': self.justificacion_tipo_id.name or '',
             'requested_by_name': self.requested_by_name or '',
             'puesto': self.puesto or '',
             'departamento': self.departamento or '',
@@ -263,7 +293,7 @@ class AccountPaymentOrderRequest(models.Model):
                     'tecnico_name': line.tecnico_name or '',
                     'departamento': line.departamento or '',
                     'puesto': line.puesto or '',
-                    'rubro': line.rubro or '',
+                    'justificacion_tipo_name': line.justificacion_tipo_id.name or '',
                     'cantidad': line.cantidad,
                     'costo_individual': line.costo_individual,
                 })
@@ -349,14 +379,27 @@ class AccountPaymentOrderRequestLine(models.Model):
                                   required=True, ondelete='cascade')
     employee_id = fields.Many2one(
         'hr.employee', string='Empleado',
-        help='Empleado destino de este renglón (sincronizado desde Enterprise). Solo llena '
+        help='Empleado destino de este renglón (sincronizado desde Enterprise). Llena '
              'técnico/departamento/puesto automáticamente; no se envía ningún id a la '
-             'instalación Procesadora - si no hay empleado sincronizado que corresponda, '
-             'los campos de texto se pueden llenar manualmente.')
-    tecnico_name = fields.Char(string='Técnico', required=True)
+             'instalación Procesadora - solo el nombre (`tecnico_name`), que viaja como texto. '
+             'No es `required=True` a nivel de campo (rompería la recepción de líneas '
+             'sincronizadas, que llegan solo con `tecnico_name` en texto - Enterprise no tiene '
+             'forma de saber a cuál de SUS empleados corresponde un `tecnico_name` de '
+             'Community); se exige en cambio en `action_submit()`, que las líneas locales '
+             'siempre pasan y las sincronizadas no.')
+    tecnico_name = fields.Char(
+        string='Técnico',
+        help='Nombre en texto plano de `employee_id`, autocompletado - lo que realmente viaja '
+             'hacia la instalación Procesadora. No se muestra en la vista: el usuario solo '
+             'elige `employee_id`.')
     departamento = fields.Char(string='Departamento')
     puesto = fields.Char(string='Puesto')
-    rubro = fields.Char(string='Rubro', default='Viaticos')
+    justificacion_tipo_id = fields.Many2one(
+        'account.payment.order.justification.type', string='Tipo de Justificación',
+        help='Sugerido desde el Tipo de Justificación del encabezado al agregar la línea '
+             '(ver default_get()), pero editable por línea - p. ej. si el jefe de técnicos '
+             'necesita cambiarlo para un renglón en particular. Nunca se envía como id a la '
+             'instalación Procesadora, solo el nombre.')
     cantidad = fields.Integer(string='Cantidad', default=1)
     costo_individual = fields.Float(string='Costo Individual')
     total = fields.Float(string='Total', compute='_compute_total', store=True)
@@ -370,9 +413,29 @@ class AccountPaymentOrderRequestLine(models.Model):
                 line.puesto = employee.job_title or line.puesto
                 line.departamento = employee.department_id.name or line.departamento
 
+    @api.model
+    def default_get(self, fields_list):
+        """Sugiere `justificacion_tipo_id` a partir del Tipo de Justificación del encabezado -
+        editable después, es solo el valor sugerido al agregar la línea. `default_request_id`
+        llega en el contexto porque así es como Odoo agrega una línea nueva desde el widget
+        one2many del formulario."""
+        res = super().default_get(fields_list)
+        if 'justificacion_tipo_id' in fields_list and not res.get('justificacion_tipo_id'):
+            request_id = res.get('request_id') or self.env.context.get('default_request_id')
+            if request_id:
+                request = self.env['account.payment.order.request'].browse(request_id)
+                if request.justificacion_tipo_id:
+                    res['justificacion_tipo_id'] = request.justificacion_tipo_id.id
+        return res
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
+            name = vals.pop('justificacion_tipo_name', None)
+            if name and not vals.get('justificacion_tipo_id'):
+                justification_type = self.env[
+                    'account.payment.order.justification.type']._find_or_create_by_name(name)
+                vals['justificacion_tipo_id'] = justification_type.id
             employee_id = vals.get('employee_id')
             if employee_id:
                 employee = self.env['hr.employee'].browse(employee_id)

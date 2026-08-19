@@ -4,6 +4,7 @@ from . import account_payment
 from . import res_company
 from . import res_config_settings
 from . import account_payment_order_sync_log
+from . import account_payment_order_justification_type
 from . import account_payment_order_request
 from . import hr_employee
 from . import account_analytic_account

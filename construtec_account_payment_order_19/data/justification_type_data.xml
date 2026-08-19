@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="justification_type_viaticos" model="account.payment.order.justification.type">
+        <field name="name">Viáticos</field>
+        <field name="sequence">10</field>
+    </record>
+</odoo>
