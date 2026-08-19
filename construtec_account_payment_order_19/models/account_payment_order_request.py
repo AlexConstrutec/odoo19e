@@ -111,11 +111,11 @@ class AccountPaymentOrderRequest(models.Model):
                 # cuando employee_id es el empleado vinculado al usuario actual - hr_employee.py.
                 rec.cuenta_acreditar = rec.employee_id.cuenta_bancaria or rec.cuenta_acreditar
                 rec.banco = rec.employee_id.banco_nombre or rec.banco
-                # Teléfono: trabajo -> celular de trabajo -> personal, en ese orden. Campos
-                # propios (telefono_trabajo/celular_trabajo), no los nativos work_phone/
-                # mobile_phone - ver hr_employee.py para el motivo (bug real de Odoo core).
-                rec.telefono = (employee.telefono_trabajo or employee.celular_trabajo
-                                 or rec.employee_id.telefono_personal or rec.telefono)
+                # Teléfono: trabajo (work_phone) -> celular de trabajo (mobile_phone) ->
+                # personal (private_phone), campos nativos de hr.employee. sudo() porque
+                # private_phone requiere hr.group_hr_user para leerse directo.
+                rec.telefono = (employee.work_phone or employee.mobile_phone
+                                 or employee.private_phone or rec.telefono)
 
     @api.onchange('analytic_account_id')
     def _onchange_analytic_account_id(self):
@@ -155,8 +155,8 @@ class AccountPaymentOrderRequest(models.Model):
         vals.setdefault('departamento', employee.sudo().department_id.name or False)
         vals.setdefault('cuenta_acreditar', employee.cuenta_bancaria or False)
         vals.setdefault('banco', employee.banco_nombre or False)
-        vals.setdefault('telefono', employee.telefono_trabajo or employee.celular_trabajo
-                        or employee.telefono_personal or False)
+        vals.setdefault('telefono', employee.sudo().work_phone or employee.sudo().mobile_phone
+                        or employee.sudo().private_phone or False)
 
     def _fill_derived_vals_from_analytic_account(self, vals):
         analytic_account_id = vals.get('analytic_account_id')

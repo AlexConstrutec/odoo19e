@@ -38,35 +38,31 @@ class HrEmployee(models.Model):
                 employee.cuenta_bancaria = False
                 employee.banco_nombre = False
 
-    telefono_trabajo = fields.Char(
-        string='Teléfono de Trabajo',
-        help='Sincronizado desde el "Work Phone" (`work_phone`) de Enterprise. No es sensible '
-             '(Odoo core no lo restringe) - se guarda en un campo propio en vez de escribir '
-             'directo al `work_phone` nativo de Community, porque ese campo nativo se recalcula '
-             'y se PIERDE en cuanto se asigna `user_id` al empleado (Odoo reemplaza '
-             '`work_contact_id` por el contacto del usuario vinculado, que no tiene teléfono) - '
-             'confirmado con un bug real reproducido en esta sesión.')
-    celular_trabajo = fields.Char(
-        string='Celular de Trabajo',
-        help='Sincronizado desde el "Work Mobile" (`mobile_phone`) de Enterprise - un campo '
-             'distinto de "Work Phone" (`work_phone`), y el que en la práctica suele tener el '
-             'número real cargado. Mismo motivo que telefono_trabajo para no usar el nativo.')
+    def write(self, vals):
+        """Preserva work_phone/mobile_phone al vincular user_id a un empleado sincronizado.
 
-    telefono_personal_raw = fields.Char(
-        string='Teléfono Personal (todos, interno)', groups='hr.group_hr_manager', copy=False,
-        help='Sincronizado desde el "Private Phone" (`private_phone`) de Enterprise, que Odoo '
-             'mismo restringe a RR.HH. por defecto - mismo tratamiento que cuenta_bancaria_raw: '
-             'un usuario normal no debe poder leer el teléfono personal de otro empleado.')
-    telefono_personal = fields.Char(
-        string='Teléfono Personal', compute='_compute_mi_telefono_personal', compute_sudo=True,
-        help='Igual que cuenta_bancaria: solo resuelve a un valor real para el propio empleado '
-             'vinculado al usuario actual.')
-
-    @api.depends('user_id', 'telefono_personal_raw')
-    @api.depends_context('uid')
-    def _compute_mi_telefono_personal(self):
-        for employee in self:
-            if employee.user_id and employee.user_id == self.env.user:
-                employee.telefono_personal = employee.sudo().telefono_personal_raw
-            else:
-                employee.telefono_personal = False
+        Decisión explícita del usuario: los teléfonos deben vivir en los campos NATIVOS de
+        hr.employee (work_phone/mobile_phone/private_phone), no en campos propios - para que
+        "viajen de ficha a ficha" usando el modelo estándar de Odoo. El problema: work_phone/
+        mobile_phone son `compute + store + inverse`, resueltos desde `work_contact_id`. En
+        cuanto se asigna `user_id` a un empleado, el propio `write()`/`create()` de hr.employee
+        (`_sync_user()`/`_remove_work_contact_id()`, `..\\odoo\\addons\\hr\\models\\hr_employee.py`)
+        REEMPLAZA `work_contact_id` por el partner del usuario recién vinculado - que no tiene
+        teléfono - borrando en silencio lo que ya habíamos sincronizado desde Enterprise.
+        Confirmado con un test real antes de este fix. Aquí se toma una foto de los valores
+        antes del write() del núcleo y se reaplican después si el núcleo los dejó vacíos -
+        solo para empleados sincronizados (`enterprise_employee_ref`), nunca para empleados
+        reales de Community (que no deberían existir de todas formas, pero por si acaso)."""
+        synced = self.filtered('enterprise_employee_ref') if 'user_id' in vals else self.browse()
+        phones_before = {emp.id: (emp.work_phone, emp.mobile_phone) for emp in synced}
+        res = super().write(vals)
+        for emp_id, (work_phone, mobile_phone) in phones_before.items():
+            employee = self.browse(emp_id)
+            employee_vals = {}
+            if work_phone and not employee.work_phone:
+                employee_vals['work_phone'] = work_phone
+            if mobile_phone and not employee.mobile_phone:
+                employee_vals['mobile_phone'] = mobile_phone
+            if employee_vals:
+                employee.write(employee_vals)
+        return res
