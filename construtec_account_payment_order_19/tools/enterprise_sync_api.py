@@ -113,7 +113,7 @@ def fetch_employees(url, db, login, api_key):
         url, 'object', 'execute_kw',
         [db, uid, api_key, 'hr.employee', 'search_read',
          [[]], {'fields': ['name', 'department_id', 'job_title', 'bank_account_ids',
-                            'work_phone', 'private_phone']}])
+                            'work_phone', 'mobile_phone', 'private_phone']}])
 
     bank_ids = sorted({bid for emp in employees for bid in (emp.get('bank_account_ids') or [])})
     banks_by_id = {}

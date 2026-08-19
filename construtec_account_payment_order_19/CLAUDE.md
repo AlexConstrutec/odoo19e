@@ -124,11 +124,18 @@ Para que esto no signifique "cualquier usuario de Community puede leer la cuenta
 
 El encabezado gana `analytic_account_id` (Many2one local, nunca enviado como id) que autocompleta el `proyecto` (Char) ya existente vía `_onchange_analytic_account_id()` - mismo patrón que `employee_id`→`puesto`/`departamento`. `proyecto` sigue siendo lo que viaja a Enterprise en `_prepare_sync_vals()`, sin cambios ahí.
 
-### Teléfono: trabajo primero, personal como respaldo
+### Teléfono: trabajo (fijo) -> celular de trabajo -> personal, en ese orden
 
-`hr.employee` gana `telefono_trabajo` (de `work_phone` en Enterprise - **no** restringido, Odoo core no lo marca sensible, visible igual que puesto/departamento) y `telefono_personal` (de `private_phone` en Enterprise, que Odoo core **sí** restringe con `groups='hr.group_hr_user'` por defecto - mismo tratamiento self-scoped que `cuenta_bancaria`: campo `telefono_personal_raw` con `groups='hr.group_hr_manager'` + compute `telefono_personal` que solo resuelve para el propio empleado vinculado).
+Enterprise tiene **tres** campos de teléfono en `hr.employee`, no dos - descubierto cuando el usuario probó esto y su propio número no llegó a Community (lo tenía cargado en "Celular de Trabajo", no en "Teléfono de Trabajo"):
+- `work_phone` ("Work Phone" / Teléfono de Trabajo, fijo/oficina) → `hr.employee.telefono_trabajo` en Community.
+- `mobile_phone` ("Work Mobile" / Celular de Trabajo - **el que en la práctica suele tener el número real**) → `hr.employee.celular_trabajo` en Community.
+- `private_phone` ("Private Phone" / Teléfono Personal) → `hr.employee.telefono_personal` en Community.
 
-El campo `telefono` del encabezado de la Solicitud se autocompleta con `employee.telefono_trabajo or employee.telefono_personal` (en ese orden) vía `_onchange_employee_id()`/`_fill_derived_vals_from_employee()` - a diferencia de `cuenta_acreditar`/`banco`, este campo **no** quedó de solo lectura (el usuario no lo pidió) - sigue editable a mano si hace falta corregirlo.
+`telefono_trabajo`/`celular_trabajo` **no** están restringidos (Odoo core no marca ni `work_phone` ni `mobile_phone` como sensibles, visibles igual que puesto/departamento). `telefono_personal` sí sigue el tratamiento self-scoped (Odoo core restringe `private_phone` con `groups='hr.group_hr_user'` por defecto) - mismo patrón que `cuenta_bancaria`: campo `telefono_personal_raw` con `groups='hr.group_hr_manager'` + compute `telefono_personal` (con `@api.depends_context('uid')`, ver la lección de seguridad arriba) que solo resuelve para el propio empleado vinculado.
+
+El campo `telefono` del encabezado de la Solicitud se autocompleta con `employee.telefono_trabajo or employee.celular_trabajo or employee.telefono_personal` (en ese orden) vía `_onchange_employee_id()`/`_fill_derived_vals_from_employee()` - a diferencia de `cuenta_acreditar`/`banco`, este campo **no** quedó de solo lectura (el usuario no lo pidió) - sigue editable a mano si hace falta corregirlo.
+
+**Importante para el usuario al probar esto**: los datos de un empleado ya sincronizado antes de este cambio (o antes de agregar `mobile_phone`) no se actualizan solos - hay que correr "Sincronizar ahora" (Ajustes > Facturación > Sincronización de Empleados) o esperar al cron, para que el pull vuelva a correr y traiga los campos nuevos.
 
 ## Common commands
 

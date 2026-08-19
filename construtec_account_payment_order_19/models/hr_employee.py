@@ -43,6 +43,11 @@ class HrEmployee(models.Model):
         help='Sincronizado desde el "Work Phone" (`work_phone`) de Enterprise. No es sensible '
              '(Odoo core no lo restringe), visible para cualquier usuario igual que puesto/'
              'departamento.')
+    celular_trabajo = fields.Char(
+        string='Celular de Trabajo',
+        help='Sincronizado desde el "Work Mobile" (`mobile_phone`) de Enterprise - un campo '
+             'distinto de "Work Phone" (`work_phone`), y el que en la práctica suele tener el '
+             'número real cargado. Tampoco es sensible en Odoo core.')
 
     telefono_personal_raw = fields.Char(
         string='Teléfono Personal (todos, interno)', groups='hr.group_hr_manager', copy=False,
