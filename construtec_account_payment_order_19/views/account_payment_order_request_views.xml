@@ -37,8 +37,10 @@
                     <group>
                         <group>
                             <field name="justificacion_tipo"/>
+                            <field name="employee_id"/>
                             <field name="requested_by_name"/>
                             <field name="puesto"/>
+                            <field name="departamento"/>
                             <field name="proyecto"/>
                             <field name="telefono"/>
                             <field name="correo"/>
@@ -57,7 +59,10 @@
                         <page string="Viáticos" invisible="justificacion_tipo != 'viaticos'">
                             <field name="viaticos_line_ids" readonly="state != 'draft'">
                                 <list editable="bottom">
+                                    <field name="employee_id" optional="show"/>
                                     <field name="tecnico_name"/>
+                                    <field name="departamento" optional="show"/>
+                                    <field name="puesto" optional="show"/>
                                     <field name="rubro"/>
                                     <field name="cantidad"/>
                                     <field name="costo_individual"/>

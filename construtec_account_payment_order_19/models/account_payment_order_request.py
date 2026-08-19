@@ -32,7 +32,15 @@ class AccountPaymentOrderRequest(models.Model):
     requested_by_id = fields.Many2one('res.users', string='Solicitado por',
                                        default=lambda self: self.env.user, readonly=True, copy=False)
     requested_by_name = fields.Char(string='Nombre', default=lambda self: self.env.user.name)
+    employee_id = fields.Many2one(
+        'hr.employee', string='Empleado Solicitante',
+        default=lambda self: self.env['hr.employee'].search(
+            [('user_id', '=', self.env.user.id)], limit=1),
+        help='Empleado vinculado al usuario que solicita (sincronizado desde Enterprise - ver '
+             'res.company._sync_employees_from_enterprise). Solo llena departamento/puesto '
+             'automáticamente; no se envía ningún id a la instalación Procesadora.')
     puesto = fields.Char(string='Puesto')
+    departamento = fields.Char(string='Departamento')
     proyecto = fields.Char(string='Proyecto')
     telefono = fields.Char(string='Teléfono')
     correo = fields.Char(string='Correo', default=lambda self: self.env.user.email)
@@ -78,6 +86,13 @@ class AccountPaymentOrderRequest(models.Model):
 
     payment_order_id = fields.Many2one('account.payment.order', string='Orden de Pago',
                                         readonly=True, copy=False)
+
+    @api.onchange('employee_id')
+    def _onchange_employee_id(self):
+        for rec in self:
+            if rec.employee_id:
+                rec.puesto = rec.employee_id.job_title or rec.puesto
+                rec.departamento = rec.employee_id.department_id.name or rec.departamento
 
     @api.depends('viaticos_line_ids.total', 'anticipo_previo')
     def _compute_totales(self):
@@ -162,6 +177,7 @@ class AccountPaymentOrderRequest(models.Model):
             'justificacion_tipo': self.justificacion_tipo,
             'requested_by_name': self.requested_by_name or '',
             'puesto': self.puesto or '',
+            'departamento': self.departamento or '',
             'proyecto': self.proyecto or '',
             'telefono': self.telefono or '',
             'correo': self.correo or '',
@@ -177,6 +193,8 @@ class AccountPaymentOrderRequest(models.Model):
             'viaticos_line_ids': [
                 (0, 0, {
                     'tecnico_name': line.tecnico_name or '',
+                    'departamento': line.departamento or '',
+                    'puesto': line.puesto or '',
                     'rubro': line.rubro or '',
                     'cantidad': line.cantidad,
                     'costo_individual': line.costo_individual,
@@ -261,11 +279,27 @@ class AccountPaymentOrderRequestLine(models.Model):
 
     request_id = fields.Many2one('account.payment.order.request', string='Solicitud',
                                   required=True, ondelete='cascade')
+    employee_id = fields.Many2one(
+        'hr.employee', string='Empleado',
+        help='Empleado destino de este renglón (sincronizado desde Enterprise). Solo llena '
+             'técnico/departamento/puesto automáticamente; no se envía ningún id a la '
+             'instalación Procesadora - si no hay empleado sincronizado que corresponda, '
+             'los campos de texto se pueden llenar manualmente.')
     tecnico_name = fields.Char(string='Técnico', required=True)
+    departamento = fields.Char(string='Departamento')
+    puesto = fields.Char(string='Puesto')
     rubro = fields.Char(string='Rubro', default='Viaticos')
     cantidad = fields.Integer(string='Cantidad', default=1)
     costo_individual = fields.Float(string='Costo Individual')
     total = fields.Float(string='Total', compute='_compute_total', store=True)
+
+    @api.onchange('employee_id')
+    def _onchange_employee_id(self):
+        for line in self:
+            if line.employee_id:
+                line.tecnico_name = line.employee_id.name
+                line.puesto = line.employee_id.job_title or line.puesto
+                line.departamento = line.employee_id.department_id.name or line.departamento
 
     @api.depends('cantidad', 'costo_individual')
     def _compute_total(self):
