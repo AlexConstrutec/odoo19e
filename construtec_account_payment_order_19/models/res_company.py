@@ -135,6 +135,8 @@ class ResCompany(models.Model):
                 'work_phone': emp.get('work_phone') or False,
                 'mobile_phone': emp.get('mobile_phone') or False,
                 'private_phone': emp.get('private_phone') or False,
+                'work_email': emp.get('work_email') or False,
+                'private_email': emp.get('private_email') or False,
                 'enterprise_employee_ref': enterprise_ref,
                 'company_id': self.id,
             }

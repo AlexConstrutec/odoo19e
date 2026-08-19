@@ -116,6 +116,8 @@ class AccountPaymentOrderRequest(models.Model):
                 # private_phone requiere hr.group_hr_user para leerse directo.
                 rec.telefono = (employee.work_phone or employee.mobile_phone
                                  or employee.private_phone or rec.telefono)
+                # Correo: de trabajo -> personal, mismo criterio que teléfono.
+                rec.correo = employee.work_email or employee.private_email or rec.correo
 
     @api.onchange('analytic_account_id')
     def _onchange_analytic_account_id(self):
@@ -157,6 +159,7 @@ class AccountPaymentOrderRequest(models.Model):
         vals.setdefault('banco', employee.banco_nombre or False)
         vals.setdefault('telefono', employee.sudo().work_phone or employee.sudo().mobile_phone
                         or employee.sudo().private_phone or False)
+        vals.setdefault('correo', employee.sudo().work_email or employee.sudo().private_email or False)
 
     def _fill_derived_vals_from_analytic_account(self, vals):
         analytic_account_id = vals.get('analytic_account_id')

@@ -138,6 +138,12 @@ Enterprise tiene **tres** campos de teléfono, no dos - descubierto cuando el us
 
 **Importante para el usuario al probar esto**: los datos de un empleado ya sincronizado antes de este cambio (o antes de agregar `mobile_phone`) no se actualizan solos - hay que correr "Sincronizar ahora" (Ajustes > Facturación > Sincronización de Empleados) o esperar al cron, para que el pull vuelva a correr y traiga los campos nuevos.
 
+### Correo: mismo patrón que teléfono (`work_email` -> `private_email`)
+
+Pedido explícito del usuario, calcado 1:1 del diseño de teléfono: `work_email`/`private_email` son los campos nativos equivalentes de correo (`email` en cambio es `related="user_id.email"` - el login de Community, no tiene nada que ver con Enterprise, **no se sincroniza**). `work_email` tiene **exactamente el mismo bug** que `work_phone` (mismo `_compute_work_contact_details`, mismo `work_contact_id`) - por eso `hr_employee.py`'s `write()` override ahora recorre `_WORK_CONTACT_FIELDS = ('work_phone', 'mobile_phone', 'work_email')` como una sola lista, no cada campo por separado. `private_email` es un `Char` simple igual que `private_phone` - mismo trade-off de privacidad (visible a cualquier `hr.group_hr_user`, no self-scoped).
+
+El campo `correo` del encabezado de la Solicitud (antes con `default=lambda self: self.env.user.email`, el login de Community) ahora se autocompleta también vía `_onchange_employee_id()`/`_fill_derived_vals_from_employee()` con `employee.work_email or employee.private_email`, mismo criterio de prioridad que `telefono` - sigue editable a mano, no quedó de solo lectura.
+
 ## Common commands
 
 ```

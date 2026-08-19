@@ -38,31 +38,36 @@ class HrEmployee(models.Model):
                 employee.cuenta_bancaria = False
                 employee.banco_nombre = False
 
-    def write(self, vals):
-        """Preserva work_phone/mobile_phone al vincular user_id a un empleado sincronizado.
+    _WORK_CONTACT_FIELDS = ('work_phone', 'mobile_phone', 'work_email')
 
-        Decisión explícita del usuario: los teléfonos deben vivir en los campos NATIVOS de
-        hr.employee (work_phone/mobile_phone/private_phone), no en campos propios - para que
-        "viajen de ficha a ficha" usando el modelo estándar de Odoo. El problema: work_phone/
-        mobile_phone son `compute + store + inverse`, resueltos desde `work_contact_id`. En
-        cuanto se asigna `user_id` a un empleado, el propio `write()`/`create()` de hr.employee
-        (`_sync_user()`/`_remove_work_contact_id()`, `..\\odoo\\addons\\hr\\models\\hr_employee.py`)
-        REEMPLAZA `work_contact_id` por el partner del usuario recién vinculado - que no tiene
-        teléfono - borrando en silencio lo que ya habíamos sincronizado desde Enterprise.
-        Confirmado con un test real antes de este fix. Aquí se toma una foto de los valores
-        antes del write() del núcleo y se reaplican después si el núcleo los dejó vacíos -
-        solo para empleados sincronizados (`enterprise_employee_ref`), nunca para empleados
-        reales de Community (que no deberían existir de todas formas, pero por si acaso)."""
+    def write(self, vals):
+        """Preserva work_phone/mobile_phone/work_email al vincular user_id a un empleado
+        sincronizado.
+
+        Decisión explícita del usuario: teléfonos y correos deben vivir en los campos NATIVOS
+        de hr.employee (work_phone/mobile_phone/work_email/private_phone/private_email), no en
+        campos propios - para que "viajen de ficha a ficha" usando el modelo estándar de Odoo.
+        El problema: work_phone/mobile_phone/work_email son todos `compute + store + inverse`,
+        resueltos desde `work_contact_id` (`work_phone`/`work_email` desde
+        `_compute_work_contact_details`, `..\\odoo\\addons\\hr\\models\\hr_employee.py:822`).
+        En cuanto se asigna `user_id` a un empleado, el propio `write()`/`create()` de
+        hr.employee (`_sync_user()`/`_remove_work_contact_id()`, mismo archivo, líneas
+        1314-1334) REEMPLAZA `work_contact_id` por el partner del usuario recién vinculado -
+        que no tiene ni teléfono ni correo - borrando en silencio lo que ya habíamos
+        sincronizado desde Enterprise. Confirmado con un test real antes de este fix. Aquí se
+        toma una foto de los valores antes del write() del núcleo y se reaplican después si el
+        núcleo los dejó vacíos - solo para empleados sincronizados (`enterprise_employee_ref`),
+        nunca para empleados reales de Community (que no deberían existir de todas formas, pero
+        por si acaso).
+
+        `private_phone`/`private_email` NO necesitan este tratamiento - son `Char` simples sin
+        `compute`/`inverse`, no dependen de `work_contact_id`."""
         synced = self.filtered('enterprise_employee_ref') if 'user_id' in vals else self.browse()
-        phones_before = {emp.id: (emp.work_phone, emp.mobile_phone) for emp in synced}
+        values_before = {emp.id: {f: emp[f] for f in self._WORK_CONTACT_FIELDS} for emp in synced}
         res = super().write(vals)
-        for emp_id, (work_phone, mobile_phone) in phones_before.items():
+        for emp_id, before in values_before.items():
             employee = self.browse(emp_id)
-            employee_vals = {}
-            if work_phone and not employee.work_phone:
-                employee_vals['work_phone'] = work_phone
-            if mobile_phone and not employee.mobile_phone:
-                employee_vals['mobile_phone'] = mobile_phone
+            employee_vals = {f: v for f, v in before.items() if v and not employee[f]}
             if employee_vals:
                 employee.write(employee_vals)
         return res
