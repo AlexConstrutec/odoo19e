@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_employee_form_payment_order_sync" model="ir.ui.view">
+        <field name="name">hr.employee.form.payment.order.sync</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@id='o_work_information']" position="inside">
+                <group string="Sincronizado desde Enterprise (Solicitudes de Pago)"
+                       invisible="not enterprise_employee_ref">
+                    <field name="telefono_trabajo"/>
+                    <field name="celular_trabajo"/>
+                    <field name="telefono_personal"
+                           help="Solo visible para el propio empleado vinculado a este usuario."/>
+                    <field name="cuenta_bancaria"
+                           help="Solo visible para el propio empleado vinculado a este usuario."/>
+                    <field name="banco_nombre"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

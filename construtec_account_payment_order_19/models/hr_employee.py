@@ -41,13 +41,16 @@ class HrEmployee(models.Model):
     telefono_trabajo = fields.Char(
         string='Teléfono de Trabajo',
         help='Sincronizado desde el "Work Phone" (`work_phone`) de Enterprise. No es sensible '
-             '(Odoo core no lo restringe), visible para cualquier usuario igual que puesto/'
-             'departamento.')
+             '(Odoo core no lo restringe) - se guarda en un campo propio en vez de escribir '
+             'directo al `work_phone` nativo de Community, porque ese campo nativo se recalcula '
+             'y se PIERDE en cuanto se asigna `user_id` al empleado (Odoo reemplaza '
+             '`work_contact_id` por el contacto del usuario vinculado, que no tiene teléfono) - '
+             'confirmado con un bug real reproducido en esta sesión.')
     celular_trabajo = fields.Char(
         string='Celular de Trabajo',
         help='Sincronizado desde el "Work Mobile" (`mobile_phone`) de Enterprise - un campo '
              'distinto de "Work Phone" (`work_phone`), y el que en la práctica suele tener el '
-             'número real cargado. Tampoco es sensible en Odoo core.')
+             'número real cargado. Mismo motivo que telefono_trabajo para no usar el nativo.')
 
     telefono_personal_raw = fields.Char(
         string='Teléfono Personal (todos, interno)', groups='hr.group_hr_manager', copy=False,

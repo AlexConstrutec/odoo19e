@@ -111,7 +111,9 @@ class AccountPaymentOrderRequest(models.Model):
                 # cuando employee_id es el empleado vinculado al usuario actual - hr_employee.py.
                 rec.cuenta_acreditar = rec.employee_id.cuenta_bancaria or rec.cuenta_acreditar
                 rec.banco = rec.employee_id.banco_nombre or rec.banco
-                # Teléfono: trabajo (fijo) -> celular de trabajo -> personal, en ese orden.
+                # Teléfono: trabajo -> celular de trabajo -> personal, en ese orden. Campos
+                # propios (telefono_trabajo/celular_trabajo), no los nativos work_phone/
+                # mobile_phone - ver hr_employee.py para el motivo (bug real de Odoo core).
                 rec.telefono = (employee.telefono_trabajo or employee.celular_trabajo
                                  or rec.employee_id.telefono_personal or rec.telefono)
 
