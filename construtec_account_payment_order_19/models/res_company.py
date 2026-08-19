@@ -2,7 +2,7 @@ import logging
 
 from odoo import api, fields, models
 
-from ..tools.enterprise_sync_api import EnterpriseSyncError, fetch_employees
+from ..tools.enterprise_sync_api import EnterpriseSyncError, fetch_analytic_accounts, fetch_employees
 
 _logger = logging.getLogger(__name__)
 
@@ -44,9 +44,10 @@ class ResCompany(models.Model):
         string='Registro de Sincronización de Solicitudes de Pago')
 
     employee_sync_interval_number = fields.Integer(
-        string='Sincronizar empleados cada', default=6,
-        help='Cada cuánto se jala el directorio de empleados (nombre/departamento/puesto) '
-             'desde la instalación Procesadora. Solo aplica cuando el rol es Solicitante.')
+        string='Sincronizar directorio (empleados/cuentas analíticas) cada', default=6,
+        help='Cada cuánto se jala desde la instalación Procesadora el directorio de empleados '
+             '(nombre/departamento/puesto/cuenta bancaria) y el catálogo de cuentas analíticas '
+             '(Proyectos). Solo aplica cuando el rol es Solicitante.')
     employee_sync_interval_type = fields.Selection([
         ('minutes', 'Minutos'),
         ('hours', 'Horas'),
@@ -76,13 +77,18 @@ class ResCompany(models.Model):
 
     def action_sync_employees_now(self):
         self.ensure_one()
-        ok, message = self._sync_employees_from_enterprise()
+        ok_emp, message_emp = self._sync_employees_from_enterprise()
+        ok_analytic, message_analytic = self._sync_analytic_accounts_from_enterprise()
+        ok = ok_emp and ok_analytic
+        message = self.env._(
+            'Empleados: %(message_emp)s\nCuentas Analíticas: %(message_analytic)s',
+            message_emp=message_emp, message_analytic=message_analytic)
         self._payment_order_sync_log(ok, message)
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
-                'title': self.env._('Sincronización de Empleados'),
+                'title': self.env._('Sincronización de Directorio'),
                 'message': message,
                 'type': 'success' if ok else 'danger',
                 'sticky': not ok,
@@ -124,6 +130,8 @@ class ResCompany(models.Model):
                 'name': emp['name'],
                 'job_title': emp.get('job_title') or False,
                 'department_id': department.id if department else False,
+                'cuenta_bancaria_raw': emp.get('acc_number') or False,
+                'banco_nombre_raw': emp.get('bank_name') or False,
                 'enterprise_employee_ref': enterprise_ref,
                 'company_id': self.id,
             }
@@ -136,6 +144,59 @@ class ResCompany(models.Model):
                 created += 1
         message = self.env._(
             '%(created)s empleados nuevos, %(updated)s actualizados.',
+            created=created, updated=updated)
+        return True, message
+
+    def _sync_analytic_accounts_from_enterprise(self):
+        """Pull the analytic account catalog (used as "Proyecto" in Solicitudes de Pago) and
+        upsert it into account.analytic.account. Same shape as _sync_employees_from_enterprise -
+        no-op unless Solicitante + sync enabled, find-or-create the plan by name (never by id)."""
+        self.ensure_one()
+        if self.payment_order_role != 'solicitante' or not self.payment_order_sync_enabled:
+            return True, self.env._('Sincronización de Cuentas Analíticas no aplica (rol o '
+                                     'sincronización no configurados).')
+        try:
+            accounts = fetch_analytic_accounts(
+                self.payment_order_sync_url, self.payment_order_sync_db,
+                self.payment_order_sync_login, self.payment_order_sync_api_key)
+        except EnterpriseSyncError as exc:
+            _logger.warning('Sincronización de Cuentas Analíticas falló para %s: %s', self.name, exc)
+            return False, str(exc)
+
+        AnalyticAccount = self.env['account.analytic.account'].sudo()
+        AnalyticPlan = self.env['account.analytic.plan'].sudo()
+        created = updated = 0
+        for acc in accounts:
+            enterprise_ref = str(acc['id'])
+            plan = False
+            if acc.get('plan_id'):
+                plan_name = acc['plan_id'][1]
+                plan = AnalyticPlan.search([('name', '=', plan_name)], limit=1)
+                if not plan:
+                    plan = AnalyticPlan.create({'name': plan_name})
+            if not plan:
+                # plan_id es obligatorio en account.analytic.account - sin plan de origen,
+                # se agrupa en un plan generico en vez de fallar la sincronizacion completa.
+                plan = AnalyticPlan.search([('name', '=', 'Proyectos (sin plan de origen)')], limit=1)
+                if not plan:
+                    plan = AnalyticPlan.create({'name': 'Proyectos (sin plan de origen)'})
+            vals = {
+                'name': acc['name'],
+                'code': acc.get('code') or False,
+                'plan_id': plan.id,
+                'company_id': self.id,
+                'enterprise_analytic_ref': enterprise_ref,
+            }
+            existing = AnalyticAccount.search(
+                [('enterprise_analytic_ref', '=', enterprise_ref)], limit=1)
+            if existing:
+                existing.write(vals)
+                updated += 1
+            else:
+                AnalyticAccount.create(vals)
+                created += 1
+        message = self.env._(
+            '%(created)s cuentas analíticas nuevas, %(updated)s actualizadas.',
             created=created, updated=updated)
         return True, message
 
@@ -159,4 +220,6 @@ class ResCompany(models.Model):
         ])
         for company in companies:
             ok, message = company._sync_employees_from_enterprise()
+            company._payment_order_sync_log(ok, message)
+            ok, message = company._sync_analytic_accounts_from_enterprise()
             company._payment_order_sync_log(ok, message)

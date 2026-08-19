@@ -33,25 +33,35 @@ class AccountPaymentOrderRequest(models.Model):
                                        default=lambda self: self.env.user, readonly=True, copy=False)
     requested_by_name = fields.Char(string='Nombre', default=lambda self: self.env.user.name)
     employee_id = fields.Many2one(
-        'hr.employee', string='Empleado Solicitante',
+        'hr.employee', string='Empleado Solicitante', readonly=True,
         default=lambda self: self.env['hr.employee'].search(
             [('user_id', '=', self.env.user.id)], limit=1),
         help='Empleado vinculado al usuario que solicita (sincronizado desde Enterprise - ver '
-             'res.company._sync_employees_from_enterprise). Solo llena departamento/puesto '
-             'automáticamente; no se envía ningún id a la instalación Procesadora.')
+             'res.company._sync_employees_from_enterprise). Se fija automáticamente al crear y '
+             'no se puede modificar después (ver write()) para evitar suplantación - solo llena '
+             'departamento/puesto/cuenta bancaria; no se envía ningún id a la instalación '
+             'Procesadora.')
     puesto = fields.Char(string='Puesto')
     departamento = fields.Char(string='Departamento')
+    analytic_account_id = fields.Many2one(
+        'account.analytic.account', string='Cuenta Analítica',
+        help='Sincronizada desde Enterprise. Solo llena el campo de texto "Proyecto" '
+             'automáticamente; no se envía ningún id a la instalación Procesadora.')
     proyecto = fields.Char(string='Proyecto')
     telefono = fields.Char(string='Teléfono')
     correo = fields.Char(string='Correo', default=lambda self: self.env.user.email)
 
     request_date = fields.Date(string='Fecha de Solicitud', default=fields.Date.context_today)
-    cuenta_acreditar = fields.Char(string='Cuenta a Acreditar')
+    cuenta_acreditar = fields.Char(
+        string='Cuenta a Acreditar', readonly=True,
+        help='Se autocompleta desde la cuenta bancaria del empleado solicitante en Enterprise - '
+             'no editable, para evitar que una solicitud acredite a una cuenta distinta a la del '
+             'empleado real.')
     tipo_cuenta = fields.Selection([
         ('monetaria', 'Monetaria'),
         ('ahorro', 'Ahorro'),
     ], string='Tipo de Cuenta')
-    banco = fields.Char(string='Banco')
+    banco = fields.Char(string='Banco', readonly=True)
     periodo_del = fields.Date(string='Del')
     periodo_al = fields.Date(string='Al')
     observaciones = fields.Text(string='Observaciones / Instrucciones')
@@ -91,8 +101,22 @@ class AccountPaymentOrderRequest(models.Model):
     def _onchange_employee_id(self):
         for rec in self:
             if rec.employee_id:
-                rec.puesto = rec.employee_id.job_title or rec.puesto
-                rec.departamento = rec.employee_id.department_id.name or rec.departamento
+                # job_title/department_id viven en hr.version y requieren el grupo "Employees
+                # Officer" para leerse directo - sudo() aqui porque cualquier solicitante debe
+                # poder ver estos datos no sensibles de SU PROPIO empleado vinculado.
+                employee = rec.employee_id.sudo()
+                rec.puesto = employee.job_title or rec.puesto
+                rec.departamento = employee.department_id.name or rec.departamento
+                # cuenta_bancaria/banco_nombre solo resuelven a un valor real cuando
+                # employee_id es el empleado vinculado al usuario actual - ver hr_employee.py.
+                rec.cuenta_acreditar = rec.employee_id.cuenta_bancaria or rec.cuenta_acreditar
+                rec.banco = rec.employee_id.banco_nombre or rec.banco
+
+    @api.onchange('analytic_account_id')
+    def _onchange_analytic_account_id(self):
+        for rec in self:
+            if rec.analytic_account_id:
+                rec.proyecto = rec.analytic_account_id.name
 
     @api.depends('viaticos_line_ids.total', 'anticipo_previo')
     def _compute_totales(self):
@@ -107,7 +131,41 @@ class AccountPaymentOrderRequest(models.Model):
             if vals.get('name', '/') == '/':
                 vals['name'] = self.env['ir.sequence'].next_by_code(
                     'account.payment.order.request.sequence') or '/'
+            self._fill_derived_vals_from_employee(vals)
+            self._fill_derived_vals_from_analytic_account(vals)
         return super().create(vals_list)
+
+    def _fill_derived_vals_from_employee(self, vals):
+        """Same autocompletado que _onchange_employee_id, pero para create() por API/script
+        (el onchange solo corre en el formulario web)."""
+        employee_id = vals.get('employee_id')
+        if not employee_id:
+            employee_id = self.default_get(['employee_id']).get('employee_id')
+        if not employee_id:
+            return
+        employee = self.env['hr.employee'].browse(employee_id)
+        vals.setdefault('employee_id', employee.id)
+        # job_title/department_id requieren sudo() - ver _onchange_employee_id.
+        vals.setdefault('puesto', employee.sudo().job_title or False)
+        vals.setdefault('departamento', employee.sudo().department_id.name or False)
+        vals.setdefault('cuenta_acreditar', employee.cuenta_bancaria or False)
+        vals.setdefault('banco', employee.banco_nombre or False)
+
+    def _fill_derived_vals_from_analytic_account(self, vals):
+        analytic_account_id = vals.get('analytic_account_id')
+        if not analytic_account_id:
+            return
+        analytic_account = self.env['account.analytic.account'].browse(analytic_account_id)
+        vals.setdefault('proyecto', analytic_account.name)
+
+    def write(self, vals):
+        if 'employee_id' in vals and not self.env.user.has_group(APPROVER_GROUP_XMLID):
+            for rec in self:
+                if rec.employee_id and vals['employee_id'] != rec.employee_id.id:
+                    raise UserError(self.env._(
+                        'No se puede cambiar el empleado de una Solicitud de Pago ya creada '
+                        '- cree una nueva solicitud en su lugar.'))
+        return super().write(vals)
 
     def unlink(self):
         for rec in self:
@@ -297,9 +355,21 @@ class AccountPaymentOrderRequestLine(models.Model):
     def _onchange_employee_id(self):
         for line in self:
             if line.employee_id:
+                employee = line.employee_id.sudo()  # job_title/department_id - ver header
                 line.tecnico_name = line.employee_id.name
-                line.puesto = line.employee_id.job_title or line.puesto
-                line.departamento = line.employee_id.department_id.name or line.departamento
+                line.puesto = employee.job_title or line.puesto
+                line.departamento = employee.department_id.name or line.departamento
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            employee_id = vals.get('employee_id')
+            if employee_id:
+                employee = self.env['hr.employee'].browse(employee_id)
+                vals.setdefault('tecnico_name', employee.name)
+                vals.setdefault('puesto', employee.sudo().job_title or False)
+                vals.setdefault('departamento', employee.sudo().department_id.name or False)
+        return super().create(vals_list)
 
     @api.depends('cantidad', 'costo_individual')
     def _compute_total(self):

@@ -41,7 +41,8 @@
                             <field name="requested_by_name"/>
                             <field name="puesto"/>
                             <field name="departamento"/>
-                            <field name="proyecto"/>
+                            <field name="analytic_account_id"/>
+                            <field name="proyecto" invisible="1"/>
                             <field name="telefono"/>
                             <field name="correo"/>
                         </group>

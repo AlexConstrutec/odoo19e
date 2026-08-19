@@ -100,6 +100,28 @@ Visible when `state == 'approved' and not payment_order_id`, gated to `account.g
 
 **Por qué ahora mismo**: motivado por una necesidad futura en Enterprise 19 (definir qué cuentas contables afecta cada viático según departamento/puesto del empleado destino) - explícitamente **no construida todavía**, el alcance de esta pasada es solo capturar y sincronizar departamento/puesto como texto, en encabezado y en cada línea.
 
+### Anti-suplantación: `employee_id` de solo lectura, `cuenta_acreditar`/`banco` autocompletados y bloqueados
+
+Decisión explícita del usuario: una vez creada la Solicitud, **nadie (salvo un Aprobador) puede cambiar `employee_id`** — `write()` lo bloquea (`UserError`) si el nuevo valor difiere del ya guardado, salvo `self.env.user.has_group(APPROVER_GROUP_XMLID)`. El campo también es `readonly=True` a nivel de vista. Motivo: `cuenta_acreditar`/`banco` ahora se autocompletan desde la cuenta bancaria **real** del empleado vinculado — permitir cambiar `employee_id` después de creada la solicitud sería una forma de redirigir el pago a la cuenta de otra persona.
+
+`cuenta_acreditar`/`banco` son `readonly=True` (a nivel de campo, es decir aplica en toda vista de formulario salvo que se sobre-escriba explícitamente) y se llenan solo vía `_onchange_employee_id()` (formulario) o `_fill_derived_vals_from_employee()` (creación por API/script, ya que el onchange no corre fuera del formulario web) desde `employee_id.cuenta_bancaria`/`employee_id.banco_nombre` — nunca editables a mano.
+
+### Cuenta bancaria del empleado: sincronizada en lote, pero self-scoped (`hr_employee.py`)
+
+Decisión explícita del usuario: la cuenta bancaria de **todos** los empleados se trae en el mismo pull periódico que nombre/departamento/puesto (`fetch_employees()` ahora también solicita `bank_account_ids` a `hr.employee` y hace una segunda llamada a `res.partner.bank` para `acc_number`/`bank_id`) - el usuario explícitamente prefirió esto sobre una alternativa más segura (traer en vivo, solo la cuenta propia, nunca guardar la de otros) por simplicidad de mantenimiento.
+
+Para que esto no signifique "cualquier usuario de Community puede leer la cuenta bancaria de cualquier empleado", `hr.employee` gana 4 campos nuevos:
+- `cuenta_bancaria_raw`/`banco_nombre_raw`: el dato real, `groups='hr.group_hr_manager'` - invisible a un usuario normal por **cualquier** camino (vista, `read()`/`search_read()` vía RPC), no solo oculto en pantalla.
+- `cuenta_bancaria`/`banco_nombre`: campos **compute** (`compute_sudo=True`) sin restricción de grupo, pero que solo resuelven a un valor real cuando `employee.user_id == self.env.user` - para cualquier otro empleado, devuelven `False` sin importar qué permisos tenga quien pregunta. Esta es la comprobación de "self-only" real; `groups=` por sí solo no puede expresar "solo su propio registro", así que se combinan ambos mecanismos (grupo + auto-chequeo en el compute).
+
+**Esto solo funciona de punta a punta porque `account.payment.order.request.employee_id` siempre es el empleado vinculado al usuario actual** (default automático + bloqueado contra cambios, ver arriba) — nunca se expone un selector que permita a un usuario elegir "ver la cuenta de fulano".
+
+### Cuentas Analíticas (Proyecto): mismo patrón pull que empleados
+
+`account.analytic.account` gana `enterprise_analytic_ref` (igual patrón que `hr.employee.enterprise_employee_ref`). `res.company._sync_analytic_accounts_from_enterprise()` corre en el mismo cron/intervalo que el sync de empleados (`ir_cron_employee_sync`, cuyo nombre ya no describe del todo su alcance pero se dejó así para no forzar una migración de datos solo por el nombre). `plan_id` es **obligatorio** en `account.analytic.account` (Odoo 19) - se busca-o-crea un `account.analytic.plan` por nombre igual que `hr.department`; si Enterprise no manda `plan_id`, cae en un plan genérico `"Proyectos (sin plan de origen)"` en vez de fallar toda la sincronización.
+
+El encabezado gana `analytic_account_id` (Many2one local, nunca enviado como id) que autocompleta el `proyecto` (Char) ya existente vía `_onchange_analytic_account_id()` - mismo patrón que `employee_id`→`puesto`/`departamento`. `proyecto` sigue siendo lo que viaja a Enterprise en `_prepare_sync_vals()`, sin cambios ahí.
+
 ## Common commands
 
 ```
