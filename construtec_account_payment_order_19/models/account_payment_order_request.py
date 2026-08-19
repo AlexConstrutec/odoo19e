@@ -25,7 +25,7 @@ class AccountPaymentOrderRequest(models.Model):
     ], string='Origen', default='local', required=True, readonly=True, copy=False)
 
     justificacion_tipo_id = fields.Many2one(
-        'account.payment.order.justification.type', string='Tipo de Justificación', required=True,
+        'account.payment.order.justification.type', string='Tipo de Gasto', required=True,
         default=lambda self: self.env.ref(
             'construtec_account_payment_order_19.justification_type_viaticos', raise_if_not_found=False),
         help='Catálogo (no un Selection fijo) para poder agregar tipos nuevos sin tocar código '
@@ -395,8 +395,8 @@ class AccountPaymentOrderRequestLine(models.Model):
     departamento = fields.Char(string='Departamento')
     puesto = fields.Char(string='Puesto')
     justificacion_tipo_id = fields.Many2one(
-        'account.payment.order.justification.type', string='Tipo de Justificación',
-        help='Sugerido desde el Tipo de Justificación del encabezado al agregar la línea '
+        'account.payment.order.justification.type', string='Tipo de Gasto',
+        help='Sugerido desde el Tipo de Gasto del encabezado al agregar la línea '
              '(ver default_get()), pero editable por línea - p. ej. si el jefe de técnicos '
              'necesita cambiarlo para un renglón en particular. Nunca se envía como id a la '
              'instalación Procesadora, solo el nombre.')
@@ -415,7 +415,7 @@ class AccountPaymentOrderRequestLine(models.Model):
 
     @api.model
     def default_get(self, fields_list):
-        """Sugiere `justificacion_tipo_id` a partir del Tipo de Justificación del encabezado -
+        """Sugiere `justificacion_tipo_id` a partir del Tipo de Gasto del encabezado -
         editable después, es solo el valor sugerido al agregar la línea. `default_request_id`
         llega en el contexto porque así es como Odoo agrega una línea nueva desde el widget
         one2many del formulario."""

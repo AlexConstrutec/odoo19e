@@ -3,7 +3,7 @@ from odoo import api, fields, models
 
 class AccountPaymentOrderJustificationType(models.Model):
     _name = 'account.payment.order.justification.type'
-    _description = 'Tipo de Justificación de Solicitud de Pago'
+    _description = 'Tipo de Gasto de Solicitud de Pago'
     _order = 'sequence, name'
 
     name = fields.Char(required=True)
