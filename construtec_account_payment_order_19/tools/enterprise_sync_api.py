@@ -83,3 +83,24 @@ def create_sync_record(url, db, login, api_key, vals):
     uid = authenticate(url, db, login, api_key)
     return _jsonrpc(
         url, 'object', 'execute_kw', [db, uid, api_key, SYNC_MODEL, 'create', [vals]])
+
+
+def fetch_employees(url, db, login, api_key):
+    """Read-only pull of the Enterprise employee directory (name/department/job only).
+
+    Uses the same admin-level credentials already configured for pushing Solicitudes de
+    Pago - by explicit decision, no dedicated read-only user/model was added on the
+    Enterprise side for this. Deliberately requests only these 3 fields even though the
+    connected user can see the full hr.employee record, to keep the payload itself free of
+    any sensitive HR data (salary, bank, address, etc.) regardless of what the credentials
+    could technically read.
+    """
+    if not (url and db and login and api_key):
+        raise EnterpriseSyncError(
+            'Sincronización de Empleados incompleta (falta URL, base de datos, usuario o '
+            'API Key).')
+    uid = authenticate(url, db, login, api_key)
+    return _jsonrpc(
+        url, 'object', 'execute_kw',
+        [db, uid, api_key, 'hr.employee', 'search_read',
+         [[]], {'fields': ['name', 'department_id', 'job_title']}])

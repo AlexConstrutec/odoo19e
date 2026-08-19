@@ -17,6 +17,14 @@ class ResConfigSettings(models.TransientModel):
     payment_order_sync_log_ids = fields.One2many(
         related='company_id.payment_order_sync_log_ids',
         string='Registro de Sincronización de Solicitudes de Pago')
+    employee_sync_interval_number = fields.Integer(
+        related='company_id.employee_sync_interval_number', readonly=False)
+    employee_sync_interval_type = fields.Selection(
+        related='company_id.employee_sync_interval_type', readonly=False)
+
+    def action_sync_employees_now(self):
+        self.ensure_one()
+        return self.company_id.action_sync_employees_now()
 
     def action_test_payment_order_sync_connection(self):
         self.ensure_one()

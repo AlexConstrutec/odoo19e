@@ -59,6 +59,22 @@
                         </field>
                     </setting>
                 </block>
+                <block title="Sincronización de Empleados" name="employee_sync_settings"
+                       invisible="payment_order_role != 'solicitante'">
+                    <setting id="employee_sync_interval" string="Sincronizar directorio de empleados cada"
+                             help="Nombre, departamento y puesto de los empleados activos se jalan desde la
+                                   instalación Procesadora (Enterprise) con esta frecuencia. Los empleados
+                                   siempre se crean en Enterprise - aquí solo se reciben como referencia,
+                                   nunca se crean manualmente."
+                             invisible="not payment_order_sync_enabled">
+                        <div class="d-flex">
+                            <field name="employee_sync_interval_number" class="me-2" style="width: 80px"/>
+                            <field name="employee_sync_interval_type"/>
+                        </div>
+                        <button name="action_sync_employees_now" type="object"
+                                string="Sincronizar ahora" class="btn btn-secondary mt8" icon="fa-refresh"/>
+                    </setting>
+                </block>
             </xpath>
         </field>
     </record>

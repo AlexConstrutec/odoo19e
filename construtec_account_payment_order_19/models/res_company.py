@@ -1,4 +1,12 @@
-from odoo import fields, models
+import logging
+
+from odoo import api, fields, models
+
+from ..tools.enterprise_sync_api import EnterpriseSyncError, fetch_employees
+
+_logger = logging.getLogger(__name__)
+
+EMPLOYEE_SYNC_CRON_XMLID = 'construtec_account_payment_order_19.ir_cron_employee_sync'
 
 
 class ResCompany(models.Model):
@@ -35,7 +43,120 @@ class ResCompany(models.Model):
         inverse_name='company_id',
         string='Registro de Sincronización de Solicitudes de Pago')
 
+    employee_sync_interval_number = fields.Integer(
+        string='Sincronizar empleados cada', default=6,
+        help='Cada cuánto se jala el directorio de empleados (nombre/departamento/puesto) '
+             'desde la instalación Procesadora. Solo aplica cuando el rol es Solicitante.')
+    employee_sync_interval_type = fields.Selection([
+        ('minutes', 'Minutos'),
+        ('hours', 'Horas'),
+        ('days', 'Días'),
+    ], string='Unidad del intervalo', default='hours')
+
     def _payment_order_sync_log(self, success, message):
         self.ensure_one()
         self.env['account.payment.order.sync.log'].sudo().create(
             {'company_id': self.id, 'success': success, 'message': message})
+
+    def _apply_employee_sync_interval_to_cron(self):
+        """Push this company's interval onto the single global sync cron.
+
+        The cron is one record shared by the whole database, not per-company - if more than
+        one company here is ever configured as Solicitante with different intervals, the last
+        one saved wins. Acceptable for the single-company Community instance this targets
+        today; documented in the module's CLAUDE.md as a known limitation.
+        """
+        self.ensure_one()
+        cron = self.env.ref(EMPLOYEE_SYNC_CRON_XMLID, raise_if_not_found=False)
+        if cron:
+            cron.sudo().write({
+                'interval_number': self.employee_sync_interval_number or 6,
+                'interval_type': self.employee_sync_interval_type or 'hours',
+            })
+
+    def action_sync_employees_now(self):
+        self.ensure_one()
+        ok, message = self._sync_employees_from_enterprise()
+        self._payment_order_sync_log(ok, message)
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': self.env._('Sincronización de Empleados'),
+                'message': message,
+                'type': 'success' if ok else 'danger',
+                'sticky': not ok,
+            },
+        }
+
+    def _sync_employees_from_enterprise(self):
+        """Pull name/department/job for active employees and upsert them into hr.employee.
+
+        Only meaningful when this company is Solicitante - Procesador companies simply have
+        nothing to pull from (they're the source, per explicit product decision: employees
+        are only ever created in Enterprise, never in Community).
+        """
+        self.ensure_one()
+        if self.payment_order_role != 'solicitante' or not self.payment_order_sync_enabled:
+            return True, self.env._('Sincronización de Empleados no aplica (rol o sincronización '
+                                     'no configurados).')
+        try:
+            employees = fetch_employees(
+                self.payment_order_sync_url, self.payment_order_sync_db,
+                self.payment_order_sync_login, self.payment_order_sync_api_key)
+        except EnterpriseSyncError as exc:
+            _logger.warning('Sincronización de Empleados falló para %s: %s', self.name, exc)
+            return False, str(exc)
+
+        Employee = self.env['hr.employee'].sudo()
+        Department = self.env['hr.department'].sudo()
+        created = updated = 0
+        for emp in employees:
+            enterprise_ref = str(emp['id'])
+            department = False
+            if emp.get('department_id'):
+                dept_name = emp['department_id'][1]
+                department = Department.search(
+                    [('name', '=', dept_name), ('company_id', '=', self.id)], limit=1)
+                if not department:
+                    department = Department.create({'name': dept_name, 'company_id': self.id})
+            vals = {
+                'name': emp['name'],
+                'job_title': emp.get('job_title') or False,
+                'department_id': department.id if department else False,
+                'enterprise_employee_ref': enterprise_ref,
+                'company_id': self.id,
+            }
+            existing = Employee.search([('enterprise_employee_ref', '=', enterprise_ref)], limit=1)
+            if existing:
+                existing.write(vals)
+                updated += 1
+            else:
+                Employee.create(vals)
+                created += 1
+        message = self.env._(
+            '%(created)s empleados nuevos, %(updated)s actualizados.',
+            created=created, updated=updated)
+        return True, message
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        companies = super().create(vals_list)
+        companies._apply_employee_sync_interval_to_cron()
+        return companies
+
+    def write(self, vals):
+        res = super().write(vals)
+        if 'employee_sync_interval_number' in vals or 'employee_sync_interval_type' in vals:
+            self._apply_employee_sync_interval_to_cron()
+        return res
+
+    @api.model
+    def _cron_sync_employees_from_enterprise(self):
+        companies = self.search([
+            ('payment_order_role', '=', 'solicitante'),
+            ('payment_order_sync_enabled', '=', True),
+        ])
+        for company in companies:
+            ok, message = company._sync_employees_from_enterprise()
+            company._payment_order_sync_log(ok, message)
