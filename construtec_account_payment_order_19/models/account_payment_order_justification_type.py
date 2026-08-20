@@ -9,6 +9,13 @@ class AccountPaymentOrderJustificationType(models.Model):
     name = fields.Char(required=True)
     sequence = fields.Integer(default=10)
     active = fields.Boolean(default=True)
+    cuenta_contable_id = fields.Many2one(
+        'account.account', string='Cuenta Contable de Gastos',
+        domain=[('internal_group', '=', 'expense')],
+        help='Cuenta de gastos asociada a este Tipo de Gasto, para reducir digitación al '
+             'contabilizar - por ahora solo se guarda aquí como configuración (no hay todavía '
+             'ningún flujo automático de este módulo que la use; se digita a mano en cada '
+             'factura de proveedor al momento de la Liquidación, como siempre).')
 
     @api.model
     def _find_or_create_by_name(self, name):

@@ -8,11 +8,16 @@ class AccountPaymentOrderRequestCrearAnticipoWizard(models.TransientModel):
 
     request_id = fields.Many2one('account.payment.order.request', string='Solicitud',
                                   required=True, readonly=True)
-    partner_id = fields.Many2one('res.partner', string='Contacto', required=True,
-                                  help='Contacto que recibirá el Anticipo. No se recibe automáticamente '
-                                       'de la Solicitud: resuélvalo/créelo aquí, ya que la instalación '
-                                       'donde se originó la Solicitud es una base distinta.')
-    journal_id = fields.Many2one('account.journal', string='Diario', required=True)
+    partner_id = fields.Many2one(
+        'res.partner', string='Contacto', required=True,
+        default=lambda self: self.env['account.payment.order.request'].browse(
+            self.env.context.get('default_request_id')).employee_partner_id,
+        help='Contacto que recibirá el Anticipo. Se prellena con el Empleado Solicitante de la '
+             'Solicitud (ya es un contacto real de ESTA base, resuelto vía employee_partner_id/'
+             'employee_enterprise_ref al recibir la Solicitud) - editable por si hace falta '
+             'entregarlo a otro contacto.')
+    journal_id = fields.Many2one('account.journal', string='Diario', required=True,
+                                  domain=[('type', '=', 'bank')])
     payment_method_line_id = fields.Many2one(
         'account.payment.method.line', string='Método de Pago',
         domain="[('id', 'in', journal_id.outbound_payment_method_line_ids)]")
@@ -38,10 +43,32 @@ class AccountPaymentOrderRequestCrearAnticipoWizard(models.TransientModel):
         payment_order = self.env['account.payment.order'].create(vals)
         self.request_id.payment_order_id = payment_order.id
 
-        return {
+        redirect = {
             'type': 'ir.actions.act_window',
             'res_model': 'account.payment.order',
             'view_mode': 'form',
             'res_id': payment_order.id,
             'target': 'current',
+        }
+        pendientes = payment_order._find_anticipos_sin_liquidar(self.partner_id, exclude=payment_order)
+        if not pendientes:
+            return redirect
+        # No bloquea la creación - puede ser intencional (viáticos de dos viajes distintos,
+        # por ejemplo). 'next' es un mecanismo nativo de display_notification (ver
+        # client_actions.js) para encadenar una acción después de mostrar el aviso.
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': self.env._('Anticipos pendientes de liquidar'),
+                'message': self.env._(
+                    '%(contacto)s ya tiene %(cantidad)s Anticipo(s) aplicado(s) sin Liquidación '
+                    'registrada todavía (%(nombres)s) - revisa si corresponde liquidarlos antes '
+                    'de entregar uno nuevo.',
+                    contacto=self.partner_id.name, cantidad=len(pendientes),
+                    nombres=', '.join(pendientes.mapped('name'))),
+                'type': 'warning',
+                'sticky': True,
+                'next': redirect,
+            },
         }

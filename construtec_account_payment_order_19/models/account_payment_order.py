@@ -234,6 +234,24 @@ class AccountPaymentOrder(models.Model):
             return aviso
         return True
 
+    @api.model
+    def _find_anticipos_sin_liquidar(self, partner, exclude=None):
+        """Anticipos ya APLICADOS de este contacto que todavía no tienen una Liquidación
+        registrada (ver action_registrar_liquidacion(), que fija `anticipo_id` en la
+        Liquidación resultante) - se usa para avisar antes de entregar un Anticipo nuevo a
+        alguien que ya tiene uno pendiente de liquidar, sin bloquear la operación (puede ser
+        intencional: viáticos de dos viajes distintos, por ejemplo)."""
+        domain = [
+            ('tipo', '=', 'anticipo'),
+            ('state', '=', 'aplicado'),
+            ('partner_id', '=', partner.id),
+        ]
+        if exclude:
+            domain.append(('id', '!=', exclude.id))
+        anticipos = self.search(domain)
+        return anticipos.filtered(
+            lambda a: not self.search_count([('anticipo_id', '=', a.id)]))
+
     def _aviso_posible_pago_directo(self):
         """Si el Anticipo lleva factura(s) adjunta(s) (opcional) cuyo total coincide con el monto
         entregado y ninguna tiene ya un pago conciliado, es en realidad un Pago Directo, no un
