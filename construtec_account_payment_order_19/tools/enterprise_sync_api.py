@@ -1,11 +1,12 @@
-"""Thin JSON-RPC client for pushing Solicitudes de Pago to a Procesador instance.
+"""Thin JSON-RPC client for pushing Órdenes de Pago (tipo Anticipo) to a Procesador instance.
 
 Deliberate small copy of construtec_materials_19/tools/enterprise_sync_api.py (Odoo19C),
-not a shared library: this lets each integration (Materiales, Solicitudes de Pago) use its
+not a shared library: this lets each integration (Materiales, Órdenes de Pago) use its
 own URL/credentials and be revoked independently, without coupling this module to another
 one just to reuse ~90 lines. The receiving side is just this same module's own
-`account.payment.order.request` model, installed on the Procesador instance - reached
-through Odoo's own built-in `/jsonrpc` endpoint, no custom controller needed.
+`account.payment.order` model (fused with the former `account.payment.order.request` -
+see CLAUDE.md), installed on the Procesador instance - reached through Odoo's own
+built-in `/jsonrpc` endpoint, no custom controller needed.
 """
 import logging
 
@@ -14,7 +15,7 @@ import requests
 _logger = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT = 10
-SYNC_MODEL = 'account.payment.order.request'
+SYNC_MODEL = 'account.payment.order'
 
 
 class EnterpriseSyncError(Exception):

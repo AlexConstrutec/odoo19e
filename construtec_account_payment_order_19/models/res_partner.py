@@ -1,6 +1,6 @@
 from odoo import api, fields, models
 
-from .account_payment_order_request import _resolve_employee_for_partner
+from .account_payment_order import _resolve_employee_for_partner
 
 
 class ResPartner(models.Model):
@@ -19,7 +19,7 @@ class ResPartner(models.Model):
         'hr.department', string='Departamento (Empleado)', compute='_compute_employee_job_info',
         compute_sudo=True, store=True,
         help='Heredado automáticamente del hr.employee vinculado (ver '
-             '_resolve_employee_for_partner en account_payment_order_request.py) - se guarda '
+             '_resolve_employee_for_partner en account_payment_order.py) - se guarda '
              'aquí, en el Contacto, para que exista incluso donde no se pueda resolver un '
              'hr.employee en vivo (ej. Community, que solo tiene un espejo limitado). Si este '
              'contacto es empleado en más de una compañía, se usa el mismo criterio de '

@@ -13,7 +13,7 @@ class AccountPaymentOrderJustificationType(models.Model):
     @api.model
     def _find_or_create_by_name(self, name):
         """Resuelve un tipo de justificación por nombre (nunca por id - ver
-        account_payment_order_request.py: solo el nombre viaja entre Community y Enterprise,
+        account_payment_order.py: solo el nombre viaja entre Community y Enterprise,
         cada instalación tiene sus propios ids). sudo() porque esto corre tanto al recibir un
         registro sincronizado (usuario de integración, sin permiso de escritura en este
         catálogo) como al elegir un tipo nuevo desde el formulario."""

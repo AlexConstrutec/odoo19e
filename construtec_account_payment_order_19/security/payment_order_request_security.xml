@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <record id="module_construtec_payment_order_category" model="ir.module.category">
-        <field name="name">Solicitudes de Pago</field>
+        <field name="name">Órdenes de Pago</field>
         <field name="sequence">50</field>
     </record>
 
@@ -11,8 +11,8 @@
     </record>
 
     <record id="group_payment_order_approver" model="res.groups">
-        <field name="name">Solicitudes de Pago: Aprobador</field>
-        <field name="comment">Puede aprobar o rechazar Solicitudes de Pago (Viáticos, Materiales, etc.).
+        <field name="name">Órdenes de Pago: Aprobador</field>
+        <field name="comment">Puede aprobar o rechazar Órdenes de Pago (Viáticos, Materiales, etc.).
             Grupo base implícito en los dos niveles de abajo - no se asigna solo casi nunca, ver
             group_payment_order_approver_medio/_alto para el gate real de action_approve() por monto.
             Deliberadamente SIN privilege_id - no aparece como tercer nivel seleccionable en la
@@ -24,7 +24,7 @@
     <record id="group_payment_order_approver_medio" model="res.groups">
         <field name="name">Nivel Medio (Jefe de Área)</field>
         <field name="privilege_id" ref="payment_order_approval_privilege"/>
-        <field name="comment">Puede aprobar Solicitudes de Pago con monto menor al umbral configurado
+        <field name="comment">Puede aprobar Órdenes de Pago con monto menor al umbral configurado
             (res.company.payment_order_approval_threshold, Q2,500.00 por defecto según el formulario
             original). Para montos mayores o iguales se requiere Nivel Alto.</field>
         <field name="implied_ids" eval="[(4, ref('group_payment_order_approver'))]"/>
@@ -33,38 +33,37 @@
     <record id="group_payment_order_approver_alto" model="res.groups">
         <field name="name">Nivel Alto (Gerente de Área)</field>
         <field name="privilege_id" ref="payment_order_approval_privilege"/>
-        <field name="comment">Puede aprobar Solicitudes de Pago de cualquier monto - implica Nivel Medio,
+        <field name="comment">Puede aprobar Órdenes de Pago de cualquier monto - implica Nivel Medio,
             así que un Gerente de Área también puede aprobar los montos menores.</field>
         <field name="implied_ids" eval="[(4, ref('group_payment_order_approver_medio'))]"/>
     </record>
 
     <record id="group_payment_order_sync_integration" model="res.groups">
-        <field name="name">Solicitudes de Pago: Integración (solo creación)</field>
+        <field name="name">Órdenes de Pago: Integración (solo creación)</field>
         <field name="comment">Grupo para el usuario técnico de integración que sincroniza Solicitudes de
             Pago desde una instalación Solicitante. Solo puede crear registros, nunca leer, modificar
             ni eliminar - una API Key filtrada de este usuario solo permite insertar solicitudes, no
             acceder a datos existentes.</field>
     </record>
 
-    <record id="account_payment_order_request_own_rule" model="ir.rule">
-        <field name="name">Solicitud de Pago: el solicitante ve las propias</field>
-        <field name="model_id" ref="model_account_payment_order_request"/>
-        <field name="domain_force">[('requested_by_id', '=', user.id)]</field>
+    <record id="account_payment_order_own_rule" model="ir.rule">
+        <field name="name">Orden de Pago: el solicitante ve las propias (solo Anticipo)</field>
+        <field name="model_id" ref="model_account_payment_order"/>
+        <field name="domain_force">[('tipo', '=', 'anticipo'), ('requested_by_id', '=', user.id)]</field>
         <field name="groups" eval="[(4, ref('base.group_user'))]"/>
     </record>
 
-    <record id="account_payment_order_request_approver_rule" model="ir.rule">
-        <field name="name">Solicitud de Pago: el Aprobador ve todas</field>
-        <field name="model_id" ref="model_account_payment_order_request"/>
-        <field name="domain_force">[(1, '=', 1)]</field>
+    <record id="account_payment_order_approver_rule" model="ir.rule">
+        <field name="name">Orden de Pago: el Aprobador ve todos los Anticipo</field>
+        <field name="model_id" ref="model_account_payment_order"/>
+        <field name="domain_force">[('tipo', '=', 'anticipo')]</field>
         <field name="groups" eval="[(4, ref('group_payment_order_approver')),
-                                    (4, ref('account.group_account_invoice')),
                                     (4, ref('group_payment_order_sync_integration'))]"/>
     </record>
 
-    <record id="account_payment_order_request_company_rule" model="ir.rule">
-        <field name="name">Solicitud de Pago: Regla de Compañía</field>
-        <field name="model_id" ref="model_account_payment_order_request"/>
+    <record id="account_payment_order_global_company_rule" model="ir.rule">
+        <field name="name">Orden de Pago: Regla de Compañía (global)</field>
+        <field name="model_id" ref="model_account_payment_order"/>
         <field name="global" eval="True"/>
         <field name="domain_force">[('company_id', 'in', company_ids)]</field>
     </record>
