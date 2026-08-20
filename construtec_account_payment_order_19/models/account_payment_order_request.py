@@ -417,12 +417,25 @@ class AccountPaymentOrderRequestLine(models.Model):
     justificacion_tipo_id = fields.Many2one(
         'account.payment.order.justification.type', string='Tipo de Gasto',
         help='Sugerido desde el Tipo de Gasto del encabezado al agregar la línea '
-             '(ver default_get()), pero editable por línea - p. ej. si el jefe de técnicos '
-             'necesita cambiarlo para un renglón en particular. Nunca se envía como id a la '
-             'instalación Procesadora, solo el nombre.')
+             '(ver _onchange_request_id()/default_get()), pero editable por línea - p. ej. si '
+             'el jefe de técnicos necesita cambiarlo para un renglón en particular. Nunca se '
+             'envía como id a la instalación Procesadora, solo el nombre.')
     cantidad = fields.Integer(string='Cantidad', default=1)
     costo_individual = fields.Float(string='Costo Individual')
     total = fields.Float(string='Total', compute='_compute_total', store=True)
+
+    @api.onchange('request_id')
+    def _onchange_request_id(self):
+        """Sugiere justificacion_tipo_id desde el encabezado - a diferencia de default_get()
+        (que depende de que Odoo pase `default_request_id` en el contexto, algo que NO ocurre
+        de forma confiable al agregar una línea en un formulario todavía sin guardar, que es el
+        caso normal), este onchange sí funciona con el encabezado en memoria aunque no esté
+        guardado, porque Odoo simula el onchange de la línea nueva usando el estado actual del
+        formulario padre. Confirmado como el bug real reportado por el usuario: el default_get
+        nunca se disparaba porque el encabezado nunca tenía un id real en ese momento."""
+        for line in self:
+            if line.request_id and not line.justificacion_tipo_id:
+                line.justificacion_tipo_id = line.request_id.justificacion_tipo_id
 
     @api.onchange('employee_id')
     def _onchange_employee_id(self):
