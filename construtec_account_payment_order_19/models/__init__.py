@@ -5,7 +5,6 @@ from . import account_payment
 from . import res_company
 from . import res_config_settings
 from . import account_payment_order_sync_log
-from . import account_payment_order_justification_type
 from . import account_payment_order_enterprise_company
 from . import res_partner
 from . import hr_employee

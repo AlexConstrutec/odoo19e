@@ -6,11 +6,16 @@ from ..tools.enterprise_sync_api import EnterpriseSyncError, create_sync_record
 APPROVER_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver'
 APPROVER_MEDIO_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver_medio'
 APPROVER_ALTO_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver_alto'
+# Ambos comparten el mismo ciclo enviado/aprobado/rechazado/aplicado (decisión explícita del
+# usuario: "ambos tipos comparten el mismo flujo") - `anticipo_viaticos` es el único que se ve
+# en Community (trae viaticos_line_ids/sync/etc.); `anticipo` a secas sigue existiendo para un
+# anticipo que un contable arma directo en Enterprise, sin relación a viáticos.
+ANTICIPO_TIPOS = ('anticipo', 'anticipo_viaticos')
 
 
 def _resolve_employee_for_partner(partner, company):
     """Resuelve el hr.employee real detrás de un contacto (res.partner) elegido en
-    `employee_partner_id` - compartido entre encabezado y línea para no duplicar el criterio
+    `partner_id` - compartido entre encabezado y línea para no duplicar el criterio
     de desempate.
 
     Se usa `partner.sudo().employee_ids` (campo nativo de Odoo, `res.partner.employee_ids`,
@@ -42,6 +47,7 @@ class AccountPaymentOrder(models.Model):
 
     tipo = fields.Selection([
         ('anticipo', 'Anticipo'),
+        ('anticipo_viaticos', 'Anticipo Viáticos'),
         ('liquidacion', 'Liquidación'),
         ('pago_directo', 'Pago Directo'),
     ], string='Tipo', required=True, default='anticipo')
@@ -58,13 +64,24 @@ class AccountPaymentOrder(models.Model):
     company_id = fields.Many2one('res.company', string='Compañía', required=True,
                                   default=lambda self: self.env.company.id)
     user_id = fields.Many2one('res.users', string='Usuario', default=lambda self: self.env.user.id)
-    partner_id = fields.Many2one('res.partner', string='Contacto')
+    partner_id = fields.Many2one(
+        'res.partner', string='Contacto',
+        default=lambda self: self.env['hr.employee'].search(
+            [('user_id', '=', self.env.user.id)], limit=1).work_contact_id,
+        help='Para Liquidación/Pago Directo, el contacto/proveedor normal, sin restricción - '
+             'sin cambios. Para Anticipo Viáticos, este es el "Empleado Solicitante" fusionado '
+             'aquí (antes un campo separado) - la vista restringe el dominio a contactos '
+             'marcados como empleado (`res.partner.employee`, nativo) y lo bloquea después de '
+             'crear (ver write()), solo para ese tipo, para evitar suplantación. '
+             'Contactos no tiene la regla multiempresa de `hr.employee`, así que el desplegable '
+             'no choca con ella ni en Community ni en Enterprise. El hr.employee real se '
+             'resuelve en `employee_id` (ver _compute_employee_id/_resolve_employee_for_partner).')
     currency_id = fields.Many2one('res.currency', string='Moneda',
                                    default=lambda self: self.env.company.currency_id.id)
     cuenta_ajuste_id = fields.Many2one('account.account', string='Cuenta de Ajuste')
     move_id = fields.Many2one('account.move', string='Asiento', readonly=True, copy=False)
     anticipo_id = fields.Many2one('account.payment.order', string='Anticipo de Origen',
-                                   domain=[('tipo', '=', 'anticipo')], copy=False,
+                                   domain=[('tipo', 'in', ('anticipo', 'anticipo_viaticos'))], copy=False,
                                    help='Anticipo del que se origina esta Liquidación. Una Liquidación no se '
                                         'puede crear directamente - debe generarse desde el botón "Registrar '
                                         'Liquidación" de un Anticipo ya aplicado.')
@@ -126,19 +143,6 @@ class AccountPaymentOrder(models.Model):
         ('local', 'Local'),
         ('synced', 'Sincronizada'),
     ], string='Origen', default='local', copy=False)
-    justificacion_tipo_id = fields.Many2one(
-        'account.payment.order.justification.type', string='Tipo de Gasto',
-        default=lambda self: self.env.ref(
-            'construtec_account_payment_order_19.justification_type_viaticos', raise_if_not_found=False),
-        help='Catálogo (no un Selection fijo) para poder agregar tipos nuevos sin tocar código '
-             '- p. ej. "Materiales" en una fase futura. Solo aplica a `tipo=\'anticipo\'` - se '
-             'exige en `action_submit()`, no a nivel de campo (una Liquidación/Pago Directo '
-             'nunca lo trae). Nunca se envía como id a la instalación Procesadora, solo el '
-             'nombre - ver _prepare_sync_vals()/create().')
-    es_viaticos = fields.Boolean(
-        compute='_compute_es_viaticos',
-        help='Auxiliar para mostrar/ocultar la pestaña "Viáticos" - comparar contra un id no es '
-             'seguro en una vista (`invisible=`), así que se resuelve aquí en Python.')
     es_procesador = fields.Boolean(
         compute='_compute_es_procesador',
         help='Auxiliar para mostrar/ocultar Aprobar/Rechazar según el rol de la compañía - una '
@@ -147,30 +151,23 @@ class AccountPaymentOrder(models.Model):
              'solo en la instalación Procesadora (Enterprise); una instalación Solicitante '
              '(Community) nunca debe ver estos botones.')
     requested_by_id = fields.Many2one('res.users', string='Solicitado por',
-                                       default=lambda self: self.env.user, readonly=True, copy=False)
-    requested_by_name = fields.Char(string='Nombre', default=lambda self: self.env.user.name)
-    employee_partner_id = fields.Many2one(
-        'res.partner', string='Empleado Solicitante', readonly=True,
-        domain="[('employee', '=', True)]",
-        default=lambda self: self.env['hr.employee'].search(
-            [('user_id', '=', self.env.user.id)], limit=1).work_contact_id,
-        help='Contacto (no hr.employee directo) vinculado al usuario que solicita. Se usa '
-             'Contactos como fachada del selector a propósito: `res.partner` no tiene la regla '
-             'multiempresa de `hr.employee`, así que el desplegable no choca con esa regla ni '
-             'en Community ni en Enterprise - se filtra a contactos marcados como empleado '
-             '(`res.partner.employee`, campo nativo) en vez de a hr.employee directo. Se fija '
-             'automáticamente al crear y no se puede modificar después (ver write()) para '
-             'evitar suplantación. El hr.employee real se resuelve en `employee_id` (ver '
-             '_compute_employee_id/_resolve_employee_for_partner) - toda la lógica que ya '
-             'existía (banco, teléfono, sync) sigue leyendo de ahí sin cambios.')
+                                       default=lambda self: self.env.user, readonly=True, copy=False,
+                                       help='Técnico para la regla de seguridad "ve las propias" '
+                                            '(`account_payment_order_own_rule`) - no se muestra en '
+                                            'el formulario, `partner_id` ya identifica a la persona '
+                                            'sin duplicarla.')
+    requested_by_name = fields.Char(string='Nombre', default=lambda self: self.env.user.name,
+                                     help='Ya no se muestra en el formulario (duplicaba a '
+                                          '`partner_id`) - se mantiene solo por compatibilidad '
+                                          'con `_prepare_sync_vals()`.')
     employee_id = fields.Many2one(
-        'hr.employee', string='Empleado Solicitante (resuelto)', compute='_compute_employee_id',
+        'hr.employee', string='Empleado (resuelto)', compute='_compute_employee_id',
         store=True, readonly=True,
-        help='hr.employee real detrás de `employee_partner_id`, para la compañía de esta Orden '
-             'de Pago - ver _resolve_employee_for_partner(). Todo lo que ya dependía de un '
-             'employee_id (departamento/puesto/banco/teléfono en el onchange y en create(), y '
-             '`employee_enterprise_ref` en _prepare_sync_vals()) sigue funcionando igual, a '
-             'partir de este campo calculado en lugar de una selección directa del usuario.')
+        help='hr.employee real detrás de `partner_id` (fusionado con el antiguo '
+             '"Empleado Solicitante" - un solo campo de contacto, no dos - ver '
+             '_resolve_employee_for_partner()). Todo lo que ya dependía de un employee_id '
+             '(departamento/puesto/banco/teléfono en el onchange y en create(), y '
+             '`employee_enterprise_ref` en _prepare_sync_vals()) sigue funcionando igual.')
     puesto = fields.Char(string='Puesto')
     departamento = fields.Char(string='Departamento')
     analytic_account_id = fields.Many2one(
@@ -180,7 +177,6 @@ class AccountPaymentOrder(models.Model):
     proyecto = fields.Char(string='Proyecto')
     telefono = fields.Char(string='Teléfono')
     correo = fields.Char(string='Correo', default=lambda self: self.env.user.email)
-    request_date = fields.Date(string='Fecha de Solicitud', default=fields.Date.context_today)
     cuenta_acreditar = fields.Char(
         string='Cuenta a Acreditar', readonly=True,
         help='Se autocompleta desde la cuenta bancaria del empleado solicitante en Enterprise - '
@@ -243,7 +239,7 @@ class AccountPaymentOrder(models.Model):
         Aprobar (ver el `help=` de `journal_id` y `action_aplicar()`, que sí lo exige antes de
         aplicar)."""
         for rec in self:
-            if rec.tipo != 'anticipo' and not rec.journal_id:
+            if rec.tipo not in ANTICIPO_TIPOS and not rec.journal_id:
                 raise ValidationError(rec.env._(
                     'Defina el Diario antes de guardar una Orden de Pago de tipo %s.', rec.tipo))
 
@@ -277,22 +273,21 @@ class AccountPaymentOrder(models.Model):
             for factura in self.factura_ids:
                 factura.no_liquidacion = self.no_liquidacion
 
-    @api.depends('employee_partner_id', 'company_id')
+    @api.depends('partner_id', 'company_id')
     def _compute_employee_id(self):
         for rec in self:
-            rec.employee_id = _resolve_employee_for_partner(rec.employee_partner_id, rec.company_id)
+            rec.employee_id = _resolve_employee_for_partner(rec.partner_id, rec.company_id)
 
-    @api.onchange('employee_partner_id')
-    def _onchange_employee_partner_id(self):
+    @api.onchange('partner_id')
+    def _onchange_partner_id(self):
         for rec in self:
-            rec.partner_id = rec.employee_partner_id or rec.partner_id
             if rec.employee_id:
                 # puesto/departamento se leen del CONTACTO (res_partner.py,
                 # function/employee_department_id - heredados automáticamente ahí
                 # desde el hr.employee vinculado), no resueltos aquí en vivo - decisión
                 # explícita del usuario: un solo valor por contacto, no uno por compañía.
-                rec.puesto = rec.employee_partner_id.function or rec.puesto
-                rec.departamento = rec.employee_partner_id.employee_department_id.name or rec.departamento
+                rec.puesto = rec.partner_id.function or rec.puesto
+                rec.departamento = rec.partner_id.employee_department_id.name or rec.departamento
                 # sudo(): un solicitante normal no tiene por qué tener hr.group_hr_user, y
                 # aun así debe poder ver estos datos no sensibles de SU PROPIO empleado vinculado.
                 employee = rec.employee_id.sudo()
@@ -307,13 +302,6 @@ class AccountPaymentOrder(models.Model):
                                  or employee.private_phone or rec.telefono)
                 # Correo: de trabajo -> personal, mismo criterio que teléfono.
                 rec.correo = employee.work_email or employee.private_email or rec.correo
-
-    @api.depends('justificacion_tipo_id')
-    def _compute_es_viaticos(self):
-        viaticos_type = self.env.ref(
-            'construtec_account_payment_order_19.justification_type_viaticos', raise_if_not_found=False)
-        for rec in self:
-            rec.es_viaticos = bool(viaticos_type) and rec.justificacion_tipo_id == viaticos_type
 
     @api.depends('company_id.payment_order_role')
     def _compute_es_procesador(self):
@@ -336,35 +324,33 @@ class AccountPaymentOrder(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
-            if vals.get('tipo', 'anticipo') in ('anticipo', 'pago_directo') and not vals.get('name'):
+            if vals.get('tipo', 'anticipo') in ('anticipo', 'anticipo_viaticos', 'pago_directo') \
+                    and not vals.get('name'):
                 vals['name'] = self.env['ir.sequence'].next_by_code(
                     'account.payment.order.sequence') or '/'
-            self._resolve_justificacion_tipo_name(vals)
             self._resolve_employee_enterprise_ref(vals)
             self._resolve_company_enterprise_ref(vals)
             self._fill_derived_vals_from_employee(vals)
             self._fill_derived_vals_from_analytic_account(vals)
-            if vals.get('employee_partner_id') and not vals.get('partner_id'):
-                vals['partner_id'] = vals['employee_partner_id']
         return super().create(vals_list)
 
     def _resolve_employee_enterprise_ref(self, vals):
         """Resuelve `employee_enterprise_ref` (el id ORIGINAL de este empleado en Enterprise,
-        enviado por _prepare_sync_vals()) hacia un `employee_partner_id` real de ESTA base - a
-        diferencia de justificacion_tipo/analytic_account (que se resuelven por NOMBRE, ya que
-        no hay ninguna referencia cruzada previa), aquí sí hay un id genuinamente válido en
-        ambos lados porque es literalmente el id del empleado tal como existe en Enterprise.
+        enviado por _prepare_sync_vals()) hacia un `partner_id` real de ESTA base - a diferencia
+        de analytic_account (que se resuelve por NOMBRE, ya que no hay ninguna referencia
+        cruzada previa), aquí sí hay un id genuinamente válido en ambos lados porque es
+        literalmente el id del empleado tal como existe en Enterprise.
 
-        Se resuelve hacia `employee_partner_id` (el contacto), NO hacia `employee_id`
-        directamente - `employee_id` es un campo calculado (ver _compute_employee_id()) que se
-        vuelve a derivar solo, y lo hace exactamente hacia ESTE mismo hr.employee porque
-        `company_id` también queda fijado aquí abajo a su compañía real (ver
-        _resolve_employee_for_partner: coincidir compañía es el primer criterio de desempate)."""
+        Se resuelve hacia `partner_id` (el contacto), NO hacia `employee_id` directamente -
+        `employee_id` es un campo calculado (ver _compute_employee_id()) que se vuelve a derivar
+        solo, y lo hace exactamente hacia ESTE mismo hr.employee porque `company_id` también
+        queda fijado aquí abajo a su compañía real (ver _resolve_employee_for_partner: coincidir
+        compañía es el primer criterio de desempate)."""
         ref = vals.pop('employee_enterprise_ref', None)
-        if ref and not vals.get('employee_partner_id'):
+        if ref and not vals.get('partner_id'):
             employee = self.env['hr.employee'].browse(int(ref)).exists()
             if employee:
-                vals['employee_partner_id'] = employee.work_contact_id.id
+                vals['partner_id'] = employee.work_contact_id.id
                 vals.setdefault('company_id', employee.company_id.id)
 
     def _resolve_company_enterprise_ref(self, vals):
@@ -378,28 +364,18 @@ class AccountPaymentOrder(models.Model):
             if company:
                 vals['company_id'] = company.id
 
-    def _resolve_justificacion_tipo_name(self, vals):
-        """Resuelve `justificacion_tipo_name` (texto plano, lo único que viaja desde la
-        instalación Solicitante - ver _prepare_sync_vals()) hacia un `justificacion_tipo_id`
-        real de ESTA base, buscando/creando por nombre. No-op si ya viene un id (creación
-        local normal, vía formulario)."""
-        name = vals.pop('justificacion_tipo_name', None)
-        if name and not vals.get('justificacion_tipo_id'):
-            justification_type = self.env['account.payment.order.justification.type']._find_or_create_by_name(name)
-            vals['justificacion_tipo_id'] = justification_type.id
-
     def _fill_derived_vals_from_employee(self, vals):
-        """Same autocompletado que _onchange_employee_partner_id, pero para create() por
-        API/script (el onchange solo corre en el formulario web). `employee_id` todavía no
-        existe como tal (el registro no se ha insertado, así que el campo calculado no ha
-        corrido) - se resuelve aquí con el mismo criterio (_resolve_employee_for_partner) para
-        poder llenar los campos de texto plano (puesto/banco/teléfono/etc.) antes del insert."""
-        partner_id = vals.get('employee_partner_id')
+        """Same autocompletado que _onchange_partner_id, pero para create() por API/script (el
+        onchange solo corre en el formulario web). `employee_id` todavía no existe como tal (el
+        registro no se ha insertado, así que el campo calculado no ha corrido) - se resuelve
+        aquí con el mismo criterio (_resolve_employee_for_partner) para poder llenar los campos
+        de texto plano (puesto/banco/teléfono/etc.) antes del insert."""
+        partner_id = vals.get('partner_id')
         if not partner_id:
-            partner_id = self.default_get(['employee_partner_id']).get('employee_partner_id')
+            partner_id = self.default_get(['partner_id']).get('partner_id')
         if not partner_id:
             return
-        vals.setdefault('employee_partner_id', partner_id)
+        vals.setdefault('partner_id', partner_id)
         partner = self.env['res.partner'].browse(partner_id)
         company = self.env['res.company'].browse(vals.get('company_id')) if vals.get('company_id') \
             else self.env.company
@@ -425,12 +401,14 @@ class AccountPaymentOrder(models.Model):
     def write(self, vals):
         if not self.env.user.has_group(APPROVER_GROUP_XMLID):
             for rec in self:
-                # employee_partner_id es el campo que el usuario realmente controla;
-                # employee_id (calculado) se revisa también por defensa en profundidad, aunque
-                # normalmente ni se debería poder escribir directo desde la UI. Nunca dispara
-                # para Liquidación/Pago Directo (employee_partner_id siempre vacío ahí).
-                if ('employee_partner_id' in vals and rec.employee_partner_id
-                        and vals['employee_partner_id'] != rec.employee_partner_id.id):
+                # Anti-suplantación, solo para Anticipo Viáticos - partner_id de una
+                # Liquidación/Pago Directo/Anticipo normal debe seguir siendo libremente
+                # editable (nunca tuvo esta restricción). employee_id (calculado) se revisa
+                # también por defensa en profundidad.
+                if rec.tipo != 'anticipo_viaticos':
+                    continue
+                if ('partner_id' in vals and rec.partner_id
+                        and vals['partner_id'] != rec.partner_id.id):
                     raise UserError(self.env._(
                         'No se puede cambiar el empleado de una Orden de Pago ya creada '
                         '- cree una nueva en su lugar.'))
@@ -443,7 +421,7 @@ class AccountPaymentOrder(models.Model):
 
     def unlink(self):
         for rec in self:
-            if rec.tipo == 'anticipo' and rec.state not in ('borrador', 'cancelado', 'rechazado'):
+            if rec.tipo in ANTICIPO_TIPOS and rec.state not in ('borrador', 'cancelado', 'rechazado'):
                 raise UserError(self.env._(
                     'No puede eliminar una Orden de Pago que no esté en borrador, '
                     'cancelada o rechazada.'))
@@ -474,18 +452,17 @@ class AccountPaymentOrder(models.Model):
 
     def action_submit(self):
         for rec in self:
-            if rec.tipo != 'anticipo':
+            if rec.tipo not in ANTICIPO_TIPOS:
                 raise UserError(self.env._('Enviar solo aplica a Órdenes de Pago de tipo Anticipo.'))
-            if not rec.justificacion_tipo_id:
-                raise UserError(self.env._('Defina el Tipo de Gasto antes de enviar.'))
-            if rec.es_viaticos and not rec.viaticos_line_ids:
+            if rec.tipo == 'anticipo_viaticos' and not rec.viaticos_line_ids:
                 raise UserError(self.env._(
                     'Agregue al menos una línea de viáticos antes de enviar la orden.'))
             if rec.viaticos_line_ids.filtered(lambda line: not line.employee_id):
                 raise UserError(self.env._(
                     'Todas las líneas de viáticos deben tener un empleado seleccionado antes '
                     'de enviar la orden.'))
-            if not (rec.cuenta_acreditar and rec.tipo_cuenta and rec.banco
+            if rec.tipo == 'anticipo_viaticos' and not (
+                    rec.cuenta_acreditar and rec.tipo_cuenta and rec.banco
                     and rec.periodo_del and rec.periodo_al):
                 raise UserError(self.env._(
                     'Complete cuenta a acreditar, tipo de cuenta, banco y el período antes de '
@@ -499,7 +476,7 @@ class AccountPaymentOrder(models.Model):
 
     def action_approve(self):
         for rec in self:
-            if rec.tipo != 'anticipo':
+            if rec.tipo not in ANTICIPO_TIPOS:
                 raise UserError(self.env._('Aprobar solo aplica a Órdenes de Pago de tipo Anticipo.'))
             rec._check_is_approver_for_amount()
             rec.write({
@@ -511,7 +488,7 @@ class AccountPaymentOrder(models.Model):
     def action_reject(self):
         self._check_is_approver()
         for rec in self:
-            if rec.tipo != 'anticipo':
+            if rec.tipo not in ANTICIPO_TIPOS:
                 raise UserError(self.env._('Rechazar solo aplica a Órdenes de Pago de tipo Anticipo.'))
             rec.write({
                 'state': 'rechazado',
@@ -521,7 +498,7 @@ class AccountPaymentOrder(models.Model):
 
     def action_reset_to_draft(self):
         for rec in self:
-            if rec.tipo != 'anticipo':
+            if rec.tipo not in ANTICIPO_TIPOS:
                 raise UserError(self.env._(
                     'Volver a Borrador solo aplica a Órdenes de Pago de tipo Anticipo.'))
             rec.write({
@@ -533,7 +510,7 @@ class AccountPaymentOrder(models.Model):
 
     def action_cancel(self):
         for rec in self:
-            if rec.tipo != 'anticipo':
+            if rec.tipo not in ANTICIPO_TIPOS:
                 raise UserError(self.env._('Cancelar (Anticipo) solo aplica a tipo Anticipo.'))
             rec.state = 'cancelado'
 
@@ -549,10 +526,9 @@ class AccountPaymentOrder(models.Model):
         esta base (que no significaría nada allá)."""
         self.ensure_one()
         return {
-            'tipo': 'anticipo',
+            'tipo': 'anticipo_viaticos',
             'external_ref': self.name,
             'origin': 'synced',
-            'justificacion_tipo_name': self.justificacion_tipo_id.name or '',
             'requested_by_name': self.requested_by_name or '',
             'employee_enterprise_ref': self.employee_id.enterprise_employee_ref or False,
             'company_enterprise_ref':
@@ -562,7 +538,7 @@ class AccountPaymentOrder(models.Model):
             'proyecto': self.proyecto or '',
             'telefono': self.telefono or '',
             'correo': self.correo or '',
-            'request_date': self.request_date and self.request_date.isoformat() or False,
+            'fecha': self.fecha and self.fecha.isoformat() or False,
             'cuenta_acreditar': self.cuenta_acreditar or '',
             'tipo_cuenta': self.tipo_cuenta,
             'banco': self.banco or '',
@@ -581,7 +557,6 @@ class AccountPaymentOrder(models.Model):
                     'employee_enterprise_ref': line.employee_id.enterprise_employee_ref or False,
                     'departamento': line.departamento or '',
                     'puesto': line.puesto or '',
-                    'justificacion_tipo_name': line.justificacion_tipo_id.name or '',
                     'cantidad': line.cantidad,
                     'costo_individual': line.costo_individual,
                 })
@@ -596,7 +571,7 @@ class AccountPaymentOrder(models.Model):
 
         Nunca lanza: los fallos quedan registrados en el propio registro (sync_state='error')
         para el cron de reintento, sin bloquear action_submit()."""
-        for rec in self.filtered(lambda r: r.tipo == 'anticipo'):
+        for rec in self.filtered(lambda r: r.tipo in ANTICIPO_TIPOS):
             company = rec.company_id
             if company.payment_order_role != 'solicitante' or not company.payment_order_sync_enabled:
                 continue
@@ -629,7 +604,7 @@ class AccountPaymentOrder(models.Model):
     @api.model
     def _cron_retry_sync(self):
         pending = self.search([
-            ('tipo', '=', 'anticipo'),
+            ('tipo', 'in', ANTICIPO_TIPOS),
             ('sync_state', '=', 'error'),
             ('company_id.payment_order_role', '=', 'solicitante'),
             ('company_id.payment_order_sync_enabled', '=', True),
@@ -728,7 +703,7 @@ class AccountPaymentOrder(models.Model):
 
     def action_aplicar(self):
         self.ensure_one()
-        if self.tipo != 'anticipo':
+        if self.tipo not in ANTICIPO_TIPOS:
             raise UserError(self.env._('Aplicar solo se usa para órdenes de tipo Anticipo.'))
         if self.state != 'aprobado':
             raise UserError(self.env._(
@@ -799,7 +774,7 @@ class AccountPaymentOrder(models.Model):
         alguien que ya tiene uno pendiente de liquidar, sin bloquear la operación (puede ser
         intencional: viáticos de dos viajes distintos, por ejemplo)."""
         domain = [
-            ('tipo', '=', 'anticipo'),
+            ('tipo', 'in', ANTICIPO_TIPOS),
             ('state', '=', 'aplicado'),
             ('partner_id', '=', partner.id),
         ]
@@ -841,7 +816,7 @@ class AccountPaymentOrder(models.Model):
 
     def action_registrar_liquidacion(self):
         self.ensure_one()
-        if self.tipo != 'anticipo':
+        if self.tipo not in ANTICIPO_TIPOS:
             raise UserError(self.env._('Esta acción solo aplica a órdenes de tipo Anticipo.'))
         if self.state != 'aplicado':
             raise UserError(self.env._('Aplica el Anticipo antes de registrar su Liquidación.'))

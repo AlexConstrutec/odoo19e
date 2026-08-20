@@ -17,7 +17,6 @@
         'security/ir.model.access.csv',
         'security/security.xml',
         'data/account_payment_order_sequence.xml',
-        'data/justification_type_data.xml',
         'data/payment_order_sync_cron.xml',
         'data/employee_sync_cron.xml',
         'views/account_payment_order_views.xml',
