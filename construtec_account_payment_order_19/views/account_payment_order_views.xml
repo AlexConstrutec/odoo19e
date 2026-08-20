@@ -44,6 +44,7 @@
                         <group>
                             <field name="monto" readonly="state != 'borrador'"/>
                             <field name="cuenta_anticipo_id" readonly="state != 'borrador'"/>
+                            <field name="available_payment_method_line_ids" invisible="1"/>
                             <field name="payment_method_line_id" readonly="state != 'borrador'"/>
                         </group>
                         <group>

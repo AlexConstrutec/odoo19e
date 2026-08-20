@@ -1,4 +1,4 @@
-from odoo import fields, models
+from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 
@@ -18,9 +18,19 @@ class AccountPaymentOrderRequestCrearAnticipoWizard(models.TransientModel):
              'entregarlo a otro contacto.')
     journal_id = fields.Many2one('account.journal', string='Diario', required=True,
                                   domain=[('type', '=', 'bank')])
+    available_payment_method_line_ids = fields.Many2many(
+        'account.payment.method.line', compute='_compute_available_payment_method_line_ids',
+        help='Auxiliar para el dominio de `payment_method_line_id` - ver el mismo campo en '
+             'account_payment_order.py (motivo: InvalidDomainError con una lista vacía al '
+             'navegar journal_id.outbound_payment_method_line_ids directo en un domain string).')
     payment_method_line_id = fields.Many2one(
         'account.payment.method.line', string='Método de Pago',
-        domain="[('id', 'in', journal_id.outbound_payment_method_line_ids)]")
+        domain="[('id', 'in', available_payment_method_line_ids)]")
+
+    @api.depends('journal_id')
+    def _compute_available_payment_method_line_ids(self):
+        for rec in self:
+            rec.available_payment_method_line_ids = rec.journal_id.outbound_payment_method_line_ids
     cuenta_anticipo_id = fields.Many2one(
         'account.account', string='Cuenta de Anticipos por Liquidar', required=True,
         domain=[('account_type', 'in', ('asset_receivable', 'liability_payable'))])

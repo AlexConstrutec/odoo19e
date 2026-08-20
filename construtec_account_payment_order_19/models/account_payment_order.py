@@ -31,9 +31,17 @@ class AccountPaymentOrder(models.Model):
                                         'Liquidación" de un Anticipo ya aplicado.')
     monto = fields.Monetary(string='Monto', currency_field='currency_id',
                              help='Monto del Anticipo a entregar al Contacto.')
+    available_payment_method_line_ids = fields.Many2many(
+        'account.payment.method.line', compute='_compute_available_payment_method_line_ids',
+        help='Auxiliar para el dominio de `payment_method_line_id` - navegar '
+             '`journal_id.outbound_payment_method_line_ids` directo dentro de un `domain=` en '
+             'string revienta en el cliente (`InvalidDomainError: id,in,`) en cuanto esa lista '
+             'queda vacía (diario de banco sin métodos de pago configurados) - mismo motivo por '
+             'el que el propio `account.payment` de Odoo usa un campo calculado intermedio '
+             '(`available_payment_method_line_ids`) en vez de la ruta punteada directa.')
     payment_method_line_id = fields.Many2one(
         'account.payment.method.line', string='Método de Pago',
-        domain="[('id', 'in', journal_id.outbound_payment_method_line_ids)]",
+        domain="[('id', 'in', available_payment_method_line_ids)]",
         help='Método de pago para el Anticipo, según los métodos configurados en el Diario '
              '(ej. Manual, Cheque). Si se deja vacío, se usa el método por defecto del Diario.')
     cuenta_anticipo_id = fields.Many2one(
@@ -91,6 +99,11 @@ class AccountPaymentOrder(models.Model):
                 'Se requiere el permiso de Contabilidad: Administrador para aplicar o cancelar '
                 'una Orden de Pago. Cualquier usuario de Contabilidad puede crearla y dejarla en '
                 'borrador, pero solo un Administrador puede avanzarla de estado.'))
+
+    @api.depends('journal_id')
+    def _compute_available_payment_method_line_ids(self):
+        for rec in self:
+            rec.available_payment_method_line_ids = rec.journal_id.outbound_payment_method_line_ids
 
     @api.onchange('journal_id')
     def _onchange_journal_id_payment_method(self):
