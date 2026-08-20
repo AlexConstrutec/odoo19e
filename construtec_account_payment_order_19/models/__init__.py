@@ -7,5 +7,6 @@ from . import account_payment_order_sync_log
 from . import account_payment_order_justification_type
 from . import account_payment_order_enterprise_company
 from . import account_payment_order_request
+from . import res_partner
 from . import hr_employee
 from . import account_analytic_account

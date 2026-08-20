@@ -162,12 +162,15 @@ class AccountPaymentOrderRequest(models.Model):
     def _onchange_employee_partner_id(self):
         for rec in self:
             if rec.employee_id:
-                # job_title/department_id viven en hr.version y requieren el grupo "Employees
-                # Officer" para leerse directo - sudo() aqui porque cualquier solicitante debe
-                # poder ver estos datos no sensibles de SU PROPIO empleado vinculado.
+                # puesto/departamento se leen del CONTACTO (res_partner.py,
+                # employee_job_title/employee_department_id - heredados automáticamente ahí
+                # desde el hr.employee vinculado), no resueltos aquí en vivo - decisión
+                # explícita del usuario: un solo valor por contacto, no uno por compañía.
+                rec.puesto = rec.employee_partner_id.employee_job_title or rec.puesto
+                rec.departamento = rec.employee_partner_id.employee_department_id.name or rec.departamento
+                # sudo(): un solicitante normal no tiene por qué tener hr.group_hr_user, y
+                # aun así debe poder ver estos datos no sensibles de SU PROPIO empleado vinculado.
                 employee = rec.employee_id.sudo()
-                rec.puesto = employee.job_title or rec.puesto
-                rec.departamento = employee.department_id.name or rec.departamento
                 # cuenta_bancaria/banco_nombre/telefono_personal solo resuelven a un valor real
                 # cuando employee_id es el empleado vinculado al usuario actual - hr_employee.py.
                 rec.cuenta_acreditar = rec.employee_id.cuenta_bancaria or rec.cuenta_acreditar
@@ -273,12 +276,12 @@ class AccountPaymentOrderRequest(models.Model):
         partner = self.env['res.partner'].browse(partner_id)
         company = self.env['res.company'].browse(vals.get('company_id')) if vals.get('company_id') \
             else self.env.company
+        # puesto/departamento: del CONTACTO, no resueltos aquí en vivo - ver res_partner.py.
+        vals.setdefault('puesto', partner.employee_job_title or False)
+        vals.setdefault('departamento', partner.employee_department_id.name or False)
         employee = _resolve_employee_for_partner(partner, company)
         if not employee:
             return
-        # job_title/department_id requieren sudo() - ver _onchange_employee_partner_id.
-        vals.setdefault('puesto', employee.sudo().job_title or False)
-        vals.setdefault('departamento', employee.sudo().department_id.name or False)
         vals.setdefault('cuenta_acreditar', employee.cuenta_bancaria or False)
         vals.setdefault('banco', employee.banco_nombre or False)
         vals.setdefault('telefono', employee.sudo().work_phone or employee.sudo().mobile_phone
@@ -580,10 +583,10 @@ class AccountPaymentOrderRequestLine(models.Model):
     def _onchange_employee_partner_id(self):
         for line in self:
             if line.employee_id:
-                employee = line.employee_id.sudo()  # job_title/department_id - ver header
                 line.tecnico_name = line.employee_id.name
-                line.puesto = employee.job_title or line.puesto
-                line.departamento = employee.department_id.name or line.departamento
+                # puesto/departamento: del CONTACTO, no resueltos en vivo - ver header/res_partner.py.
+                line.puesto = line.employee_partner_id.employee_job_title or line.puesto
+                line.departamento = line.employee_partner_id.employee_department_id.name or line.departamento
 
     @api.model
     def default_get(self, fields_list):
@@ -617,16 +620,19 @@ class AccountPaymentOrderRequestLine(models.Model):
                     vals['employee_partner_id'] = employee.work_contact_id.id
             partner_id = vals.get('employee_partner_id')
             if partner_id:
-                # employee_id todavía no existe (el registro no se ha insertado) - se resuelve
-                # aquí con el mismo criterio que el compute, usando la compañía de la Solicitud
-                # padre (ya real en este punto: Odoo fija request_id antes de crear la línea).
-                request = self.env['account.payment.order.request'].browse(vals.get('request_id'))
                 partner = self.env['res.partner'].browse(partner_id)
+                # puesto/departamento: del CONTACTO, no resueltos en vivo - ver res_partner.py.
+                vals.setdefault('puesto', partner.employee_job_title or False)
+                vals.setdefault('departamento', partner.employee_department_id.name or False)
+                # tecnico_name sí necesita el hr.employee real (su nombre puede diferir del
+                # nombre del contacto) - employee_id todavía no existe (el registro no se ha
+                # insertado), se resuelve aquí con el mismo criterio que el compute, usando la
+                # compañía de la Solicitud padre (ya real: Odoo fija request_id antes de crear
+                # la línea).
+                request = self.env['account.payment.order.request'].browse(vals.get('request_id'))
                 employee = _resolve_employee_for_partner(partner, request.company_id)
                 if employee:
                     vals.setdefault('tecnico_name', employee.name)
-                    vals.setdefault('puesto', employee.sudo().job_title or False)
-                    vals.setdefault('departamento', employee.sudo().department_id.name or False)
         return super().create(vals_list)
 
     @api.depends('cantidad', 'costo_individual')
