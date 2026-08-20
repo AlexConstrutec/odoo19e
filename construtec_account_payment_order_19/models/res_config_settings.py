@@ -7,6 +7,8 @@ class ResConfigSettings(models.TransientModel):
     _inherit = 'res.config.settings'
 
     payment_order_role = fields.Selection(related='company_id.payment_order_role', readonly=False)
+    payment_order_approval_threshold = fields.Monetary(
+        related='company_id.payment_order_approval_threshold', readonly=False)
     payment_order_sync_enabled = fields.Boolean(
         related='company_id.payment_order_sync_enabled', readonly=False)
     payment_order_sync_url = fields.Char(related='company_id.payment_order_sync_url', readonly=False)

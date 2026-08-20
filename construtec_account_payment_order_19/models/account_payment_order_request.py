@@ -4,6 +4,8 @@ from odoo.exceptions import AccessError, UserError
 from ..tools.enterprise_sync_api import EnterpriseSyncError, create_sync_record
 
 APPROVER_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver'
+APPROVER_MEDIO_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver_medio'
+APPROVER_ALTO_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver_alto'
 
 
 class AccountPaymentOrderRequest(models.Model):
@@ -216,6 +218,24 @@ class AccountPaymentOrderRequest(models.Model):
             raise AccessError(self.env._(
                 'Solo un usuario autorizado puede aprobar o rechazar Solicitudes de Pago.'))
 
+    def _check_is_approver_for_amount(self):
+        """Gate por monto para action_approve(): Nivel Alto (Gerente de Área) siempre puede
+        aprobar (implica Nivel Medio); Nivel Medio (Jefe de Área) solo si el Total a Acreditar
+        es menor al umbral configurado en la compañía. Se revisa registro por registro porque
+        el monto varía por Solicitud."""
+        self.ensure_one()
+        threshold = self.company_id.payment_order_approval_threshold or 0.0
+        if self.total_acreditar >= threshold:
+            if not self.env.user.has_group(APPROVER_ALTO_GROUP_XMLID):
+                raise AccessError(self.env._(
+                    'La Solicitud %(name)s (Q%(monto).2f) es mayor o igual al umbral de '
+                    'Q%(umbral).2f - solo un Aprobador Nivel Alto (Gerente de Área) puede '
+                    'aprobarla.', name=self.name, monto=self.total_acreditar, umbral=threshold))
+        elif not self.env.user.has_group(APPROVER_MEDIO_GROUP_XMLID):
+            raise AccessError(self.env._(
+                'Solo un Aprobador Nivel Medio (Jefe de Área) o superior puede aprobar '
+                'Solicitudes de Pago.'))
+
     def action_submit(self):
         for rec in self:
             if rec.es_viaticos and not rec.viaticos_line_ids:
@@ -233,8 +253,8 @@ class AccountPaymentOrderRequest(models.Model):
             rec.write({'state': 'submitted', 'submit_date': fields.Datetime.now()})
 
     def action_approve(self):
-        self._check_is_approver()
         for rec in self:
+            rec._check_is_approver_for_amount()
             rec.write({
                 'state': 'approved',
                 'approved_by_id': self.env.user.id,

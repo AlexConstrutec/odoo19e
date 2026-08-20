@@ -23,6 +23,14 @@ class ResCompany(models.Model):
              'Contabilidad revisa y aplica el Anticipo). El valor por defecto (Procesador) deja '
              'el comportamiento actual sin cambios.')
 
+    payment_order_approval_threshold = fields.Monetary(
+        string='Umbral de Aprobación Nivel Alto', currency_field='currency_id', default=2500.0,
+        help='Solicitudes de Pago con Total a Acreditar mayor o igual a este monto requieren '
+             'aprobación de Nivel Alto (Gerente de Área) - ver '
+             'group_payment_order_approver_alto/_medio. Montos menores solo requieren Nivel '
+             'Medio (Jefe de Área). Nivel Alto siempre puede aprobar cualquier monto. Q2,500.00 '
+             'por defecto, según el formulario original en papel.')
+
     payment_order_sync_enabled = fields.Boolean(string='Sincronización de Solicitudes de Pago Habilitada')
     payment_order_sync_url = fields.Char(
         string='URL de la instalación Procesadora',

@@ -2,8 +2,25 @@
 <odoo>
     <record id="group_payment_order_approver" model="res.groups">
         <field name="name">Solicitudes de Pago: Aprobador</field>
-        <field name="comment">Puede aprobar o rechazar Solicitudes de Pago (Viáticos, Materiales, etc.).</field>
+        <field name="comment">Puede aprobar o rechazar Solicitudes de Pago (Viáticos, Materiales, etc.).
+            Grupo base implícito en los dos niveles de abajo - no se asigna solo casi nunca, ver
+            group_payment_order_approver_medio/_alto para el gate real de action_approve() por monto.</field>
         <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+
+    <record id="group_payment_order_approver_medio" model="res.groups">
+        <field name="name">Solicitudes de Pago: Aprobador Nivel Medio (Jefe de Área)</field>
+        <field name="comment">Puede aprobar Solicitudes de Pago con monto menor al umbral configurado
+            (res.company.payment_order_approval_threshold, Q2,500.00 por defecto según el formulario
+            original). Para montos mayores o iguales se requiere Nivel Alto.</field>
+        <field name="implied_ids" eval="[(4, ref('group_payment_order_approver'))]"/>
+    </record>
+
+    <record id="group_payment_order_approver_alto" model="res.groups">
+        <field name="name">Solicitudes de Pago: Aprobador Nivel Alto (Gerente de Área)</field>
+        <field name="comment">Puede aprobar Solicitudes de Pago de cualquier monto - implica Nivel Medio,
+            así que un Gerente de Área también puede aprobar los montos menores.</field>
+        <field name="implied_ids" eval="[(4, ref('group_payment_order_approver_medio'))]"/>
     </record>
 
     <record id="group_payment_order_sync_integration" model="res.groups">

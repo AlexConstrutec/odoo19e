@@ -12,6 +12,14 @@
                         <field name="payment_order_role" widget="radio"/>
                     </setting>
                 </block>
+                <block title="Aprobación por Monto" name="payment_order_approval_settings">
+                    <setting id="payment_order_approval_threshold" string="Umbral de Aprobación Nivel Alto"
+                             help="Solicitudes con Total a Acreditar mayor o igual a este monto requieren
+                                   Nivel Alto (Gerente de Área); montos menores solo requieren Nivel Medio
+                                   (Jefe de Área). Nivel Alto siempre puede aprobar cualquier monto.">
+                        <field name="payment_order_approval_threshold"/>
+                    </setting>
+                </block>
                 <block title="Sincronización de Solicitudes de Pago" name="payment_order_sync_settings"
                        invisible="payment_order_role != 'solicitante'">
                     <setting id="payment_order_sync_enabled" string="Sincronización Habilitada"
