@@ -163,10 +163,10 @@ class AccountPaymentOrderRequest(models.Model):
         for rec in self:
             if rec.employee_id:
                 # puesto/departamento se leen del CONTACTO (res_partner.py,
-                # employee_job_title/employee_department_id - heredados automáticamente ahí
+                # function/employee_department_id - heredados automáticamente ahí
                 # desde el hr.employee vinculado), no resueltos aquí en vivo - decisión
                 # explícita del usuario: un solo valor por contacto, no uno por compañía.
-                rec.puesto = rec.employee_partner_id.employee_job_title or rec.puesto
+                rec.puesto = rec.employee_partner_id.function or rec.puesto
                 rec.departamento = rec.employee_partner_id.employee_department_id.name or rec.departamento
                 # sudo(): un solicitante normal no tiene por qué tener hr.group_hr_user, y
                 # aun así debe poder ver estos datos no sensibles de SU PROPIO empleado vinculado.
@@ -277,7 +277,7 @@ class AccountPaymentOrderRequest(models.Model):
         company = self.env['res.company'].browse(vals.get('company_id')) if vals.get('company_id') \
             else self.env.company
         # puesto/departamento: del CONTACTO, no resueltos aquí en vivo - ver res_partner.py.
-        vals.setdefault('puesto', partner.employee_job_title or False)
+        vals.setdefault('puesto', partner.function or False)
         vals.setdefault('departamento', partner.employee_department_id.name or False)
         employee = _resolve_employee_for_partner(partner, company)
         if not employee:
@@ -585,7 +585,7 @@ class AccountPaymentOrderRequestLine(models.Model):
             if line.employee_id:
                 line.tecnico_name = line.employee_id.name
                 # puesto/departamento: del CONTACTO, no resueltos en vivo - ver header/res_partner.py.
-                line.puesto = line.employee_partner_id.employee_job_title or line.puesto
+                line.puesto = line.employee_partner_id.function or line.puesto
                 line.departamento = line.employee_partner_id.employee_department_id.name or line.departamento
 
     @api.model
@@ -622,7 +622,7 @@ class AccountPaymentOrderRequestLine(models.Model):
             if partner_id:
                 partner = self.env['res.partner'].browse(partner_id)
                 # puesto/departamento: del CONTACTO, no resueltos en vivo - ver res_partner.py.
-                vals.setdefault('puesto', partner.employee_job_title or False)
+                vals.setdefault('puesto', partner.function or False)
                 vals.setdefault('departamento', partner.employee_department_id.name or False)
                 # tecnico_name sí necesita el hr.employee real (su nombre puede diferir del
                 # nombre del contacto) - employee_id todavía no existe (el registro no se ha
