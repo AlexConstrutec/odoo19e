@@ -367,7 +367,7 @@ class AccountPaymentOrderRequest(models.Model):
             # Procesadora (Enterprise), donde están los usuarios Nivel Medio/Alto reales - ver
             # action_submit()/action_approve() más abajo.
             'state': 'submitted',
-            'submit_date': fields.Datetime.now(),
+            'submit_date': fields.Datetime.to_string(fields.Datetime.now()),
             'viaticos_line_ids': [
                 (0, 0, {
                     'tecnico_name': line.tecnico_name or '',
