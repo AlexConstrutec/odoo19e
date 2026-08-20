@@ -45,7 +45,9 @@
                         <group>
                             <field name="tipo"/>
                             <field name="no_liquidacion" invisible="tipo != 'liquidacion'"/>
-                            <field name="anticipo_id" readonly="1" invisible="tipo != 'liquidacion'"/>
+                            <field name="anticipos_disponibles_ids" invisible="1"/>
+                            <field name="anticipo_id" readonly="state != 'borrador'"
+                                   invisible="tipo != 'liquidacion'"/>
                             <field name="departamento" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="analytic_account_id" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="proyecto" invisible="1"/>
@@ -125,6 +127,11 @@
                         Opcional en un Anticipo: si adjuntas una factura que el monto cubre al 100%,
                         el sistema te avisará al Aplicar que probablemente corresponde usar "Pago
                         Directo" en vez de un Anticipo pendiente de liquidar.
+                    </p>
+                    <p class="text-muted" invisible="tipo != 'pago_directo' or not es_procesador">
+                        Obligatorio en un Pago Directo: agrega al menos una factura. Al Conciliar, el
+                        monto del pago debe coincidir exactamente con el total de la(s) factura(s) - sin
+                        diferencia admitida (a diferencia de una Liquidación, no usa Cuenta de Ajuste).
                     </p>
                     <field name="factura_ids" widget="many2many" nolabel="1" invisible="not es_procesador">
                         <list>

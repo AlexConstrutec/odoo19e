@@ -7,6 +7,14 @@ class ResConfigSettings(models.TransientModel):
     _inherit = 'res.config.settings'
 
     payment_order_role = fields.Selection(related='company_id.payment_order_role', readonly=False)
+    payment_order_habilitar_anticipo = fields.Boolean(
+        related='company_id.payment_order_habilitar_anticipo', readonly=False)
+    payment_order_habilitar_anticipo_viaticos = fields.Boolean(
+        related='company_id.payment_order_habilitar_anticipo_viaticos', readonly=False)
+    payment_order_habilitar_liquidacion = fields.Boolean(
+        related='company_id.payment_order_habilitar_liquidacion', readonly=False)
+    payment_order_habilitar_pago_directo = fields.Boolean(
+        related='company_id.payment_order_habilitar_pago_directo', readonly=False)
     payment_order_approval_threshold = fields.Monetary(
         related='company_id.payment_order_approval_threshold', readonly=False)
     payment_order_sync_enabled = fields.Boolean(

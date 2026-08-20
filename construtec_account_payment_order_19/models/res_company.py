@@ -33,6 +33,31 @@ class ResCompany(models.Model):
              'Medio (Jefe de Área). Nivel Alto siempre puede aprobar cualquier monto. Q2,500.00 '
              'por defecto, según el formulario original en papel.')
 
+    payment_order_habilitar_anticipo = fields.Boolean(
+        string='Permitir crear: Anticipo', default=True,
+        help='Controla si "Anticipo" aparece como opción al crear una Orden de Pago nueva en '
+             'esta compañía. Es un filtro de la lista desplegable del campo Tipo (ver '
+             'fields_get() en account_payment_order.py) - NO bloquea la creación programática '
+             '(sincronización, "Registrar Liquidación"), solo lo que un usuario ve como opción '
+             'al llenar el formulario a mano. Fase 1 del proyecto: deshabilitado en Community, '
+             'habilitado en Enterprise.')
+    payment_order_habilitar_anticipo_viaticos = fields.Boolean(
+        string='Permitir crear: Anticipo Viáticos', default=True,
+        help='Igual que Anticipo, para "Anticipo Viáticos". Fase 1: es el único tipo habilitado '
+             'en Community. Se deja habilitado por defecto también en Enterprise para que un '
+             'Anticipo Viáticos ya sincronizado desde Community se siga mostrando con su '
+             'etiqueta normal en el desplegable - deshabilitarlo aquí solo evita que Enterprise '
+             'lo ofrezca como opción al crear uno nuevo a mano.')
+    payment_order_habilitar_liquidacion = fields.Boolean(
+        string='Permitir crear: Liquidación', default=True,
+        help='Igual que Anticipo, para "Liquidación". En la práctica una Liquidación casi nunca '
+             'se elige a mano en este desplegable (se crea desde el botón "Registrar '
+             'Liquidación" de un Anticipo aplicado), pero se deja configurable por consistencia.')
+    payment_order_habilitar_pago_directo = fields.Boolean(
+        string='Permitir crear: Pago Directo', default=True,
+        help='Igual que Anticipo, para "Pago Directo". Fase 1: deshabilitado en Community, '
+             'habilitado en Enterprise.')
+
     payment_order_sync_enabled = fields.Boolean(string='Sincronización de Solicitudes de Pago Habilitada')
     payment_order_sync_url = fields.Char(
         string='URL de la instalación Procesadora',
@@ -71,6 +96,23 @@ class ResCompany(models.Model):
         ('hours', 'Horas'),
         ('days', 'Días'),
     ], string='Unidad del intervalo', default='hours')
+
+    def _get_payment_order_allowed_tipos(self):
+        """Subconjunto de `tipo` que esta compañía ofrece al crear una Orden de Pago nueva a
+        mano (ver AccountPaymentOrder.fields_get()). Deliberadamente NO se usa para validar
+        create()/write() - un registro sincronizado o creado por "Registrar Liquidación" debe
+        poder existir siempre, sin importar esta configuración."""
+        self.ensure_one()
+        allowed = []
+        if self.payment_order_habilitar_anticipo:
+            allowed.append('anticipo')
+        if self.payment_order_habilitar_anticipo_viaticos:
+            allowed.append('anticipo_viaticos')
+        if self.payment_order_habilitar_liquidacion:
+            allowed.append('liquidacion')
+        if self.payment_order_habilitar_pago_directo:
+            allowed.append('pago_directo')
+        return allowed
 
     def _payment_order_sync_log(self, success, message):
         self.ensure_one()

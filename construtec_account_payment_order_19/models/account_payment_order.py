@@ -80,11 +80,29 @@ class AccountPaymentOrder(models.Model):
                                    default=lambda self: self.env.company.currency_id.id)
     cuenta_ajuste_id = fields.Many2one('account.account', string='Cuenta de Ajuste')
     move_id = fields.Many2one('account.move', string='Asiento', readonly=True, copy=False)
-    anticipo_id = fields.Many2one('account.payment.order', string='Anticipo de Origen',
-                                   domain=[('tipo', 'in', ('anticipo', 'anticipo_viaticos'))], copy=False,
-                                   help='Anticipo del que se origina esta Liquidación. Una Liquidación no se '
-                                        'puede crear directamente - debe generarse desde el botón "Registrar '
-                                        'Liquidación" de un Anticipo ya aplicado.')
+    anticipo_id = fields.Many2one(
+        'account.payment.order', string='Anticipo de Origen',
+        domain="[('id', 'in', anticipos_disponibles_ids)]", copy=False,
+        help='Anticipo del que se origina esta Liquidación. Se llena solo al generarla desde el '
+             'botón "Registrar Liquidación" de un Anticipo aplicado - editable en borrador por '
+             'si se necesita corregirlo a mano, listando únicamente Anticipos ya Aplicados que '
+             'todavía no tengan otra Liquidación registrada (ver `_compute_anticipos_disponibles_ids`).')
+    anticipos_disponibles_ids = fields.Many2many(
+        'account.payment.order', compute='_compute_anticipos_disponibles_ids',
+        help='Auxiliar para el dominio de `anticipo_id` (mismo patrón que '
+             '`available_payment_method_line_ids`: un domain string no puede expresar "sin '
+             'Liquidación registrada" como subquery directa, así que se materializa aquí). '
+             'Anticipos con tipo Anticipo/Anticipo Viáticos, estado Aplicado, sin ninguna otra '
+             'Orden tipo Liquidación que ya los referencie en `anticipo_id` - más el propio '
+             'valor actual de `anticipo_id`, para que no desaparezca del desplegable si la '
+             'configuración cambia después de haberlo elegido.\n\n'
+             'OJO al probarlo en `odoo-bin shell` con `.new()`: Odoo envuelve los ids reales que '
+             'trae un campo x2many en un registro sin guardar como `NewId(origin=<id real>)` - '
+             'comparar con `in` contra el recordset real (`anticipo in registro.new().campo`) da '
+             'un falso negativo aunque el id interno sea correcto. Para verificar, comparar por '
+             '`origin` (`{getattr(i, "origin", i) for i in registro.campo.ids}`), no por `in` '
+             'directo. Esto es un artefacto de `.new()`, no ocurre en la app real: el cliente web '
+             'recibe ids planos de la respuesta de onchange, nunca el wrapper NewId.')
     monto = fields.Monetary(string='Monto', currency_field='currency_id',
                              help='Monto del Anticipo a entregar al Contacto.')
     available_payment_method_line_ids = fields.Many2many(
@@ -222,6 +240,37 @@ class AccountPaymentOrder(models.Model):
                 rec.name = 'Liquidación %s' % rec.no_liquidacion
             elif not rec.name:
                 rec.name = 'Nueva Orden de Pago'
+
+    @api.model
+    def fields_get(self, allfields=None, attributes=None):
+        """Filtra las opciones del desplegable de `tipo` según la configuración de la compañía
+        actual (`res.company._get_payment_order_allowed_tipos()`) - Fase 1 del proyecto:
+        Community solo debe ofrecer "Anticipo Viáticos" al crear, Enterprise las demás.
+
+        Deliberadamente solo toca lo que el CLIENTE ofrece elegir en un formulario nuevo, no la
+        validación de create()/write() (que sigue aceptando cualquier valor del Selection
+        completo) - una Orden sincronizada o creada por `action_registrar_liquidacion()` debe
+        poder existir sin importar esta configuración. Ver el `help=` de cada campo booleano en
+        res_company.py."""
+        res = super().fields_get(allfields=allfields, attributes=attributes)
+        tipo_desc = res.get('tipo')
+        if tipo_desc and tipo_desc.get('selection'):
+            allowed = self.env.company._get_payment_order_allowed_tipos()
+            tipo_desc['selection'] = [
+                (value, label) for value, label in tipo_desc['selection'] if value in allowed
+            ]
+        return res
+
+    @api.depends('anticipo_id')
+    def _compute_anticipos_disponibles_ids(self):
+        ya_liquidados = self.env['account.payment.order'].search([
+            ('tipo', '=', 'liquidacion'), ('anticipo_id', '!=', False),
+        ]).anticipo_id
+        disponibles = self.env['account.payment.order'].search([
+            ('tipo', 'in', ANTICIPO_TIPOS), ('state', '=', 'aplicado'),
+        ]) - ya_liquidados
+        for rec in self:
+            rec.anticipos_disponibles_ids = disponibles | rec.anticipo_id
 
     @api.constrains('tipo', 'anticipo_id')
     def _check_anticipo_id(self):
@@ -617,6 +666,9 @@ class AccountPaymentOrder(models.Model):
             raise UserError(self.env._(
                 'Conciliar solo aplica a órdenes de tipo Liquidación o Pago Directo.'))
         self._check_es_administrador_contable()
+        if self.tipo == 'pago_directo' and not self.factura_ids:
+            raise UserError(self.env._(
+                'Un Pago Directo debe incluir al menos una factura.'))
 
         # Solo las líneas de por cobrar/por pagar representan la deuda con el proveedor o
         # el contacto - las demás (caja, banco, "Pagos Pendientes"/outstanding) son solo el
@@ -646,10 +698,17 @@ class AccountPaymentOrder(models.Model):
                     total -= (line.debit - line.credit)
                     lineas.append(line)
 
-        if round(total, 2) != 0 and not self.cuenta_ajuste_id:
-            raise UserError(self.env._(
-                'El total de las facturas no coincide con el total de los pagos. Define una '
-                'Cuenta de Ajuste para registrar la diferencia.'))
+        if round(total, 2) != 0:
+            if self.tipo == 'pago_directo':
+                raise UserError(self.env._(
+                    'El monto del pago no coincide con el total de la(s) factura(s) - un Pago '
+                    'Directo debe cubrir exactamente el 100%s de las facturas, sin diferencia '
+                    '(a diferencia de una Liquidación, no admite Cuenta de Ajuste). Corrige el '
+                    'monto del pago o registra esto como una Liquidación en su lugar.', '%'))
+            if not self.cuenta_ajuste_id:
+                raise UserError(self.env._(
+                    'El total de las facturas no coincide con el total de los pagos. Define una '
+                    'Cuenta de Ajuste para registrar la diferencia.'))
 
         nuevas_lineas = []
         for linea in lineas:
