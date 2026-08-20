@@ -39,7 +39,7 @@
                         <group>
                             <field name="justificacion_tipo_id"/>
                             <field name="es_viaticos" invisible="1"/>
-                            <field name="employee_id"/>
+                            <field name="employee_partner_id"/>
                             <field name="requested_by_name"/>
                             <field name="puesto"/>
                             <field name="departamento"/>
@@ -62,7 +62,7 @@
                         <page string="Viáticos" invisible="not es_viaticos">
                             <field name="viaticos_line_ids" readonly="state != 'draft'">
                                 <list editable="bottom">
-                                    <field name="employee_id" required="1"/>
+                                    <field name="employee_partner_id" required="1"/>
                                     <field name="departamento" optional="show"/>
                                     <field name="puesto" optional="show"/>
                                     <field name="justificacion_tipo_id"/>

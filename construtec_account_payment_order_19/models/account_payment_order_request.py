@@ -8,6 +8,32 @@ APPROVER_MEDIO_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_
 APPROVER_ALTO_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver_alto'
 
 
+def _resolve_employee_for_partner(partner, company):
+    """Resuelve el hr.employee real detrás de un contacto (res.partner) elegido en
+    `employee_partner_id` - compartido entre encabezado y línea para no duplicar el criterio
+    de desempate.
+
+    Se usa `partner.sudo().employee_ids` (campo nativo de Odoo, `res.partner.employee_ids`,
+    `One2many('hr.employee', 'work_contact_id')`) a propósito: el picker del formulario
+    filtra por `res.partner.employee` (también nativo, Boolean guardado - ya evita chocar con
+    la regla multiempresa de hr.employee porque el propio contacto NO está restringido por
+    compañía), y aquí, ya elegido el contacto, sí necesitamos leer sus hr.employee reales
+    (sudo(): un solicitante normal no tiene por qué tener el grupo hr.group_hr_user que exige
+    `employee_ids` de forma nativa).
+
+    Desempate si el contacto está contratado en más de una compañía (decisión confirmada con
+    el usuario): se prefiere el hr.employee de la MISMA compañía que la Solicitud/línea; si no
+    hay ninguno ahí, se cae al primer empleado activo."""
+    if not partner:
+        return partner.env['hr.employee']
+    employees = partner.sudo().employee_ids
+    if company:
+        same_company = employees.filtered(lambda e: e.company_id == company)
+        if same_company:
+            return same_company[0]
+    return employees.filtered(lambda e: e.active)[:1] or employees[:1]
+
+
 class AccountPaymentOrderRequest(models.Model):
     _name = 'account.payment.order.request'
     _description = 'Solicitud de Pago'
@@ -49,18 +75,28 @@ class AccountPaymentOrderRequest(models.Model):
     requested_by_id = fields.Many2one('res.users', string='Solicitado por',
                                        default=lambda self: self.env.user, readonly=True, copy=False)
     requested_by_name = fields.Char(string='Nombre', default=lambda self: self.env.user.name)
-    employee_id = fields.Many2one(
-        'hr.employee', string='Empleado Solicitante', readonly=True,
+    employee_partner_id = fields.Many2one(
+        'res.partner', string='Empleado Solicitante', readonly=True,
+        domain="[('employee', '=', True)]",
         default=lambda self: self.env['hr.employee'].search(
-            [('user_id', '=', self.env.user.id)], limit=1),
-        help='Empleado vinculado al usuario que solicita (sincronizado desde Enterprise - ver '
-             'res.company._sync_employees_from_enterprise). Se fija automáticamente al crear y '
-             'no se puede modificar después (ver write()) para evitar suplantación - llena '
-             'departamento/puesto/cuenta bancaria como texto plano, y además viaja como '
-             '`employee_enterprise_ref` (el id ORIGINAL de este empleado en Enterprise, ver '
-             '`enterprise_employee_ref` en hr_employee.py) para que la instalación Procesadora '
-             'pueda resolver un `employee_id` real allá - a diferencia de otros ids en este '
-             'módulo, este SÍ es válido en ambas bases porque es literalmente de dónde vino.')
+            [('user_id', '=', self.env.user.id)], limit=1).work_contact_id,
+        help='Contacto (no hr.employee directo) vinculado al usuario que solicita. Se usa '
+             'Contactos como fachada del selector a propósito: `res.partner` no tiene la regla '
+             'multiempresa de `hr.employee`, así que el desplegable no choca con esa regla ni '
+             'en Community ni en Enterprise - se filtra a contactos marcados como empleado '
+             '(`res.partner.employee`, campo nativo) en vez de a hr.employee directo. Se fija '
+             'automáticamente al crear y no se puede modificar después (ver write()) para '
+             'evitar suplantación. El hr.employee real se resuelve en `employee_id` (ver '
+             '_compute_employee_id/_resolve_employee_for_partner) - toda la lógica que ya '
+             'existía (banco, teléfono, sync) sigue leyendo de ahí sin cambios.')
+    employee_id = fields.Many2one(
+        'hr.employee', string='Empleado Solicitante (resuelto)', compute='_compute_employee_id',
+        store=True, readonly=True,
+        help='hr.employee real detrás de `employee_partner_id`, para la compañía de esta '
+             'Solicitud - ver _resolve_employee_for_partner(). Todo lo que ya dependía de un '
+             'employee_id (departamento/puesto/banco/teléfono en el onchange y en create(), y '
+             '`employee_enterprise_ref` en _prepare_sync_vals()) sigue funcionando igual, ahora '
+             'a partir de este campo calculado en lugar de una selección directa del usuario.')
     puesto = fields.Char(string='Puesto')
     departamento = fields.Char(string='Departamento')
     analytic_account_id = fields.Many2one(
@@ -117,8 +153,13 @@ class AccountPaymentOrderRequest(models.Model):
     payment_order_id = fields.Many2one('account.payment.order', string='Orden de Pago',
                                         readonly=True, copy=False)
 
-    @api.onchange('employee_id')
-    def _onchange_employee_id(self):
+    @api.depends('employee_partner_id', 'company_id')
+    def _compute_employee_id(self):
+        for rec in self:
+            rec.employee_id = _resolve_employee_for_partner(rec.employee_partner_id, rec.company_id)
+
+    @api.onchange('employee_partner_id')
+    def _onchange_employee_partner_id(self):
         for rec in self:
             if rec.employee_id:
                 # job_title/department_id viven en hr.version y requieren el grupo "Employees
@@ -179,17 +220,21 @@ class AccountPaymentOrderRequest(models.Model):
 
     def _resolve_employee_enterprise_ref(self, vals):
         """Resuelve `employee_enterprise_ref` (el id ORIGINAL de este empleado en Enterprise,
-        enviado por _prepare_sync_vals()) hacia un `employee_id` real de ESTA base - a
+        enviado por _prepare_sync_vals()) hacia un `employee_partner_id` real de ESTA base - a
         diferencia de justificacion_tipo/analytic_account (que se resuelven por NOMBRE, ya que
         no hay ninguna referencia cruzada previa), aquí sí hay un id genuinamente válido en
-        ambos lados porque es literalmente el id del empleado tal como existe en Enterprise. Si
-        el empleado se resuelve, también se usa su compañía real para `company_id` - más preciso
-        que el respaldo de `_resolve_company_enterprise_ref()`."""
+        ambos lados porque es literalmente el id del empleado tal como existe en Enterprise.
+
+        Se resuelve hacia `employee_partner_id` (el contacto), NO hacia `employee_id`
+        directamente - `employee_id` es un campo calculado (ver _compute_employee_id()) que se
+        vuelve a derivar solo, y lo hace exactamente hacia ESTE mismo hr.employee porque
+        `company_id` también queda fijado aquí abajo a su compañía real (ver
+        _resolve_employee_for_partner: coincidir compañía es el primer criterio de desempate)."""
         ref = vals.pop('employee_enterprise_ref', None)
-        if ref and not vals.get('employee_id'):
+        if ref and not vals.get('employee_partner_id'):
             employee = self.env['hr.employee'].browse(int(ref)).exists()
             if employee:
-                vals['employee_id'] = employee.id
+                vals['employee_partner_id'] = employee.work_contact_id.id
                 vals.setdefault('company_id', employee.company_id.id)
 
     def _resolve_company_enterprise_ref(self, vals):
@@ -214,16 +259,24 @@ class AccountPaymentOrderRequest(models.Model):
             vals['justificacion_tipo_id'] = justification_type.id
 
     def _fill_derived_vals_from_employee(self, vals):
-        """Same autocompletado que _onchange_employee_id, pero para create() por API/script
-        (el onchange solo corre en el formulario web)."""
-        employee_id = vals.get('employee_id')
-        if not employee_id:
-            employee_id = self.default_get(['employee_id']).get('employee_id')
-        if not employee_id:
+        """Same autocompletado que _onchange_employee_partner_id, pero para create() por
+        API/script (el onchange solo corre en el formulario web). `employee_id` todavía no
+        existe como tal (el registro no se ha insertado, así que el campo calculado no ha
+        corrido) - se resuelve aquí con el mismo criterio (_resolve_employee_for_partner) para
+        poder llenar los campos de texto plano (puesto/banco/teléfono/etc.) antes del insert."""
+        partner_id = vals.get('employee_partner_id')
+        if not partner_id:
+            partner_id = self.default_get(['employee_partner_id']).get('employee_partner_id')
+        if not partner_id:
             return
-        employee = self.env['hr.employee'].browse(employee_id)
-        vals.setdefault('employee_id', employee.id)
-        # job_title/department_id requieren sudo() - ver _onchange_employee_id.
+        vals.setdefault('employee_partner_id', partner_id)
+        partner = self.env['res.partner'].browse(partner_id)
+        company = self.env['res.company'].browse(vals.get('company_id')) if vals.get('company_id') \
+            else self.env.company
+        employee = _resolve_employee_for_partner(partner, company)
+        if not employee:
+            return
+        # job_title/department_id requieren sudo() - ver _onchange_employee_partner_id.
         vals.setdefault('puesto', employee.sudo().job_title or False)
         vals.setdefault('departamento', employee.sudo().department_id.name or False)
         vals.setdefault('cuenta_acreditar', employee.cuenta_bancaria or False)
@@ -240,9 +293,18 @@ class AccountPaymentOrderRequest(models.Model):
         vals.setdefault('proyecto', analytic_account.name)
 
     def write(self, vals):
-        if 'employee_id' in vals and not self.env.user.has_group(APPROVER_GROUP_XMLID):
+        if not self.env.user.has_group(APPROVER_GROUP_XMLID):
             for rec in self:
-                if rec.employee_id and vals['employee_id'] != rec.employee_id.id:
+                # employee_partner_id es el campo que el usuario realmente controla;
+                # employee_id (calculado) se revisa también por defensa en profundidad, aunque
+                # normalmente ni se debería poder escribir directo desde la UI.
+                if ('employee_partner_id' in vals and rec.employee_partner_id
+                        and vals['employee_partner_id'] != rec.employee_partner_id.id):
+                    raise UserError(self.env._(
+                        'No se puede cambiar el empleado de una Solicitud de Pago ya creada '
+                        '- cree una nueva solicitud en su lugar.'))
+                if ('employee_id' in vals and rec.employee_id
+                        and vals['employee_id'] != rec.employee_id.id):
                     raise UserError(self.env._(
                         'No se puede cambiar el empleado de una Solicitud de Pago ya creada '
                         '- cree una nueva solicitud en su lugar.'))
@@ -460,16 +522,24 @@ class AccountPaymentOrderRequestLine(models.Model):
 
     request_id = fields.Many2one('account.payment.order.request', string='Solicitud',
                                   required=True, ondelete='cascade')
+    employee_partner_id = fields.Many2one(
+        'res.partner', string='Empleado', domain="[('employee', '=', True)]",
+        help='Contacto (no hr.employee directo) destino de este renglón - mismo criterio que '
+             'el encabezado (ver AccountPaymentOrderRequest.employee_partner_id): Contactos no '
+             'tiene la regla multiempresa de hr.employee, así que el desplegable no choca con '
+             'ella. El hr.employee real se resuelve en `employee_id` (compute).')
     employee_id = fields.Many2one(
-        'hr.employee', string='Empleado',
-        help='Empleado destino de este renglón (sincronizado desde Enterprise). Llena '
-             'técnico/departamento/puesto automáticamente; viaja hacia la instalación '
+        'hr.employee', string='Empleado (resuelto)', compute='_compute_employee_id', store=True,
+        readonly=True,
+        help='hr.employee real detrás de `employee_partner_id`, para la compañía de la '
+             'Solicitud padre - ver AccountPaymentOrderRequest._resolve_employee_for_partner(). '
+             'Llena técnico/departamento/puesto automáticamente; viaja hacia la instalación '
              'Procesadora tanto como texto (`tecnico_name`) como `employee_enterprise_ref` (el '
              'id ORIGINAL de este empleado en Enterprise, válido en ambos lados - ver el '
-             'encabezado). No es `required=True` a nivel de campo (rompería la recepción de '
-             'líneas sincronizadas de un empleado todavía no vinculado a un `enterprise_ref` '
-             'conocido); se exige en cambio en `action_submit()`, que las líneas locales '
-             'siempre pasan y las sincronizadas no.')
+             'encabezado). `employee_partner_id` no es `required=True` a nivel de campo '
+             '(rompería la recepción de líneas sincronizadas de un empleado todavía no '
+             'vinculado a un `enterprise_ref` conocido); se exige en cambio en '
+             'action_submit()`, que las líneas locales siempre pasan y las sincronizadas no.')
     tecnico_name = fields.Char(
         string='Técnico',
         help='Nombre en texto plano de `employee_id`, autocompletado - lo que realmente viaja '
@@ -500,8 +570,14 @@ class AccountPaymentOrderRequestLine(models.Model):
             if line.request_id and not line.justificacion_tipo_id:
                 line.justificacion_tipo_id = line.request_id.justificacion_tipo_id
 
-    @api.onchange('employee_id')
-    def _onchange_employee_id(self):
+    @api.depends('employee_partner_id', 'request_id.company_id')
+    def _compute_employee_id(self):
+        for line in self:
+            line.employee_id = _resolve_employee_for_partner(
+                line.employee_partner_id, line.request_id.company_id)
+
+    @api.onchange('employee_partner_id')
+    def _onchange_employee_partner_id(self):
         for line in self:
             if line.employee_id:
                 employee = line.employee_id.sudo()  # job_title/department_id - ver header
@@ -533,18 +609,24 @@ class AccountPaymentOrderRequestLine(models.Model):
                     'account.payment.order.justification.type']._find_or_create_by_name(name)
                 vals['justificacion_tipo_id'] = justification_type.id
             ref = vals.pop('employee_enterprise_ref', None)
-            if ref and not vals.get('employee_id'):
+            if ref and not vals.get('employee_partner_id'):
                 # Mismo mecanismo que el encabezado - ver
                 # AccountPaymentOrderRequest._resolve_employee_enterprise_ref().
                 employee = self.env['hr.employee'].browse(int(ref)).exists()
                 if employee:
-                    vals['employee_id'] = employee.id
-            employee_id = vals.get('employee_id')
-            if employee_id:
-                employee = self.env['hr.employee'].browse(employee_id)
-                vals.setdefault('tecnico_name', employee.name)
-                vals.setdefault('puesto', employee.sudo().job_title or False)
-                vals.setdefault('departamento', employee.sudo().department_id.name or False)
+                    vals['employee_partner_id'] = employee.work_contact_id.id
+            partner_id = vals.get('employee_partner_id')
+            if partner_id:
+                # employee_id todavía no existe (el registro no se ha insertado) - se resuelve
+                # aquí con el mismo criterio que el compute, usando la compañía de la Solicitud
+                # padre (ya real en este punto: Odoo fija request_id antes de crear la línea).
+                request = self.env['account.payment.order.request'].browse(vals.get('request_id'))
+                partner = self.env['res.partner'].browse(partner_id)
+                employee = _resolve_employee_for_partner(partner, request.company_id)
+                if employee:
+                    vals.setdefault('tecnico_name', employee.name)
+                    vals.setdefault('puesto', employee.sudo().job_title or False)
+                    vals.setdefault('departamento', employee.sudo().department_id.name or False)
         return super().create(vals_list)
 
     @api.depends('cantidad', 'costo_individual')
