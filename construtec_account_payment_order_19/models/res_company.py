@@ -2,7 +2,9 @@ import logging
 
 from odoo import api, fields, models
 
-from ..tools.enterprise_sync_api import EnterpriseSyncError, fetch_analytic_accounts, fetch_employees
+from ..tools.enterprise_sync_api import (
+    EnterpriseSyncError, fetch_analytic_accounts, fetch_companies, fetch_employees,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -51,6 +53,14 @@ class ResCompany(models.Model):
         inverse_name='company_id',
         string='Registro de Sincronización de Solicitudes de Pago')
 
+    payment_order_default_company_id = fields.Many2one(
+        'account.payment.order.enterprise.company', string='Compañía por defecto en Enterprise',
+        help='Compañía de la instalación Procesadora a la que caen las Solicitudes de Pago '
+             'cuando el empleado solicitante/de la línea no se pudo resolver a un id real de '
+             'Enterprise (ej. no está sincronizado todavía) - Enterprise puede tener varias '
+             'compañías con empleados contratados en cada una. Cuando el empleado SÍ se '
+             'resuelve, se usa la compañía real de ese empleado en vez de este respaldo.')
+
     employee_sync_interval_number = fields.Integer(
         string='Sincronizar directorio (empleados/cuentas analíticas) cada', default=6,
         help='Cada cuánto se jala desde la instalación Procesadora el directorio de empleados '
@@ -87,10 +97,13 @@ class ResCompany(models.Model):
         self.ensure_one()
         ok_emp, message_emp = self._sync_employees_from_enterprise()
         ok_analytic, message_analytic = self._sync_analytic_accounts_from_enterprise()
-        ok = ok_emp and ok_analytic
+        ok_company, message_company = self._sync_enterprise_companies()
+        ok = ok_emp and ok_analytic and ok_company
         message = self.env._(
-            'Empleados: %(message_emp)s\nCuentas Analíticas: %(message_analytic)s',
-            message_emp=message_emp, message_analytic=message_analytic)
+            'Empleados: %(message_emp)s\nCuentas Analíticas: %(message_analytic)s\n'
+            'Compañías: %(message_company)s',
+            message_emp=message_emp, message_analytic=message_analytic,
+            message_company=message_company)
         self._payment_order_sync_log(ok, message)
         return {
             'type': 'ir.actions.client',
@@ -213,6 +226,40 @@ class ResCompany(models.Model):
             created=created, updated=updated)
         return True, message
 
+    def _sync_enterprise_companies(self):
+        """Pull la lista de compañías de la instalación Procesadora, para el desplegable
+        "Compañía por defecto" (respaldo cuando una Solicitud no trae un empleado resoluble).
+        Igual patrón que empleados/cuentas analíticas."""
+        self.ensure_one()
+        if self.payment_order_role != 'solicitante' or not self.payment_order_sync_enabled:
+            return True, self.env._('Sincronización de Compañías no aplica (rol o '
+                                     'sincronización no configurados).')
+        try:
+            companies = fetch_companies(
+                self.payment_order_sync_url, self.payment_order_sync_db,
+                self.payment_order_sync_login, self.payment_order_sync_api_key)
+        except EnterpriseSyncError as exc:
+            _logger.warning('Sincronización de Compañías falló para %s: %s', self.name, exc)
+            return False, str(exc)
+
+        EnterpriseCompany = self.env['account.payment.order.enterprise.company'].sudo()
+        created = updated = 0
+        for comp in companies:
+            enterprise_ref = str(comp['id'])
+            vals = {'name': comp['name'], 'enterprise_company_ref': enterprise_ref}
+            existing = EnterpriseCompany.search(
+                [('enterprise_company_ref', '=', enterprise_ref)], limit=1)
+            if existing:
+                existing.write(vals)
+                updated += 1
+            else:
+                EnterpriseCompany.create(vals)
+                created += 1
+        message = self.env._(
+            '%(created)s compañías nuevas, %(updated)s actualizadas.',
+            created=created, updated=updated)
+        return True, message
+
     @api.model_create_multi
     def create(self, vals_list):
         companies = super().create(vals_list)
@@ -235,4 +282,6 @@ class ResCompany(models.Model):
             ok, message = company._sync_employees_from_enterprise()
             company._payment_order_sync_log(ok, message)
             ok, message = company._sync_analytic_accounts_from_enterprise()
+            company._payment_order_sync_log(ok, message)
+            ok, message = company._sync_enterprise_companies()
             company._payment_order_sync_log(ok, message)

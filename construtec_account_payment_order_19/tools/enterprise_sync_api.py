@@ -147,3 +147,18 @@ def fetch_analytic_accounts(url, db, login, api_key):
         url, 'object', 'execute_kw',
         [db, uid, api_key, 'account.analytic.account', 'search_read',
          [[]], {'fields': ['name', 'code', 'plan_id']}])
+
+
+def fetch_companies(url, db, login, api_key):
+    """Read-only pull of the Enterprise company list - usado para el desplegable "Compañía por
+    defecto" (`res.company.payment_order_default_company_id`), el respaldo cuando el empleado
+    de una Solicitud no se puede resolver por `enterprise_employee_ref` (ej. no sincronizado
+    todavía). No hay nada sensible en `name`, se pide sin restricción."""
+    if not (url and db and login and api_key):
+        raise EnterpriseSyncError(
+            'Sincronización de Compañías incompleta (falta URL, base de datos, usuario o '
+            'API Key).')
+    uid = authenticate(url, db, login, api_key)
+    return _jsonrpc(
+        url, 'object', 'execute_kw',
+        [db, uid, api_key, 'res.company', 'search_read', [[]], {'fields': ['name']}])

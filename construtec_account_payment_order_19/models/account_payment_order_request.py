@@ -38,6 +38,13 @@ class AccountPaymentOrderRequest(models.Model):
         compute='_compute_es_viaticos',
         help='Auxiliar para mostrar/ocultar la pestaña "Viáticos" - comparar contra un id no es '
              'seguro en una vista (`invisible=`), así que se resuelve aquí en Python.')
+    es_procesador = fields.Boolean(
+        compute='_compute_es_procesador',
+        help='Auxiliar para mostrar/ocultar Aprobar/Rechazar/Crear Anticipo según el rol de la '
+             'compañía - una vista no puede navegar `company_id.payment_order_role` directo en '
+             '`invisible=`, así que se resuelve aquí. Decisión explícita del usuario: la '
+             'aprobación ahora ocurre solo en la instalación Procesadora (Enterprise); una '
+             'instalación Solicitante (Community) nunca debe ver estos botones.')
 
     requested_by_id = fields.Many2one('res.users', string='Solicitado por',
                                        default=lambda self: self.env.user, readonly=True, copy=False)
@@ -48,9 +55,12 @@ class AccountPaymentOrderRequest(models.Model):
             [('user_id', '=', self.env.user.id)], limit=1),
         help='Empleado vinculado al usuario que solicita (sincronizado desde Enterprise - ver '
              'res.company._sync_employees_from_enterprise). Se fija automáticamente al crear y '
-             'no se puede modificar después (ver write()) para evitar suplantación - solo llena '
-             'departamento/puesto/cuenta bancaria; no se envía ningún id a la instalación '
-             'Procesadora.')
+             'no se puede modificar después (ver write()) para evitar suplantación - llena '
+             'departamento/puesto/cuenta bancaria como texto plano, y además viaja como '
+             '`employee_enterprise_ref` (el id ORIGINAL de este empleado en Enterprise, ver '
+             '`enterprise_employee_ref` en hr_employee.py) para que la instalación Procesadora '
+             'pueda resolver un `employee_id` real allá - a diferencia de otros ids en este '
+             'módulo, este SÍ es válido en ambas bases porque es literalmente de dónde vino.')
     puesto = fields.Char(string='Puesto')
     departamento = fields.Char(string='Departamento')
     analytic_account_id = fields.Many2one(
@@ -136,6 +146,11 @@ class AccountPaymentOrderRequest(models.Model):
         for rec in self:
             rec.es_viaticos = bool(viaticos_type) and rec.justificacion_tipo_id == viaticos_type
 
+    @api.depends('company_id.payment_order_role')
+    def _compute_es_procesador(self):
+        for rec in self:
+            rec.es_procesador = rec.company_id.payment_order_role == 'procesador'
+
     @api.onchange('analytic_account_id')
     def _onchange_analytic_account_id(self):
         for rec in self:
@@ -156,9 +171,37 @@ class AccountPaymentOrderRequest(models.Model):
                 vals['name'] = self.env['ir.sequence'].next_by_code(
                     'account.payment.order.request.sequence') or '/'
             self._resolve_justificacion_tipo_name(vals)
+            self._resolve_employee_enterprise_ref(vals)
+            self._resolve_company_enterprise_ref(vals)
             self._fill_derived_vals_from_employee(vals)
             self._fill_derived_vals_from_analytic_account(vals)
         return super().create(vals_list)
+
+    def _resolve_employee_enterprise_ref(self, vals):
+        """Resuelve `employee_enterprise_ref` (el id ORIGINAL de este empleado en Enterprise,
+        enviado por _prepare_sync_vals()) hacia un `employee_id` real de ESTA base - a
+        diferencia de justificacion_tipo/analytic_account (que se resuelven por NOMBRE, ya que
+        no hay ninguna referencia cruzada previa), aquí sí hay un id genuinamente válido en
+        ambos lados porque es literalmente el id del empleado tal como existe en Enterprise. Si
+        el empleado se resuelve, también se usa su compañía real para `company_id` - más preciso
+        que el respaldo de `_resolve_company_enterprise_ref()`."""
+        ref = vals.pop('employee_enterprise_ref', None)
+        if ref and not vals.get('employee_id'):
+            employee = self.env['hr.employee'].browse(int(ref)).exists()
+            if employee:
+                vals['employee_id'] = employee.id
+                vals.setdefault('company_id', employee.company_id.id)
+
+    def _resolve_company_enterprise_ref(self, vals):
+        """Respaldo de compañía (`res.company.payment_order_default_company_id`, configurado en
+        la instalación Solicitante) para cuando el empleado no se pudo resolver arriba - ej. la
+        Solicitud llegó de un usuario todavía no sincronizado. No-op si `company_id` ya quedó
+        resuelto por el empleado."""
+        ref = vals.pop('company_enterprise_ref', None)
+        if ref and not vals.get('company_id'):
+            company = self.env['res.company'].browse(int(ref)).exists()
+            if company:
+                vals['company_id'] = company.id
 
     def _resolve_justificacion_tipo_name(self, vals):
         """Resuelve `justificacion_tipo_name` (texto plano, lo único que viaja desde la
@@ -251,6 +294,11 @@ class AccountPaymentOrderRequest(models.Model):
                     'Complete cuenta a acreditar, tipo de cuenta, banco y el período antes de '
                     'enviar la solicitud.'))
             rec.write({'state': 'submitted', 'submit_date': fields.Datetime.now()})
+        # La sincronización ahora ocurre al enviar, no al aprobar - la aprobación (Nivel Medio/
+        # Alto) pasó a ocurrir en la instalación Procesadora (Enterprise), donde están los
+        # usuarios administrativos reales. En una instalación Procesadora esto es un no-op
+        # (_sync_to_enterprise() solo actúa si payment_order_role == 'solicitante').
+        self._sync_to_enterprise()
 
     def action_approve(self):
         for rec in self:
@@ -260,7 +308,6 @@ class AccountPaymentOrderRequest(models.Model):
                 'approved_by_id': self.env.user.id,
                 'approve_date': fields.Datetime.now(),
             })
-        self._sync_to_enterprise()
 
     def action_reject(self):
         self._check_is_approver()
@@ -287,13 +334,22 @@ class AccountPaymentOrderRequest(models.Model):
     def _prepare_sync_vals(self):
         """Snapshot plano (sin ids) para crear el registro correspondiente en la instalación
         Procesadora - incluso siendo el mismo modelo en ambos lados, un id de res.company/
-        res.users de esta base no significa nada en la otra."""
+        res.users de esta base no significa nada en la otra.
+
+        Excepción deliberada: `employee_enterprise_ref`/`company_enterprise_ref` SÍ son ids,
+        pero válidos en ambos lados porque son literalmente los ids que Enterprise usa para ese
+        empleado/compañía (el empleado se sincronizó DESDE ahí - ver
+        `enterprise_employee_ref` en hr_employee.py). No es lo mismo que enviar un id local de
+        esta base (que no significaría nada allá)."""
         self.ensure_one()
         return {
             'external_ref': self.name,
             'origin': 'synced',
             'justificacion_tipo_name': self.justificacion_tipo_id.name or '',
             'requested_by_name': self.requested_by_name or '',
+            'employee_enterprise_ref': self.employee_id.enterprise_employee_ref or False,
+            'company_enterprise_ref':
+                self.company_id.payment_order_default_company_id.enterprise_company_ref or False,
             'puesto': self.puesto or '',
             'departamento': self.departamento or '',
             'proyecto': self.proyecto or '',
@@ -307,10 +363,15 @@ class AccountPaymentOrderRequest(models.Model):
             'periodo_al': self.periodo_al and self.periodo_al.isoformat() or False,
             'observaciones': self.observaciones or '',
             'anticipo_previo': self.anticipo_previo,
-            'state': 'approved',
+            # 'submitted', no 'approved': la aprobación ahora ocurre en la instalación
+            # Procesadora (Enterprise), donde están los usuarios Nivel Medio/Alto reales - ver
+            # action_submit()/action_approve() más abajo.
+            'state': 'submitted',
+            'submit_date': fields.Datetime.now(),
             'viaticos_line_ids': [
                 (0, 0, {
                     'tecnico_name': line.tecnico_name or '',
+                    'employee_enterprise_ref': line.employee_id.enterprise_employee_ref or False,
                     'departamento': line.departamento or '',
                     'puesto': line.puesto or '',
                     'justificacion_tipo_name': line.justificacion_tipo_id.name or '',
@@ -322,10 +383,12 @@ class AccountPaymentOrderRequest(models.Model):
         }
 
     def _sync_to_enterprise(self):
-        """Empuja esta Solicitud (ya aprobada) hacia la instalación Procesadora configurada.
+        """Empuja esta Solicitud (recién enviada, `state='submitted'`) hacia la instalación
+        Procesadora configurada - se llama desde action_submit(), no action_approve(): la
+        aprobación ocurre en Enterprise, no aquí (decisión explícita del usuario).
 
         Nunca lanza: los fallos quedan registrados en el propio registro (sync_state='error')
-        para el cron de reintento, sin bloquear action_approve()."""
+        para el cron de reintento, sin bloquear action_submit()."""
         for rec in self:
             company = rec.company_id
             if company.payment_order_role != 'solicitante' or not company.payment_order_sync_enabled:
@@ -400,12 +463,12 @@ class AccountPaymentOrderRequestLine(models.Model):
     employee_id = fields.Many2one(
         'hr.employee', string='Empleado',
         help='Empleado destino de este renglón (sincronizado desde Enterprise). Llena '
-             'técnico/departamento/puesto automáticamente; no se envía ningún id a la '
-             'instalación Procesadora - solo el nombre (`tecnico_name`), que viaja como texto. '
-             'No es `required=True` a nivel de campo (rompería la recepción de líneas '
-             'sincronizadas, que llegan solo con `tecnico_name` en texto - Enterprise no tiene '
-             'forma de saber a cuál de SUS empleados corresponde un `tecnico_name` de '
-             'Community); se exige en cambio en `action_submit()`, que las líneas locales '
+             'técnico/departamento/puesto automáticamente; viaja hacia la instalación '
+             'Procesadora tanto como texto (`tecnico_name`) como `employee_enterprise_ref` (el '
+             'id ORIGINAL de este empleado en Enterprise, válido en ambos lados - ver el '
+             'encabezado). No es `required=True` a nivel de campo (rompería la recepción de '
+             'líneas sincronizadas de un empleado todavía no vinculado a un `enterprise_ref` '
+             'conocido); se exige en cambio en `action_submit()`, que las líneas locales '
              'siempre pasan y las sincronizadas no.')
     tecnico_name = fields.Char(
         string='Técnico',
@@ -469,6 +532,13 @@ class AccountPaymentOrderRequestLine(models.Model):
                 justification_type = self.env[
                     'account.payment.order.justification.type']._find_or_create_by_name(name)
                 vals['justificacion_tipo_id'] = justification_type.id
+            ref = vals.pop('employee_enterprise_ref', None)
+            if ref and not vals.get('employee_id'):
+                # Mismo mecanismo que el encabezado - ver
+                # AccountPaymentOrderRequest._resolve_employee_enterprise_ref().
+                employee = self.env['hr.employee'].browse(int(ref)).exists()
+                if employee:
+                    vals['employee_id'] = employee.id
             employee_id = vals.get('employee_id')
             if employee_id:
                 employee = self.env['hr.employee'].browse(employee_id)

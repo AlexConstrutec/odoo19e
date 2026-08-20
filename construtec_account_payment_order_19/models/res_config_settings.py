@@ -23,6 +23,8 @@ class ResConfigSettings(models.TransientModel):
         related='company_id.employee_sync_interval_number', readonly=False)
     employee_sync_interval_type = fields.Selection(
         related='company_id.employee_sync_interval_type', readonly=False)
+    payment_order_default_company_id = fields.Many2one(
+        related='company_id.payment_order_default_company_id', readonly=False)
 
     def action_sync_employees_now(self):
         self.ensure_one()

@@ -10,17 +10,18 @@
                             invisible="state != 'draft'"/>
                     <button name="action_approve" string="Aprobar" type="object" class="oe_highlight"
                             groups="construtec_account_payment_order_19.group_payment_order_approver"
-                            invisible="state != 'submitted'"/>
+                            invisible="state != 'submitted' or not es_procesador"/>
                     <button name="action_reject" string="Rechazar" type="object"
                             groups="construtec_account_payment_order_19.group_payment_order_approver"
-                            invisible="state != 'submitted'"/>
+                            invisible="state != 'submitted' or not es_procesador"/>
                     <button name="action_reset_to_draft" string="Volver a Borrador" type="object"
                             invisible="state not in ('submitted', 'rejected')"/>
                     <button name="action_cancel" string="Cancelar" type="object"
                             invisible="state in ('cancel', 'rejected')"/>
                     <button name="action_crear_anticipo" string="Crear Anticipo" type="object"
                             class="oe_highlight" groups="account.group_account_invoice"
-                            invisible="state != 'approved' or payment_order_id"/>
+                            invisible="state != 'approved' or payment_order_id or not es_procesador"/>
+                    <field name="es_procesador" invisible="1"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,submitted,approved"/>
                 </header>
                 <sheet>
