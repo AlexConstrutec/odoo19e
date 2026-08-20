@@ -25,6 +25,7 @@
         'views/account_payment_views.xml',
         'views/account_payment_order_request_views.xml',
         'views/hr_employee_views.xml',
+        'views/res_partner_views.xml',
         'views/res_config_settings_views.xml',
         'wizard/account_payment_order_request_crear_anticipo_views.xml',
         'report/account_payment_order_report.xml',
