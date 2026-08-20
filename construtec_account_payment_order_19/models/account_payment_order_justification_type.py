@@ -10,12 +10,16 @@ class AccountPaymentOrderJustificationType(models.Model):
     sequence = fields.Integer(default=10)
     active = fields.Boolean(default=True)
     cuenta_contable_id = fields.Many2one(
-        'account.account', string='Cuenta Contable de Gastos',
-        domain=[('internal_group', '=', 'expense')],
+        'account.payment.order.enterprise.account', string='Cuenta Contable de Gastos',
         help='Cuenta de gastos asociada a este Tipo de Gasto, para reducir digitación al '
              'contabilizar - por ahora solo se guarda aquí como configuración (no hay todavía '
              'ningún flujo automático de este módulo que la use; se digita a mano en cada '
-             'factura de proveedor al momento de la Liquidación, como siempre).')
+             'factura de proveedor al momento de la Liquidación, como siempre). Apunta al '
+             'catálogo espejo `account.payment.order.enterprise.account` (no a account.account '
+             'directo) para que el mismo campo funcione igual en Community y en Enterprise: en '
+             'Community ese espejo se llena por RPC desde la Compañía por Defecto ya elegida; '
+             'en Enterprise se refleja local de las cuentas reales de esa misma base - ver '
+             'res_company.py:_sync_enterprise_accounts().')
 
     @api.model
     def _find_or_create_by_name(self, name):

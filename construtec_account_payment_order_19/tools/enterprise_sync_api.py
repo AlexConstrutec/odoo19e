@@ -162,3 +162,36 @@ def fetch_companies(url, db, login, api_key):
     return _jsonrpc(
         url, 'object', 'execute_kw',
         [db, uid, api_key, 'res.company', 'search_read', [[]], {'fields': ['name']}])
+
+
+def fetch_accounts(url, db, login, api_key, company_ref):
+    """Read-only pull de las cuentas de GASTO de UNA sola compañía de Enterprise (la ya elegida
+    como "Compañía por defecto" - `company_ref` es su `enterprise_company_ref`, un id real de
+    Enterprise). Solo cuentas de gasto (`internal_group='expense'`), no todo el plan de
+    cuentas - es lo único que `account.payment.order.justification.type.cuenta_contable_id`
+    necesita."""
+    if not (url and db and login and api_key):
+        raise EnterpriseSyncError(
+            'Sincronización de Cuentas Contables incompleta (falta URL, base de datos, '
+            'usuario o API Key).')
+    uid = authenticate(url, db, login, api_key)
+    return _jsonrpc(
+        url, 'object', 'execute_kw',
+        [db, uid, api_key, 'account.account', 'search_read',
+         [[('company_ids', 'in', [int(company_ref)]), ('internal_group', '=', 'expense')]],
+         {'fields': ['name', 'code']}])
+
+
+def fetch_journals(url, db, login, api_key, company_ref):
+    """Read-only pull de los diarios de BANCO de esa misma compañía. Igual criterio que
+    fetch_accounts()."""
+    if not (url and db and login and api_key):
+        raise EnterpriseSyncError(
+            'Sincronización de Diarios Contables incompleta (falta URL, base de datos, '
+            'usuario o API Key).')
+    uid = authenticate(url, db, login, api_key)
+    return _jsonrpc(
+        url, 'object', 'execute_kw',
+        [db, uid, api_key, 'account.journal', 'search_read',
+         [[('company_id', '=', int(company_ref)), ('type', '=', 'bank')]],
+         {'fields': ['name', 'code']}])

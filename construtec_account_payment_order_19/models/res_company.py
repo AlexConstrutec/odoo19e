@@ -3,7 +3,8 @@ import logging
 from odoo import api, fields, models
 
 from ..tools.enterprise_sync_api import (
-    EnterpriseSyncError, fetch_analytic_accounts, fetch_companies, fetch_employees,
+    EnterpriseSyncError, fetch_accounts, fetch_analytic_accounts, fetch_companies,
+    fetch_employees, fetch_journals,
 )
 
 _logger = logging.getLogger(__name__)
@@ -257,6 +258,130 @@ class ResCompany(models.Model):
                 created += 1
         message = self.env._(
             '%(created)s compañías nuevas, %(updated)s actualizadas.',
+            created=created, updated=updated)
+        return True, message
+
+    def action_sync_accounts_journals_now(self):
+        self.ensure_one()
+        ok_acc, message_acc = self._sync_enterprise_accounts()
+        ok_journal, message_journal = self._sync_enterprise_journals()
+        ok = ok_acc and ok_journal
+        message = self.env._(
+            'Cuentas Contables: %(message_acc)s\nDiarios Contables: %(message_journal)s',
+            message_acc=message_acc, message_journal=message_journal)
+        self._payment_order_sync_log(ok, message)
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': self.env._('Sincronización de Cuentas/Diarios Contables'),
+                'message': message,
+                'type': 'success' if ok else 'danger',
+                'sticky': not ok,
+            },
+        }
+
+    def _sync_enterprise_accounts(self):
+        """Puebla `account.payment.order.enterprise.account` (usado por `cuenta_contable_id`
+        en el catálogo de Tipo de Gasto) - **consciente del rol**, a diferencia de
+        empleados/analíticas/compañías (que solo aplican para Solicitante):
+
+        - Procesador (Enterprise): se refleja LOCAL, directo de las cuentas de gasto reales de
+          ESTA misma compañía (`self.env.company` - sin RPC, Enterprise ya es la fuente real).
+          Necesario porque `cuenta_contable_id` es un solo campo/modelo compartido entre
+          ambas ediciones - si solo se poblara en Solicitante, quedaría vacío para siempre en
+          Procesador.
+        - Solicitante (Community): pull por RPC, acotado a la ÚNICA compañía ya elegida en
+          "Compañía por defecto" (`payment_order_default_company_id`) - no tiene sentido traer
+          el plan de cuentas de TODAS las compañías de Enterprise para esto."""
+        self.ensure_one()
+        if self.payment_order_role == 'procesador':
+            accounts = self.env['account.account'].sudo().search([
+                ('company_ids', 'in', self.id), ('internal_group', '=', 'expense'),
+            ])
+            return self._upsert_enterprise_accounts(
+                [{'id': a.id, 'name': a.name, 'code': a.code} for a in accounts])
+        if not self.payment_order_sync_enabled:
+            return True, self.env._(
+                'Sincronización de Cuentas Contables no aplica (sincronización no configurada).')
+        if not self.payment_order_default_company_id:
+            return True, self.env._(
+                'Sincronización de Cuentas Contables no aplica (defina primero la Compañía '
+                'por Defecto en Enterprise).')
+        try:
+            accounts = fetch_accounts(
+                self.payment_order_sync_url, self.payment_order_sync_db,
+                self.payment_order_sync_login, self.payment_order_sync_api_key,
+                self.payment_order_default_company_id.enterprise_company_ref)
+        except EnterpriseSyncError as exc:
+            _logger.warning('Sincronización de Cuentas Contables falló para %s: %s', self.name, exc)
+            return False, str(exc)
+        return self._upsert_enterprise_accounts(accounts)
+
+    def _upsert_enterprise_accounts(self, accounts):
+        EnterpriseAccount = self.env['account.payment.order.enterprise.account'].sudo()
+        created = updated = 0
+        for acc in accounts:
+            enterprise_ref = str(acc['id'])
+            vals = {'name': acc['name'], 'code': acc.get('code') or False,
+                    'enterprise_account_ref': enterprise_ref}
+            existing = EnterpriseAccount.search(
+                [('enterprise_account_ref', '=', enterprise_ref)], limit=1)
+            if existing:
+                existing.write(vals)
+                updated += 1
+            else:
+                EnterpriseAccount.create(vals)
+                created += 1
+        message = self.env._(
+            '%(created)s cuentas nuevas, %(updated)s actualizadas.',
+            created=created, updated=updated)
+        return True, message
+
+    def _sync_enterprise_journals(self):
+        """Puebla `account.payment.order.enterprise.journal` - mismo criterio consciente del
+        rol que _sync_enterprise_accounts(), solo diarios de banco."""
+        self.ensure_one()
+        if self.payment_order_role == 'procesador':
+            journals = self.env['account.journal'].sudo().search([
+                ('company_id', '=', self.id), ('type', '=', 'bank'),
+            ])
+            return self._upsert_enterprise_journals(
+                [{'id': j.id, 'name': j.name, 'code': j.code} for j in journals])
+        if not self.payment_order_sync_enabled:
+            return True, self.env._(
+                'Sincronización de Diarios Contables no aplica (sincronización no configurada).')
+        if not self.payment_order_default_company_id:
+            return True, self.env._(
+                'Sincronización de Diarios Contables no aplica (defina primero la Compañía '
+                'por Defecto en Enterprise).')
+        try:
+            journals = fetch_journals(
+                self.payment_order_sync_url, self.payment_order_sync_db,
+                self.payment_order_sync_login, self.payment_order_sync_api_key,
+                self.payment_order_default_company_id.enterprise_company_ref)
+        except EnterpriseSyncError as exc:
+            _logger.warning('Sincronización de Diarios Contables falló para %s: %s', self.name, exc)
+            return False, str(exc)
+        return self._upsert_enterprise_journals(journals)
+
+    def _upsert_enterprise_journals(self, journals):
+        EnterpriseJournal = self.env['account.payment.order.enterprise.journal'].sudo()
+        created = updated = 0
+        for journal in journals:
+            enterprise_ref = str(journal['id'])
+            vals = {'name': journal['name'], 'code': journal.get('code') or False,
+                    'enterprise_journal_ref': enterprise_ref}
+            existing = EnterpriseJournal.search(
+                [('enterprise_journal_ref', '=', enterprise_ref)], limit=1)
+            if existing:
+                existing.write(vals)
+                updated += 1
+            else:
+                EnterpriseJournal.create(vals)
+                created += 1
+        message = self.env._(
+            '%(created)s diarios nuevos, %(updated)s actualizados.',
             created=created, updated=updated)
         return True, message
 

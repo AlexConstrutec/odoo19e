@@ -94,6 +94,17 @@
                                placeholder="Sincronice para ver la lista de compañías"/>
                     </setting>
                 </block>
+                <block title="Cuentas y Diarios Contables (Tipo de Gasto)" name="payment_order_accounts_settings">
+                    <setting string="Catálogo para &quot;Cuenta Contable de Gastos&quot;"
+                             help="Puebla account.payment.order.enterprise.account/journal, usado por
+                                   cuenta_contable_id en el catálogo de Tipos de Gasto. En una instalación
+                                   Procesadora (Enterprise) se refleja local de las cuentas/diarios reales
+                                   de esta compañía. En una instalación Solicitante (Community) se jala por
+                                   RPC de la Compañía por Defecto ya elegida arriba - defínala primero.">
+                        <button name="action_sync_accounts_journals_now" type="object"
+                                string="Sincronizar ahora" class="btn btn-secondary" icon="fa-refresh"/>
+                    </setting>
+                </block>
             </xpath>
         </field>
     </record>

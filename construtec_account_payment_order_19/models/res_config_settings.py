@@ -30,6 +30,10 @@ class ResConfigSettings(models.TransientModel):
         self.ensure_one()
         return self.company_id.action_sync_employees_now()
 
+    def action_sync_accounts_journals_now(self):
+        self.ensure_one()
+        return self.company_id.action_sync_accounts_journals_now()
+
     def action_test_payment_order_sync_connection(self):
         self.ensure_one()
         try:
