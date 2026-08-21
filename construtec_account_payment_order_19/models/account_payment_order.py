@@ -379,16 +379,16 @@ class AccountPaymentOrder(models.Model):
                     'account.payment.order.sequence') or '/'
             self._resolve_employee_enterprise_ref(vals)
             self._resolve_company_enterprise_ref(vals)
+            self._resolve_analytic_enterprise_ref(vals)
             self._fill_derived_vals_from_employee(vals)
             self._fill_derived_vals_from_analytic_account(vals)
         return super().create(vals_list)
 
     def _resolve_employee_enterprise_ref(self, vals):
         """Resuelve `employee_enterprise_ref` (el id ORIGINAL de este empleado en Enterprise,
-        enviado por _prepare_sync_vals()) hacia un `partner_id` real de ESTA base - a diferencia
-        de analytic_account (que se resuelve por NOMBRE, ya que no hay ninguna referencia
-        cruzada previa), aquí sí hay un id genuinamente válido en ambos lados porque es
-        literalmente el id del empleado tal como existe en Enterprise.
+        enviado por _prepare_sync_vals()) hacia un `partner_id` real de ESTA base - hay un id
+        genuinamente válido en ambos lados porque es literalmente el id del empleado tal como
+        existe en Enterprise (mismo patrón que `_resolve_analytic_enterprise_ref()` abajo).
 
         Se resuelve hacia `partner_id` (el contacto), NO hacia `employee_id` directamente -
         `employee_id` es un campo calculado (ver _compute_employee_id()) que se vuelve a derivar
@@ -412,6 +412,26 @@ class AccountPaymentOrder(models.Model):
             company = self.env['res.company'].browse(int(ref)).exists()
             if company:
                 vals['company_id'] = company.id
+
+    def _resolve_analytic_enterprise_ref(self, vals):
+        """Resuelve `analytic_enterprise_ref` (enviado por _prepare_sync_vals(), tomado del
+        `enterprise_analytic_ref` del mirror local en Community - ver `_sync_analytic_accounts_
+        from_enterprise()` en res_company.py) hacia un `analytic_account_id` real de ESTA base -
+        mismo patrón que `_resolve_employee_enterprise_ref()`: es un id genuinamente válido aquí
+        porque es literalmente el id de la cuenta analítica tal como existe en Enterprise (el
+        mirror de Community solo la reflejó, nunca la creó de cero).
+
+        Bug real corregido (2026-08): antes de esto, la cuenta analítica NUNCA viajaba como
+        relación real - `_prepare_sync_vals()` solo mandaba `proyecto` (el nombre en texto plano)
+        y `_fill_derived_vals_from_analytic_account()` únicamente sabe derivar `proyecto` A PARTIR
+        de un `analytic_account_id` ya dado, no al revés - así que una Orden sincronizada desde
+        Community, aunque mostrara el nombre correcto en "Proyecto", llegaba a Enterprise con
+        `analytic_account_id` vacío."""
+        ref = vals.pop('analytic_enterprise_ref', None)
+        if ref and not vals.get('analytic_account_id'):
+            analytic_account = self.env['account.analytic.account'].browse(int(ref)).exists()
+            if analytic_account:
+                vals['analytic_account_id'] = analytic_account.id
 
     def _fill_derived_vals_from_employee(self, vals):
         """Same autocompletado que _onchange_partner_id, pero para create() por API/script (el
@@ -568,11 +588,12 @@ class AccountPaymentOrder(models.Model):
         Procesadora - incluso siendo el mismo modelo en ambos lados, un id de res.company/
         res.users de esta base no significa nada en la otra.
 
-        Excepción deliberada: `employee_enterprise_ref`/`company_enterprise_ref` SÍ son ids,
-        pero válidos en ambos lados porque son literalmente los ids que Enterprise usa para ese
-        empleado/compañía (el empleado se sincronizó DESDE ahí - ver
-        `enterprise_employee_ref` en hr_employee.py). No es lo mismo que enviar un id local de
-        esta base (que no significaría nada allá)."""
+        Excepción deliberada: `employee_enterprise_ref`/`company_enterprise_ref`/
+        `analytic_enterprise_ref` SÍ son ids, pero válidos en ambos lados porque son literalmente
+        los ids que Enterprise usa para ese empleado/compañía/cuenta analítica (todos se
+        sincronizaron DESDE ahí - ver `enterprise_employee_ref` en hr_employee.py y
+        `enterprise_analytic_ref` en account_analytic_account.py). No es lo mismo que enviar un
+        id local de esta base (que no significaría nada allá)."""
         self.ensure_one()
         return {
             'tipo': 'anticipo_viaticos',
@@ -582,6 +603,7 @@ class AccountPaymentOrder(models.Model):
             'employee_enterprise_ref': self.employee_id.enterprise_employee_ref or False,
             'company_enterprise_ref':
                 self.company_id.payment_order_default_company_id.enterprise_company_ref or False,
+            'analytic_enterprise_ref': self.analytic_account_id.enterprise_analytic_ref or False,
             'puesto': self.puesto or '',
             'departamento': self.departamento or '',
             'proyecto': self.proyecto or '',
