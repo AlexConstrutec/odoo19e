@@ -65,7 +65,7 @@
                             <field name="tipo_cuenta" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="periodo_del" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="periodo_al" invisible="tipo != 'anticipo_viaticos'"/>
-                            <field name="user_id"/>
+                            <field name="user_id" invisible="tipo == 'anticipo_viaticos'"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
@@ -92,6 +92,7 @@
                                 <group>
                                     <field name="cuenta_acreditar"/>
                                     <field name="banco"/>
+                                    <field name="user_id"/>
                                 </group>
                             </group>
                         </page>
