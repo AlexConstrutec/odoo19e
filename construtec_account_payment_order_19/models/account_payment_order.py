@@ -58,7 +58,6 @@ class AccountPaymentOrder(models.Model):
              'nuevo con un valor que ni siquiera aparece en su propio desplegable filtrado '
              '(`fields_get()`), viéndose "vacío" y ocultando Viáticos/Pagos/Facturas por completo.')
     name = fields.Char(string='Nombre', compute='_compute_name', store=True, readonly=False)
-    no_liquidacion = fields.Integer(string='No. Liquidación')
     fecha = fields.Date(string='Fecha', required=True, default=fields.Date.context_today)
     journal_id = fields.Many2one(
         'account.journal', string='Diario',
@@ -250,18 +249,17 @@ class AccountPaymentOrder(models.Model):
     sync_error = fields.Text(string='Detalle del Error de Sincronización', readonly=True, copy=False)
     sync_date = fields.Datetime(string='Fecha de Sincronización', readonly=True, copy=False)
 
-    _sql_constraints = [
-        ('no_liquidacion_unique',
-         'UNIQUE(no_liquidacion) WHERE no_liquidacion != 0',
-         'El número de liquidación debe ser único, excepto si es cero.'),
-    ]
-
-    @api.depends('no_liquidacion', 'tipo')
+    @api.depends('tipo')
     def _compute_name(self):
+        """El nombre real (secuencia OP/0001) se asigna en create() ANTES del insert (ver
+        `create()`) para los 4 tipos - este compute solo cubre el placeholder de un registro
+        `.new()` que todavía no se ha guardado. Antes existía un "No. Liquidación" manual
+        (Integer, con su propia numeración aparte) que le daba a la Liquidación un nombre
+        distinto ("Liquidación N") - se retiró por decisión explícita del usuario: la propia
+        Orden de Pago (`tipo`) ya distingue si es Anticipo/Liquidación/Pago Directo, no hacía
+        falta una segunda numeración paralela."""
         for rec in self:
-            if rec.tipo == 'liquidacion' and rec.no_liquidacion:
-                rec.name = 'Liquidación %s' % rec.no_liquidacion
-            elif not rec.name:
+            if not rec.name:
                 rec.name = 'Nueva Orden de Pago'
 
     @api.model
@@ -331,19 +329,6 @@ class AccountPaymentOrder(models.Model):
     def _onchange_journal_id_payment_method(self):
         if self.payment_method_line_id not in self.journal_id.outbound_payment_method_line_ids:
             self.payment_method_line_id = self.journal_id.outbound_payment_method_line_ids[:1]
-
-    @api.onchange('no_liquidacion')
-    def _onchange_no_liquidacion(self):
-        if self.no_liquidacion:
-            existing = self.env['account.payment.order'].search([
-                ('no_liquidacion', '=', self.no_liquidacion),
-                ('id', '!=', self._origin.id),
-            ], limit=1)
-            if existing:
-                raise UserError(self.env._('El número de liquidación ya existe.'))
-            self.name = 'Liquidación %s' % self.no_liquidacion
-            for factura in self.factura_ids:
-                factura.no_liquidacion = self.no_liquidacion
 
     @api.depends('partner_id', 'company_id')
     def _compute_employee_id(self):
@@ -432,7 +417,8 @@ class AccountPaymentOrder(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
-            if vals.get('tipo', 'anticipo') in ('anticipo', 'anticipo_viaticos', 'pago_directo') \
+            if vals.get('tipo', 'anticipo') in (
+                    'anticipo', 'anticipo_viaticos', 'liquidacion', 'pago_directo') \
                     and not vals.get('name'):
                 vals['name'] = self.env['ir.sequence'].next_by_code(
                     'account.payment.order.sequence') or '/'

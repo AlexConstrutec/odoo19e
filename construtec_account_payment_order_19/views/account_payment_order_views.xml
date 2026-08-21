@@ -47,7 +47,6 @@
                     <group>
                         <group>
                             <field name="tipo"/>
-                            <field name="no_liquidacion" invisible="tipo != 'liquidacion'"/>
                             <field name="anticipos_disponibles_ids" invisible="1"/>
                             <field name="anticipo_id" readonly="state != 'borrador'"
                                    invisible="tipo != 'liquidacion'"/>
