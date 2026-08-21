@@ -151,6 +151,17 @@ class AccountPaymentOrder(models.Model):
         # (Outstanding Payments) queda en cero.
         ('state', 'in', ('in_process', 'paid')),
     ])
+    diferencia_conciliacion = fields.Monetary(
+        string='Diferencia (a conciliar)', compute='_compute_diferencia_conciliacion',
+        currency_field='currency_id',
+        help='Facturas cargadas (posted) menos Pagos cargados (in_process/paid) - lo más '
+             'cercano a la conciliación nativa de Odoo que se puede mostrar aquí en vivo, antes '
+             'de intentar Conciliar: positivo significa que faltan pagos por cubrir (o usar '
+             '"Crear Pago"), negativo que faltan facturas (o hay pagos de más). En cero, '
+             'Conciliar debería funcionar sin pedir Cuenta de Ajuste. Aproximación con los '
+             'totales de cada documento (`amount_total`/`amount`), no con las líneas contables '
+             'reales que usa `action_conciliar()` - coinciden en el caso normal, pero la cifra '
+             'final la decide siempre `action_conciliar()`, no este campo.')
     state = fields.Selection([
         ('borrador', 'Borrador'),
         ('enviado', 'Enviado'),
@@ -381,6 +392,28 @@ class AccountPaymentOrder(models.Model):
             subtotal = sum(rec.viaticos_line_ids.mapped('total'))
             rec.subtotal = subtotal
             rec.total_acreditar = subtotal - rec.anticipo_previo
+
+    @api.depends('factura_ids.amount_total', 'factura_ids.state', 'pago_ids.amount', 'pago_ids.state')
+    def _compute_diferencia_conciliacion(self):
+        for rec in self:
+            total_facturas = sum(rec.factura_ids.filtered(
+                lambda f: f.state == 'posted').mapped('amount_total'))
+            total_pagos = sum(rec.pago_ids.filtered(
+                lambda p: p.state in ('in_process', 'paid')).mapped('amount'))
+            rec.diferencia_conciliacion = total_facturas - total_pagos
+
+    @api.onchange('anticipo_id')
+    def _onchange_anticipo_id_cargar_pagos(self):
+        """Al elegir/cambiar el Anticipo de Origen a mano (fuera del flujo normal del botón
+        "Registrar Liquidación", que ya hace esto mismo en action_registrar_liquidacion()),
+        agrega los pagos del Anticipo a `pago_ids` - así el contable ve de una vez cuánto ya
+        está cubierto y cuánto falta (`diferencia_conciliacion`), sin tener que ir a buscar el
+        pago del Anticipo a mano. Solo agrega, nunca quita - si se cambia a otro Anticipo no se
+        eliminan pagos ya cargados, por si eran de otra fuente."""
+        if self.tipo == 'liquidacion' and self.anticipo_id:
+            nuevos = self.anticipo_id.pago_ids - self.pago_ids
+            if nuevos:
+                self.pago_ids = self.pago_ids | nuevos
 
     @api.onchange('viaticos_line_ids.total', 'anticipo_previo')
     def _onchange_sync_monto(self):

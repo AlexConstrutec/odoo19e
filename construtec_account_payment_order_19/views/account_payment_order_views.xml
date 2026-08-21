@@ -173,6 +173,17 @@
                             groups="account.group_account_manager"
                             invisible="tipo not in ('liquidacion', 'pago_directo') or state != 'borrador' or not es_procesador"/>
 
+                    <group invisible="tipo not in ('liquidacion', 'pago_directo') or not es_procesador"
+                           class="oe_subtotal_footer oe_right">
+                        <field name="diferencia_conciliacion" class="oe_subtotal_footer_separator"/>
+                    </group>
+                    <p class="text-muted"
+                       invisible="tipo not in ('liquidacion', 'pago_directo') or not es_procesador or state != 'borrador'">
+                        Positivo: faltan pagos por cubrir (usa "Crear Pago" o agrega uno a mano). Negativo:
+                        faltan facturas, o hay pagos de más. En cero, Conciliar debería funcionar sin pedir
+                        Cuenta de Ajuste.
+                    </p>
+
                     <div invisible="tipo in ('anticipo', 'anticipo_viaticos')">
                         <group>
                             <group>
