@@ -152,24 +152,27 @@
                         </list>
                     </field>
 
-                    <div invisible="tipo in ('anticipo', 'anticipo_viaticos')">
-                        <div class="oe_title">
-                            <h2>Pagos/Cheques</h2>
-                        </div>
-                        <field name="pago_ids" widget="many2many" nolabel="1">
-                            <list>
-                                <field name="date"/>
-                                <field name="name"/>
-                                <field name="partner_id" string="Contacto"/>
-                                <field name="memo" string="Memo"/>
-                                <field name="amount" widget="monetary" sum="Total"/>
-                                <field name="state" widget="badge" decoration-info="state == 'draft'"
-                                       decoration-warning="state == 'in_process'"
-                                       decoration-success="state == 'paid'"
-                                       decoration-danger="state in ('canceled', 'rejected')"/>
-                            </list>
-                        </field>
+                    <div class="oe_title">
+                        <h2>Pagos/Cheques</h2>
+                    </div>
+                    <field name="pago_ids" widget="many2many" nolabel="1">
+                        <list>
+                            <field name="date"/>
+                            <field name="name"/>
+                            <field name="partner_id" string="Contacto"/>
+                            <field name="memo" string="Memo"/>
+                            <field name="amount" widget="monetary" sum="Total"/>
+                            <field name="state" widget="badge" decoration-info="state == 'draft'"
+                                   decoration-warning="state == 'in_process'"
+                                   decoration-success="state == 'paid'"
+                                   decoration-danger="state in ('canceled', 'rejected')"/>
+                        </list>
+                    </field>
+                    <button name="action_crear_pago" string="Crear Pago" type="object"
+                            groups="account.group_account_manager"
+                            invisible="tipo not in ('liquidacion', 'pago_directo') or state != 'borrador'"/>
 
+                    <div invisible="tipo in ('anticipo', 'anticipo_viaticos')">
                         <group>
                             <group>
                                 <field name="cuenta_ajuste_id"/>

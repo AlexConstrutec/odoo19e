@@ -782,6 +782,54 @@ class AccountPaymentOrder(models.Model):
         self.write({'move_id': False, 'state': 'borrador'})
         return True
 
+    def action_crear_pago(self):
+        """Crea y contabiliza UN account.payment por el monto todavía pendiente, en vez de exigir
+        que el contable lo cree a mano en Contabilidad > Pagos y lo vincule aquí antes de
+        Conciliar. Caso real que motivó esto: varias facturas se pagan en un solo pago, o una
+        factura se paga con varios pagos (ej. el propio pago del Anticipo cubre una parte y este
+        botón cubre el resto) - `action_conciliar()` ya sabe netear cualquier combinación de
+        `factura_ids`/`pago_ids`, lo único que faltaba era no depender de que el pago ya existiera
+        de antemano. Si hace falta más de un pago adicional, se puede llamar este botón varias
+        veces (cada uno cubre lo que quede pendiente en ese momento), o agregar pagos ya
+        existentes a mano en `pago_ids` como ya se podía hacer antes."""
+        self.ensure_one()
+        if self.tipo not in ('liquidacion', 'pago_directo'):
+            raise UserError(self.env._(
+                'Crear Pago solo aplica a órdenes de tipo Liquidación o Pago Directo.'))
+        self._check_es_administrador_contable()
+        if not self.journal_id:
+            raise UserError(self.env._('Define el Diario antes de crear un pago.'))
+        if not self.partner_id:
+            raise UserError(self.env._('Define el Contacto antes de crear un pago.'))
+
+        total_facturas = sum(self.factura_ids.filtered(
+            lambda f: f.state == 'posted').mapped('amount_total'))
+        ya_pagado = sum(self.pago_ids.filtered(
+            lambda p: p.state in ('in_process', 'paid')).mapped('amount'))
+        faltante = total_facturas - ya_pagado
+        if self.currency_id.is_zero(faltante):
+            raise UserError(self.env._(
+                'No hay ningún monto pendiente de pagar - el/los pago(s) ya registrado(s) '
+                'cubren el total de las facturas.'))
+        if faltante < 0:
+            raise UserError(self.env._(
+                'El/los pago(s) ya registrado(s) superan el total de las facturas - revisa '
+                'antes de crear otro pago.'))
+
+        payment = self.env['account.payment'].create({
+            'payment_type': 'outbound',
+            'partner_type': 'supplier',
+            'partner_id': self.partner_id.id,
+            'amount': faltante,
+            'currency_id': self.currency_id.id,
+            'journal_id': self.journal_id.id,
+            'date': self.fecha,
+            'memo': self.name,
+            'payment_order_id': self.id,
+        })
+        payment.action_post()
+        return True
+
     def action_aplicar(self):
         self.ensure_one()
         if self.tipo not in ANTICIPO_TIPOS:
@@ -811,6 +859,12 @@ class AccountPaymentOrder(models.Model):
             'date': self.fecha,
             'memo': self.name,
             'destination_account_id': self.cuenta_anticipo_id.id,
+            # También vinculado a pago_ids (relación inversa vía payment_order_id) - no solo a
+            # payment_id - así queda visible junto a cualquier pago adicional que se agregue
+            # después (ver action_crear_pago()), en vez de ser el único pago "invisible" para
+            # ese mecanismo genérico. payment_id se mantiene igual, por compatibilidad con
+            # action_registrar_liquidacion() y el reporte impreso.
+            'payment_order_id': self.id,
         }
         if self.payment_method_line_id:
             payment_vals['payment_method_line_id'] = self.payment_method_line_id.id
