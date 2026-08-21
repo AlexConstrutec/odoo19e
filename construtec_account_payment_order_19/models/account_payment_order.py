@@ -388,17 +388,29 @@ class AccountPaymentOrder(models.Model):
             rec.diferencia_conciliacion = total_facturas - total_pagos
 
     @api.onchange('anticipo_id')
-    def _onchange_anticipo_id_cargar_pagos(self):
+    def _onchange_anticipo_id_heredar_datos(self):
         """Al elegir/cambiar el Anticipo de Origen a mano (fuera del flujo normal del botón
         "Registrar Liquidación", que ya hace esto mismo en action_registrar_liquidacion()),
-        agrega los pagos del Anticipo a `pago_ids` - así el contable ve de una vez cuánto ya
-        está cubierto y cuánto falta (`diferencia_conciliacion`), sin tener que ir a buscar el
-        pago del Anticipo a mano. Solo agrega, nunca quita - si se cambia a otro Anticipo no se
-        eliminan pagos ya cargados, por si eran de otra fuente."""
+        hereda del Anticipo lo que hace falta para que el contable sepa de una vez qué le falta
+        cargar (`diferencia_conciliacion`) sin ir a buscar cada dato a mano: diario, método de
+        pago, pagos y facturas. El dominio de `anticipo_id` (`anticipos_disponibles_ids`) ya
+        exige que sea un Anticipo `aplicado` - solo un Anticipo aplicado tiene esta información
+        completa (diario/método de pago definidos, pago real ya creado).
+
+        Solo agrega/rellena, nunca quita ni sobreescribe algo que el contable ya haya puesto a
+        mano (`journal_id`/`payment_method_line_id` solo se llenan si están vacíos; `pago_ids`/
+        `factura_ids` solo se completan con lo que falte, nunca se les quita nada - por si ya
+        traían algo de otra fuente)."""
         if self.tipo == 'liquidacion' and self.anticipo_id:
-            nuevos = self.anticipo_id.pago_ids - self.pago_ids
-            if nuevos:
-                self.pago_ids = self.pago_ids | nuevos
+            self.journal_id = self.journal_id or self.anticipo_id.journal_id
+            self.payment_method_line_id = (
+                self.payment_method_line_id or self.anticipo_id.payment_method_line_id)
+            nuevos_pagos = self.anticipo_id.pago_ids - self.pago_ids
+            if nuevos_pagos:
+                self.pago_ids = self.pago_ids | nuevos_pagos
+            nuevas_facturas = self.anticipo_id.factura_ids - self.factura_ids
+            if nuevas_facturas:
+                self.factura_ids = self.factura_ids | nuevas_facturas
 
     @api.onchange('viaticos_line_ids.total', 'anticipo_previo')
     def _onchange_sync_monto(self):
@@ -827,6 +839,11 @@ class AccountPaymentOrder(models.Model):
                 'debit': -total if total < 0 else 0,
                 'credit': total if total > 0 else 0,
                 'account_id': self.cuenta_ajuste_id.id,
+                # Contacto = el solicitante de la Orden de Pago (`partner_id`) - a diferencia de
+                # las demás líneas (que traen su propio `partner_id` real de cada factura/pago),
+                # esta línea de ajuste no viene de ningún documento, así que sin esto quedaba sin
+                # contacto.
+                'partner_id': self.partner_id.id,
                 'date_maturity': self.fecha,
             }))
 
@@ -894,7 +911,7 @@ class AccountPaymentOrder(models.Model):
                 'El/los pago(s) ya registrado(s) superan el total de las facturas - revisa '
                 'antes de crear otro pago.'))
 
-        payment = self.env['account.payment'].create({
+        payment_vals = {
             'payment_type': 'outbound',
             'partner_type': 'supplier',
             'partner_id': self.partner_id.id,
@@ -904,7 +921,10 @@ class AccountPaymentOrder(models.Model):
             'date': self.fecha,
             'memo': self.name,
             'payment_order_id': self.id,
-        })
+        }
+        if self.payment_method_line_id:
+            payment_vals['payment_method_line_id'] = self.payment_method_line_id.id
+        payment = self.env['account.payment'].create(payment_vals)
         payment.action_post()
         return True
 
@@ -1037,13 +1057,15 @@ class AccountPaymentOrder(models.Model):
             'tipo': 'liquidacion',
             'anticipo_id': self.id,
             'journal_id': self.journal_id.id,
+            'payment_method_line_id': self.payment_method_line_id.id,
             'fecha': fields.Date.context_today(self),
             'partner_id': self.partner_id.id,
-            # pago_ids es One2many (payment_order_id) - (4, id) reasigna cada pago del Anticipo
-            # hacia esta Liquidación (ya no queda un campo `payment_id` aparte que preserve la
-            # referencia del lado del Anticipo - ver CLAUDE.md). Todos los pagos, no solo uno,
-            # ya que ahora un Anticipo puede tener más de uno (ver action_crear_pago()).
+            # pago_ids/factura_ids son One2many (payment_order_id) - (4, id) reasigna cada uno
+            # del Anticipo hacia esta Liquidación (ya no queda un campo `payment_id` aparte que
+            # preserve la referencia del lado del Anticipo - ver CLAUDE.md). Todos los pagos, no
+            # solo uno, ya que ahora un Anticipo puede tener más de uno (ver action_crear_pago()).
             'pago_ids': [(4, p.id) for p in self.pago_ids],
+            'factura_ids': [(4, f.id) for f in self.factura_ids],
         })
         return {
             'type': 'ir.actions.act_window',

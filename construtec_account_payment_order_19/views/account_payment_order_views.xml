@@ -57,6 +57,9 @@
                             <field name="correo" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="journal_id" invisible="not es_procesador"
                                    domain="[('type', '=', 'bank')] if tipo == 'anticipo_viaticos' else []"/>
+                            <field name="available_payment_method_line_ids" invisible="1"/>
+                            <field name="payment_method_line_id" invisible="not es_procesador"
+                                   readonly="state not in ('borrador', 'aprobado')"/>
                             <field name="partner_id" readonly="tipo == 'anticipo_viaticos'"
                                    domain="[('employee', '=', True)] if tipo == 'anticipo_viaticos' else []"/>
                             <field name="puesto" invisible="tipo != 'anticipo_viaticos'"/>
@@ -79,9 +82,6 @@
                             <field name="monto"
                                    readonly="tipo == 'anticipo_viaticos' or state not in ('borrador', 'aprobado')"/>
                             <field name="cuenta_anticipo_id" invisible="not es_procesador"
-                                   readonly="state not in ('borrador', 'aprobado')"/>
-                            <field name="available_payment_method_line_ids" invisible="1"/>
-                            <field name="payment_method_line_id" invisible="not es_procesador"
                                    readonly="state not in ('borrador', 'aprobado')"/>
                         </group>
                     </group>
