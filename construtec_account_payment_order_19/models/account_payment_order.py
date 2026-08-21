@@ -583,6 +583,34 @@ class AccountPaymentOrder(models.Model):
                 raise UserError(self.env._('Cancelar (Anticipo) solo aplica a tipo Anticipo.'))
             rec.state = 'cancelado'
 
+    def action_cancelar_anticipo_aplicado(self):
+        """Cancela/revierte un Anticipo YA Aplicado (pago real ya contabilizado) - a diferencia
+        de `action_cancel()` (sin restricción de grupo, pero solo visible ANTES de aplicar, ver
+        la vista), esto deshace un pago real, así que está restringido a Gerente igual que
+        `action_cancelar()` (Liquidación/Pago Directo). Bloquea si ya existe una Liquidación
+        registrada para este Anticipo - cancelar el pago por debajo la dejaría en un estado
+        inconsistente (referenciando un pago cancelado, o rompiendo una conciliación ya hecha)."""
+        self.ensure_one()
+        if self.tipo not in ANTICIPO_TIPOS:
+            raise UserError(self.env._(
+                'Esta acción solo aplica a Anticipo/Anticipo Viáticos.'))
+        if self.state != 'aplicado':
+            raise UserError(self.env._(
+                'Solo se puede cancelar así un Anticipo ya Aplicado - use el botón "Cancelar" '
+                'normal para uno que todavía no se ha aplicado.'))
+        self._check_es_administrador_contable()
+        if self.search_count([('anticipo_id', '=', self.id)]):
+            raise UserError(self.env._(
+                'Este Anticipo ya tiene una Liquidación registrada - cancela o revierte esa '
+                'Liquidación primero (botón "Cancelar" en la Liquidación).'))
+        if self.payment_id:
+            for line in self.payment_id.move_id.line_ids:
+                if line.reconciled:
+                    line.remove_move_reconcile()
+            self.payment_id.action_cancel()
+        self.write({'state': 'cancelado'})
+        return True
+
     def _prepare_sync_vals(self):
         """Snapshot plano (sin ids) para crear el registro correspondiente en la instalación
         Procesadora - incluso siendo el mismo modelo en ambos lados, un id de res.company/

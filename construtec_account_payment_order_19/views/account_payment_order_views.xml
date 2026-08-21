@@ -24,6 +24,9 @@
                     <button name="action_registrar_liquidacion" string="Registrar Liquidación" type="object"
                             class="oe_highlight"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'aplicado'"/>
+                    <button name="action_cancelar_anticipo_aplicado" string="Cancelar" type="object"
+                            groups="account.group_account_manager"
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'aplicado'"/>
                     <button name="action_conciliar" string="Conciliar" type="object" class="oe_highlight"
                             groups="account.group_account_manager"
                             invisible="tipo not in ('liquidacion', 'pago_directo') or state == 'aplicado'"/>
