@@ -81,21 +81,6 @@
                     </group>
 
                     <notebook invisible="tipo not in ('anticipo', 'anticipo_viaticos')">
-                        <page string="Información" invisible="tipo != 'anticipo_viaticos'">
-                            <group>
-                                <group>
-                                    <field name="departamento"/>
-                                    <field name="puesto"/>
-                                    <field name="telefono"/>
-                                    <field name="correo"/>
-                                </group>
-                                <group>
-                                    <field name="cuenta_acreditar"/>
-                                    <field name="banco"/>
-                                    <field name="user_id"/>
-                                </group>
-                            </group>
-                        </page>
                         <page string="Viáticos" invisible="tipo != 'anticipo_viaticos'">
                             <field name="viaticos_line_ids" readonly="state != 'borrador'">
                                 <list editable="bottom">
@@ -123,6 +108,21 @@
                             </group>
                             <button name="action_retry_sync" string="Reintentar Sincronización" type="object"
                                     invisible="sync_state != 'error'"/>
+                        </page>
+                        <page string="Información" invisible="tipo != 'anticipo_viaticos'">
+                            <group>
+                                <group>
+                                    <field name="departamento"/>
+                                    <field name="puesto"/>
+                                    <field name="telefono"/>
+                                    <field name="correo"/>
+                                </group>
+                                <group>
+                                    <field name="cuenta_acreditar"/>
+                                    <field name="banco"/>
+                                    <field name="user_id"/>
+                                </group>
+                            </group>
                         </page>
                     </notebook>
                     <group invisible="tipo not in ('anticipo', 'anticipo_viaticos')">
