@@ -310,6 +310,36 @@ Pedido del usuario: al elegir el Anticipo de Origen en una Liquidación, necesit
 - **`_onchange_anticipo_id_cargar_pagos()`**: elegir el Anticipo de Origen A MANO (fuera del botón "Registrar Liquidación", que ya hacía esto en `action_registrar_liquidacion()`) ahora también agrega los pagos de ese Anticipo a `pago_ids` - así `diferencia_conciliacion` refleja de inmediato lo que ya está cubierto, sin que el contable tenga que ir a buscar el pago del Anticipo por su cuenta. Solo agrega, nunca quita (si se cambia a otro Anticipo, no borra pagos ya cargados de otra fuente).
 - Verificado: al registrar vía el botón, la diferencia arranca negativa (falta cargar facturas por el monto del Anticipo); al cargar la factura correspondiente, llega a cero y Conciliar funciona sin pedir Cuenta de Ajuste; elegir `anticipo_id` a mano (sin el botón) también carga los pagos del Anticipo, igual que el flujo del botón.
 
+### Bug real: la línea de "Diferencial" en `action_conciliar()` no tenía contacto
+
+Reportado por el usuario: cuando una Liquidación no cuadra exactamente (la diferencia se registra en `cuenta_ajuste_id`), la línea contable del diferencial se creaba **sin `partner_id`** - a diferencia de las demás líneas del asiento, que sí traen el contacto real de cada factura/pago que están neteando. Fix: esa línea ahora lleva `'partner_id': self.partner_id.id` (el contacto/solicitante de la propia Orden de Pago). Verificado con una Liquidación con diferencia real (factura menor al pago del Anticipo).
+
+### Sincronización de vuelta: el estado real (Enviado/Aprobado/Rechazado/Aplicado) ya regresa a Community
+
+**Hallazgo del usuario, no un pedido de feature nueva sobre algo que ya funcionaba**: hasta este cambio, `_sync_to_enterprise()` era de un SOLO sentido - al Enviar una Orden en Community, se crea un registro NUEVO en Enterprise (`origin='synced'`), pero el registro ORIGINAL en Community nunca se enteraba de nada de lo que pasara después ahí (aprobación, rechazo, aplicación) - se quedaba congelado en `state='enviado'` para siempre. No existía ningún mecanismo de pull, ni siquiera manual.
+
+**Solución - un cron nuevo, dedicado, en la instalación Solicitante** (por defecto cada 1 hora, configurable en Ajustes igual que el de empleados - `payment_order_status_sync_interval_number`/`_type` en `res.company`, aplicado al cron vía `_apply_payment_order_status_sync_interval_to_cron()`, mismo patrón/limitación de "un solo cron global" que ya tiene el de empleados):
+
+- **`fetch_order_status()`** (nuevo en `tools/enterprise_sync_api.py`): `search_read` sobre `account.payment.order` en Enterprise, filtrando por `external_ref in [...]` (el propio `name` de cada Orden local pendiente - NUNCA por id, son bases de datos distintas), trayendo `state`/`reject_reason`/`approve_date`/`reject_date`.
+- **Descubrimiento de seguridad, no un permiso nuevo**: el usuario de integración (`group_payment_order_sync_integration`) YA tenía `perm_read=1` sobre este modelo en `ir.model.access.csv` (lo necesitan sus propios `@api.constrains` al validar un `create()`, ej. `_check_anticipo_id`) - el comentario del grupo decía "nunca leer", desactualizado; se corrigió el texto para reflejar la realidad, sin tocar el permiso real ni crear un usuario/grupo aparte.
+- **`res.company._pull_payment_order_status()`**: busca las propias Órdenes `tipo in ANTICIPO_TIPOS`, `origin='local'`, `sync_state='synced'`, `state not in ('aplicado', 'rechazado', 'cancelado')` (los 3 estados terminales - `'aprobado'` SIGUE pendiente de revisar en la próxima corrida, todavía puede llegar a `'aplicado'`); por cada una que cambió de estado en Enterprise, hace un `write()` PLANO de `state`/`reject_reason`/`approve_date`/`reject_date` - **nunca llama `action_approve()`/`action_reject()`/`action_aplicar()`** (esos son para EJECUTAR la transición aquí mismo; esto solo refleja una transición que YA ocurrió allá, sin repetir ningún efecto secundario como crear un pago local o disparar otra sincronización).
+- Botón manual "Sincronizar ahora" (`action_pull_payment_order_status_now()`) en Ajustes, junto al intervalo - mismo patrón que el de empleados.
+- Verificado con un mock de `fetch_order_status()` (sin depender de dos instancias reales corriendo): el pull actualiza solo las Órdenes pendientes reales, respeta los 3 estados terminales (no las vuelve a tocar ni a consultar), y una corrida sin nada pendiente no intenta conectarse a la Procesadora. También verificado que cambiar el intervalo en Ajustes actualiza el cron real, y que el cron viene activo por defecto en 1 hora.
+
+### Elegir el Anticipo de Origen hereda diario, método de pago, pagos y facturas (no solo pagos)
+
+Pedido del usuario: al elegir un Anticipo de Origen en una Liquidación, debe ser uno ya `aplicado` (**ya era así** - el dominio `anticipos_disponibles_ids` ya filtraba por `state == 'aplicado'`, nada que cambiar ahí) y debe traer consigo toda la información necesaria para saber qué falta cargar: diario, método de pago, pagos y facturas.
+
+`_onchange_anticipo_id_heredar_datos()` (renombrado de `_onchange_anticipo_id_cargar_pagos()`, que solo hacía pagos) ahora también hereda:
+- `journal_id`/`payment_method_line_id`: **solo si están vacíos** en la Liquidación (`self.journal_id or self.anticipo_id.journal_id`) - si el contable ya puso uno distinto a mano, no se le sobreescribe.
+- `factura_ids`: igual que `pago_ids` (unión, nunca se quita nada) - si el Anticipo ya traía una factura adjunta (opcional en Anticipo, ver la sección de arriba), se reasigna hacia la Liquidación (mismo mecanismo de reparenting de un One2many que ya aplicaba a `pago_ids`).
+
+**`action_registrar_liquidacion()` (el botón) ganó el mismo comportamiento** - ya copiaba `journal_id`/`pago_ids`, ahora también copia `payment_method_line_id`/`factura_ids`, para que el flujo del botón y el de elegir `anticipo_id` a mano queden equivalentes.
+
+**`payment_method_line_id` pasó a ser visible para todos los tipos** (antes solo se mostraba para Anticipo, dentro de su grupo exclusivo) - se movió al grupo común, junto a `journal_id`, con el mismo `invisible="not es_procesador"`. Motivo: ahora sí se usa en Liquidación/Pago Directo - `action_crear_pago()` lo incluye en el pago que crea, si está definido.
+
+Verificado: heredar `journal_id`/`payment_method_line_id`/`pago_ids`/`factura_ids` al elegir `anticipo_id` a mano; no sobreescribe un `journal_id` ya puesto a mano; el botón "Registrar Liquidación" también copia método de pago y facturas; `action_crear_pago()` usa el método de pago heredado en el pago nuevo que crea.
+
 ### Se eliminó el número de Liquidación manual - Liquidación ahora usa la misma secuencia OP/XXXX
 
 Razonamiento del usuario: no hace falta una numeración de Liquidación aparte - la propia Orden de Pago (`tipo`) ya distingue si es Anticipo/Liquidación/Pago Directo, así que un solo número de Orden de Pago (secuencia `OP/0001`, `OP/0002`...) alcanza para cualquier tipo, incluida Liquidación.

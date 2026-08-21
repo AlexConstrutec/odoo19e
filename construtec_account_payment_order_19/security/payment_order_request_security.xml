@@ -39,11 +39,14 @@
     </record>
 
     <record id="group_payment_order_sync_integration" model="res.groups">
-        <field name="name">Órdenes de Pago: Integración (solo creación)</field>
+        <field name="name">Órdenes de Pago: Integración (creación y lectura)</field>
         <field name="comment">Grupo para el usuario técnico de integración que sincroniza Solicitudes de
-            Pago desde una instalación Solicitante. Solo puede crear registros, nunca leer, modificar
-            ni eliminar - una API Key filtrada de este usuario solo permite insertar solicitudes, no
-            acceder a datos existentes.</field>
+            Pago desde una instalación Solicitante. Puede crear registros (insertar solicitudes) y
+            leerlos (`fetch_order_status()` - lee `state`/`reject_reason`/fechas por `external_ref`,
+            para que la instalación Solicitante sepa qué pasó con lo que envió) - nunca modificar ni
+            eliminar. La lectura ya era necesaria de todos modos para los propios `@api.constrains`
+            del modelo al validar un `create()` (ej. `_check_anticipo_id`), así que no es un permiso
+            nuevo, solo se documenta aquí con precisión (antes decía "nunca leer", desactualizado).</field>
     </record>
 
     <record id="account_payment_order_own_rule" model="ir.rule">

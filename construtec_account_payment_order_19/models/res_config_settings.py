@@ -31,12 +31,20 @@ class ResConfigSettings(models.TransientModel):
         related='company_id.employee_sync_interval_number', readonly=False)
     employee_sync_interval_type = fields.Selection(
         related='company_id.employee_sync_interval_type', readonly=False)
+    payment_order_status_sync_interval_number = fields.Integer(
+        related='company_id.payment_order_status_sync_interval_number', readonly=False)
+    payment_order_status_sync_interval_type = fields.Selection(
+        related='company_id.payment_order_status_sync_interval_type', readonly=False)
     payment_order_default_company_id = fields.Many2one(
         related='company_id.payment_order_default_company_id', readonly=False)
 
     def action_sync_employees_now(self):
         self.ensure_one()
         return self.company_id.action_sync_employees_now()
+
+    def action_pull_payment_order_status_now(self):
+        self.ensure_one()
+        return self.company_id.action_pull_payment_order_status_now()
 
     def action_test_payment_order_sync_connection(self):
         self.ensure_one()

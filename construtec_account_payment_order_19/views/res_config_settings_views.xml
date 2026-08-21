@@ -73,6 +73,20 @@
                             </div>
                         </div>
                     </setting>
+                    <setting id="payment_order_status_sync_interval"
+                             string="Sincronizar estado de Órdenes de Pago cada"
+                             help="Cada cuánto se consulta a la instalación Procesadora el estado real
+                                   (Enviado/Aprobado/Rechazado/Aplicado) de las Órdenes de Pago ya enviadas -
+                                   sin esto, el registro original se quedaría congelado en 'Enviado' para
+                                   siempre, sin enterarse de nada de lo que pase después en Enterprise."
+                             invisible="not payment_order_sync_enabled">
+                        <div class="d-flex">
+                            <field name="payment_order_status_sync_interval_number" class="me-2" style="width: 80px"/>
+                            <field name="payment_order_status_sync_interval_type"/>
+                        </div>
+                        <button name="action_pull_payment_order_status_now" type="object"
+                                string="Sincronizar ahora" class="btn btn-secondary mt8" icon="fa-refresh"/>
+                    </setting>
                     <setting string="Registro de sincronización" invisible="not payment_order_sync_enabled">
                         <field name="payment_order_sync_log_ids" nolabel="1">
                             <list create="0" delete="0">

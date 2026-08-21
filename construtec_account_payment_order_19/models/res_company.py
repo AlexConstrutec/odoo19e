@@ -4,11 +4,14 @@ from odoo import api, fields, models
 
 from ..tools.enterprise_sync_api import (
     EnterpriseSyncError, fetch_analytic_accounts, fetch_companies, fetch_employees,
+    fetch_order_status,
 )
 
 _logger = logging.getLogger(__name__)
 
 EMPLOYEE_SYNC_CRON_XMLID = 'construtec_account_payment_order_19.ir_cron_employee_sync'
+PAYMENT_ORDER_STATUS_SYNC_CRON_XMLID = (
+    'construtec_account_payment_order_19.ir_cron_payment_order_status_sync')
 
 
 class ResCompany(models.Model):
@@ -97,6 +100,20 @@ class ResCompany(models.Model):
         ('days', 'Días'),
     ], string='Unidad del intervalo', default='hours')
 
+    payment_order_status_sync_interval_number = fields.Integer(
+        string='Sincronizar estado de Órdenes de Pago cada', default=1,
+        help='Cada cuánto se consulta a la instalación Procesadora el estado real '
+             '(Enviado/Aprobado/Rechazado/Aplicado) de las propias Órdenes de Pago ya enviadas '
+             '- `_sync_to_enterprise()` solo empuja en un sentido (crea un registro nuevo allá '
+             'al Enviar); sin este pull periódico, el registro original se quedaría congelado '
+             'en "Enviado" para siempre. Solo aplica cuando el rol es Solicitante. Por defecto '
+             'cada 1 hora.')
+    payment_order_status_sync_interval_type = fields.Selection([
+        ('minutes', 'Minutos'),
+        ('hours', 'Horas'),
+        ('days', 'Días'),
+    ], string='Unidad del intervalo de estado', default='hours')
+
     def _get_payment_order_allowed_tipos(self):
         """Subconjunto de `tipo` que esta compañía ofrece al crear una Orden de Pago nueva a
         mano (ver AccountPaymentOrder.fields_get()). Deliberadamente NO se usa para validar
@@ -134,6 +151,98 @@ class ResCompany(models.Model):
                 'interval_number': self.employee_sync_interval_number or 6,
                 'interval_type': self.employee_sync_interval_type or 'hours',
             })
+
+    def _apply_payment_order_status_sync_interval_to_cron(self):
+        """Mismo patrón/limitación que `_apply_employee_sync_interval_to_cron()` (un solo cron
+        global, no por compañía) - ver ese docstring."""
+        self.ensure_one()
+        cron = self.env.ref(PAYMENT_ORDER_STATUS_SYNC_CRON_XMLID, raise_if_not_found=False)
+        if cron:
+            cron.sudo().write({
+                'interval_number': self.payment_order_status_sync_interval_number or 1,
+                'interval_type': self.payment_order_status_sync_interval_type or 'hours',
+            })
+
+    def _pull_payment_order_status(self):
+        """Trae de vuelta el estado real (Enviado/Aprobado/Rechazado/Aplicado) de las propias
+        Órdenes de Pago ya enviadas a la instalación Procesadora - `_sync_to_enterprise()` es de
+        un solo sentido (crea un registro NUEVO allá al Enviar), así que sin este pull el
+        registro original se queda congelado en 'enviado' para siempre, sin enterarse de nada
+        de lo que pasó después en Enterprise (aprobación, rechazo, aplicación).
+
+        Empareja por `external_ref` = el propio `name` de esta Orden (guardado del lado de
+        Enterprise por `_prepare_sync_vals()`) - nunca por id, son bases de datos distintas.
+        Solo actualiza `state`/`reject_reason`/`approve_date`/`reject_date` - un `write()` plano,
+        NO se llaman `action_approve()`/`action_reject()`/`action_aplicar()` (esos son para
+        ejecutar la transición AQUÍ; esto solo refleja una transición que ya ocurrió allá, sin
+        repetir ningún efecto secundario - crear un pago local, disparar sync, etc. - de nuevo)."""
+        self.ensure_one()
+        if self.payment_order_role != 'solicitante' or not self.payment_order_sync_enabled:
+            return True, self.env._(
+                'Sincronización de estado no aplica (rol o sincronización no configurados).')
+
+        pendientes = self.env['account.payment.order'].search([
+            ('company_id', '=', self.id),
+            ('tipo', 'in', ('anticipo', 'anticipo_viaticos')),
+            ('origin', '=', 'local'),
+            ('sync_state', '=', 'synced'),
+            ('state', 'not in', ('aplicado', 'rechazado', 'cancelado')),
+        ])
+        if not pendientes:
+            return True, self.env._('No hay Órdenes de Pago pendientes de actualizar.')
+
+        try:
+            remotos = fetch_order_status(
+                self.payment_order_sync_url, self.payment_order_sync_db,
+                self.payment_order_sync_login, self.payment_order_sync_api_key,
+                pendientes.mapped('name'))
+        except EnterpriseSyncError as exc:
+            _logger.warning(
+                'Sincronización de estado de Órdenes de Pago falló para %s: %s', self.name, exc)
+            return False, str(exc)
+
+        por_ref = {r['external_ref']: r for r in remotos if r.get('external_ref')}
+        actualizadas = 0
+        for orden in pendientes:
+            remoto = por_ref.get(orden.name)
+            if not remoto or remoto['state'] == orden.state:
+                continue
+            orden.write({
+                'state': remoto['state'],
+                'reject_reason': remoto.get('reject_reason') or orden.reject_reason,
+                'approve_date': remoto.get('approve_date') or orden.approve_date,
+                'reject_date': remoto.get('reject_date') or orden.reject_date,
+            })
+            actualizadas += 1
+        message = self.env._(
+            '%(actualizadas)s de %(total)s Órdenes de Pago actualizadas.',
+            actualizadas=actualizadas, total=len(pendientes))
+        return True, message
+
+    def action_pull_payment_order_status_now(self):
+        self.ensure_one()
+        ok, message = self._pull_payment_order_status()
+        self._payment_order_sync_log(ok, message)
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': self.env._('Sincronización de Estado de Órdenes de Pago'),
+                'message': message,
+                'type': 'success' if ok else 'danger',
+                'sticky': not ok,
+            },
+        }
+
+    @api.model
+    def _cron_pull_payment_order_status(self):
+        companies = self.search([
+            ('payment_order_role', '=', 'solicitante'),
+            ('payment_order_sync_enabled', '=', True),
+        ])
+        for company in companies:
+            ok, message = company._pull_payment_order_status()
+            company._payment_order_sync_log(ok, message)
 
     def action_sync_employees_now(self):
         self.ensure_one()
@@ -306,12 +415,16 @@ class ResCompany(models.Model):
     def create(self, vals_list):
         companies = super().create(vals_list)
         companies._apply_employee_sync_interval_to_cron()
+        companies._apply_payment_order_status_sync_interval_to_cron()
         return companies
 
     def write(self, vals):
         res = super().write(vals)
         if 'employee_sync_interval_number' in vals or 'employee_sync_interval_type' in vals:
             self._apply_employee_sync_interval_to_cron()
+        if ('payment_order_status_sync_interval_number' in vals
+                or 'payment_order_status_sync_interval_type' in vals):
+            self._apply_payment_order_status_sync_interval_to_cron()
         return res
 
     @api.model

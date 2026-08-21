@@ -150,6 +150,32 @@ def fetch_analytic_accounts(url, db, login, api_key):
          [[]], {'fields': ['name', 'code', 'plan_id']}])
 
 
+def fetch_order_status(url, db, login, api_key, external_refs):
+    """Read-only pull del estado real de Órdenes de Pago ya enviadas por esta instalación -
+    buscadas por `external_ref` (el `name` original en la instalación Solicitante, guardado del
+    otro lado por `_prepare_sync_vals()`), nunca por id (bases de datos distintas). Sin esto, el
+    registro original en la instalación Solicitante se queda congelado en 'enviado' para
+    siempre, sin enterarse si la Procesadora lo aprobó/rechazó/aplicó - `_sync_to_enterprise()`
+    solo empuja en un sentido (crea un registro NUEVO allá), nunca trae nada de vuelta.
+
+    Usa las MISMAS credenciales que `create_sync_record()` - el usuario de integración
+    (`group_payment_order_sync_integration`) ya tiene permiso de lectura sobre este modelo
+    (lo necesitan sus propios `@api.constrains` al validar un `create()`, ej.
+    `_check_anticipo_id`), así que no hace falta un usuario/grupo aparte para esto."""
+    if not (url and db and login and api_key):
+        raise EnterpriseSyncError(
+            'Sincronización de estado de Órdenes de Pago incompleta (falta URL, base de datos, '
+            'usuario o API Key).')
+    if not external_refs:
+        return []
+    uid = authenticate(url, db, login, api_key)
+    return _jsonrpc(
+        url, 'object', 'execute_kw',
+        [db, uid, api_key, SYNC_MODEL, 'search_read',
+         [[('external_ref', 'in', list(external_refs))]],
+         {'fields': ['external_ref', 'state', 'reject_reason', 'approve_date', 'reject_date']}])
+
+
 def fetch_companies(url, db, login, api_key):
     """Read-only pull of the Enterprise company list - usado para el desplegable "Compañía por
     defecto" (`res.company.payment_order_default_company_id`), el respaldo cuando el empleado
