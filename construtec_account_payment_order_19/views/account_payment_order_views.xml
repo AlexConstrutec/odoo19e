@@ -50,11 +50,8 @@
                             <field name="anticipos_disponibles_ids" invisible="1"/>
                             <field name="anticipo_id" readonly="state != 'borrador'"
                                    invisible="tipo != 'liquidacion'"/>
-                            <field name="departamento" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="analytic_account_id" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="proyecto" invisible="1"/>
-                            <field name="telefono" invisible="tipo != 'anticipo_viaticos'"/>
-                            <field name="correo" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="journal_id" invisible="not es_procesador"
                                    domain="[('type', '=', 'bank')] if tipo == 'anticipo_viaticos' else []"/>
                             <field name="available_payment_method_line_ids" invisible="1"/>
@@ -62,13 +59,10 @@
                                    readonly="state not in ('borrador', 'aprobado')"/>
                             <field name="partner_id" readonly="tipo == 'anticipo_viaticos'"
                                    domain="[('employee', '=', True)] if tipo == 'anticipo_viaticos' else []"/>
-                            <field name="puesto" invisible="tipo != 'anticipo_viaticos'"/>
                         </group>
                         <group>
                             <field name="fecha"/>
-                            <field name="cuenta_acreditar" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="tipo_cuenta" invisible="tipo != 'anticipo_viaticos'"/>
-                            <field name="banco" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="periodo_del" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="periodo_al" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="user_id"/>
@@ -87,6 +81,20 @@
                     </group>
 
                     <notebook invisible="tipo not in ('anticipo', 'anticipo_viaticos')">
+                        <page string="Información" invisible="tipo != 'anticipo_viaticos'">
+                            <group>
+                                <group>
+                                    <field name="departamento"/>
+                                    <field name="puesto"/>
+                                    <field name="telefono"/>
+                                    <field name="correo"/>
+                                </group>
+                                <group>
+                                    <field name="cuenta_acreditar"/>
+                                    <field name="banco"/>
+                                </group>
+                            </group>
+                        </page>
                         <page string="Viáticos" invisible="tipo != 'anticipo_viaticos'">
                             <field name="viaticos_line_ids" readonly="state != 'borrador'">
                                 <list editable="bottom">
