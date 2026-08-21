@@ -155,10 +155,10 @@
                         </list>
                     </field>
 
-                    <div class="oe_title">
+                    <div class="oe_title" invisible="not es_procesador">
                         <h2>Pagos/Cheques</h2>
                     </div>
-                    <field name="pago_ids" widget="many2many" nolabel="1">
+                    <field name="pago_ids" widget="many2many" nolabel="1" invisible="not es_procesador">
                         <list>
                             <field name="date"/>
                             <field name="name"/>
@@ -173,7 +173,7 @@
                     </field>
                     <button name="action_crear_pago" string="Crear Pago" type="object"
                             groups="account.group_account_manager"
-                            invisible="tipo not in ('liquidacion', 'pago_directo') or state != 'borrador'"/>
+                            invisible="tipo not in ('liquidacion', 'pago_directo') or state != 'borrador' or not es_procesador"/>
 
                     <div invisible="tipo in ('anticipo', 'anticipo_viaticos')">
                         <group>

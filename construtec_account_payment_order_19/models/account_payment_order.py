@@ -50,7 +50,13 @@ class AccountPaymentOrder(models.Model):
         ('anticipo_viaticos', 'Anticipo Viáticos'),
         ('liquidacion', 'Liquidación'),
         ('pago_directo', 'Pago Directo'),
-    ], string='Tipo', required=True, default='anticipo')
+    ], string='Tipo', required=True,
+        default=lambda self: (self.env.company._get_payment_order_allowed_tipos() or ['anticipo'])[0],
+        help='El valor por defecto es el primer tipo habilitado para esta compañía (ver '
+             '`res.company._get_payment_order_allowed_tipos()`) - antes era siempre "Anticipo" '
+             'fijo, lo que en Community (solo "Anticipo Viáticos" habilitado) dejaba un registro '
+             'nuevo con un valor que ni siquiera aparece en su propio desplegable filtrado '
+             '(`fields_get()`), viéndose "vacío" y ocultando Viáticos/Pagos/Facturas por completo.')
     name = fields.Char(string='Nombre', compute='_compute_name', store=True, readonly=False)
     no_liquidacion = fields.Integer(string='No. Liquidación')
     fecha = fields.Date(string='Fecha', required=True, default=fields.Date.context_today)
