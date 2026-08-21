@@ -109,8 +109,15 @@ class AccountPaymentOrder(models.Model):
              '`origin` (`{getattr(i, "origin", i) for i in registro.campo.ids}`), no por `in` '
              'directo. Esto es un artefacto de `.new()`, no ocurre en la app real: el cliente web '
              'recibe ids planos de la respuesta de onchange, nunca el wrapper NewId.')
-    monto = fields.Monetary(string='Monto', currency_field='currency_id',
-                             help='Monto del Anticipo a entregar al Contacto.')
+    monto = fields.Monetary(
+        string='Monto', currency_field='currency_id',
+        help='Monto del Anticipo a entregar al Contacto. Para Anticipo Viáticos, se llena solo '
+             'con la suma de `total_acreditar` (hoy solo la pestaña Viáticos; si en el futuro se '
+             'agregan más pestañas de detalle - ej. Materiales - `total_acreditar` las sumaría a '
+             'todas ahí, y este campo las heredaría igual, sin cambios aquí) - no es editable a '
+             'mano para ese tipo (ver `_sync_monto_desde_total_acreditar()`, disparado por '
+             'onchange y en create()/write()). Para un Anticipo normal (sin pestañas de detalle) '
+             'sigue siendo un monto capturado a mano, como siempre.')
     available_payment_method_line_ids = fields.Many2many(
         'account.payment.method.line', compute='_compute_available_payment_method_line_ids',
         help='Auxiliar para el dominio de `payment_method_line_id` - navegar '
@@ -130,7 +137,6 @@ class AccountPaymentOrder(models.Model):
         help='Cuenta puente donde queda registrado el Anticipo hasta que se liquide contra facturas '
              'reales (no es la cuenta por pagar normal del Contacto). Debe ser de tipo por cobrar/por '
              'pagar para que la Liquidación pueda netearla contra las facturas reales.')
-    payment_id = fields.Many2one('account.payment', string='Pago del Anticipo', readonly=True, copy=False)
     factura_ids = fields.One2many('account.move', 'payment_order_id', string='Facturas', domain=[
         ('move_type', 'in', ('in_invoice', 'in_refund')),
         ('state', '=', 'posted'),
@@ -376,6 +382,20 @@ class AccountPaymentOrder(models.Model):
             rec.subtotal = subtotal
             rec.total_acreditar = subtotal - rec.anticipo_previo
 
+    @api.onchange('viaticos_line_ids.total', 'anticipo_previo')
+    def _onchange_sync_monto(self):
+        self._sync_monto_desde_total_acreditar()
+
+    def _sync_monto_desde_total_acreditar(self):
+        """Para Anticipo Viáticos, `monto` no se captura a mano - hereda la suma de las
+        pestañas de detalle (`total_acreditar`, hoy solo Viáticos vía `_compute_totales()`; si
+        en el futuro se agrega otra pestaña - ej. Materiales - bastaría con sumarla también ahí,
+        sin tocar nada de esto). Se llama desde el onchange (formulario web) y desde
+        create()/write() (altas/ediciones por API o script, donde el onchange no corre)."""
+        for rec in self:
+            if rec.tipo == 'anticipo_viaticos' and rec.monto != rec.total_acreditar:
+                rec.monto = rec.total_acreditar
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
@@ -388,7 +408,9 @@ class AccountPaymentOrder(models.Model):
             self._resolve_analytic_enterprise_ref(vals)
             self._fill_derived_vals_from_employee(vals)
             self._fill_derived_vals_from_analytic_account(vals)
-        return super().create(vals_list)
+        records = super().create(vals_list)
+        records._sync_monto_desde_total_acreditar()
+        return records
 
     def _resolve_employee_enterprise_ref(self, vals):
         """Resuelve `employee_enterprise_ref` (el id ORIGINAL de este empleado en Enterprise,
@@ -492,7 +514,10 @@ class AccountPaymentOrder(models.Model):
                     raise UserError(self.env._(
                         'No se puede cambiar el empleado de una Orden de Pago ya creada '
                         '- cree una nueva en su lugar.'))
-        return super().write(vals)
+        res = super().write(vals)
+        if any(k in vals for k in ('viaticos_line_ids', 'anticipo_previo', 'tipo')):
+            self._sync_monto_desde_total_acreditar()
+        return res
 
     def unlink(self):
         for rec in self:
@@ -609,11 +634,11 @@ class AccountPaymentOrder(models.Model):
             raise UserError(self.env._(
                 'Este Anticipo ya tiene una Liquidación registrada - cancela o revierte esa '
                 'Liquidación primero (botón "Cancelar" en la Liquidación).'))
-        if self.payment_id:
-            for line in self.payment_id.move_id.line_ids:
+        for pago in self.pago_ids.filtered(lambda p: p.state in ('in_process', 'paid')):
+            for line in pago.move_id.line_ids:
                 if line.reconciled:
                     line.remove_move_reconcile()
-            self.payment_id.action_cancel()
+            pago.action_cancel()
         self.write({'state': 'cancelado'})
         return True
 
@@ -893,18 +918,17 @@ class AccountPaymentOrder(models.Model):
             'date': self.fecha,
             'memo': self.name,
             'destination_account_id': self.cuenta_anticipo_id.id,
-            # También vinculado a pago_ids (relación inversa vía payment_order_id) - no solo a
-            # payment_id - así queda visible junto a cualquier pago adicional que se agregue
-            # después (ver action_crear_pago()), en vez de ser el único pago "invisible" para
-            # ese mecanismo genérico. payment_id se mantiene igual, por compatibilidad con
-            # action_registrar_liquidacion() y el reporte impreso.
+            # Vinculado a pago_ids (relación inversa vía payment_order_id) - no hay un campo
+            # dedicado tipo "Pago del Anticipo" (existió, se retiró: `pago_ids` ya cubre el
+            # mismo caso genéricamente, incluyendo un eventual pago adicional - ver
+            # action_crear_pago()/CLAUDE.md).
             'payment_order_id': self.id,
         }
         if self.payment_method_line_id:
             payment_vals['payment_method_line_id'] = self.payment_method_line_id.id
         payment = self.env['account.payment'].create(payment_vals)
         payment.action_post()
-        self.write({'payment_id': payment.id, 'state': 'aplicado'})
+        self.write({'state': 'aplicado'})
 
         # Dos avisos posibles, ninguno bloquea: si el contacto ya tiene otro Anticipo aplicado
         # sin Liquidación registrada (antes vivía en el Wizard "Crear Anticipo", ya retirado -
@@ -996,7 +1020,11 @@ class AccountPaymentOrder(models.Model):
             'journal_id': self.journal_id.id,
             'fecha': fields.Date.context_today(self),
             'partner_id': self.partner_id.id,
-            'pago_ids': [(4, self.payment_id.id)] if self.payment_id else False,
+            # pago_ids es One2many (payment_order_id) - (4, id) reasigna cada pago del Anticipo
+            # hacia esta Liquidación (ya no queda un campo `payment_id` aparte que preserve la
+            # referencia del lado del Anticipo - ver CLAUDE.md). Todos los pagos, no solo uno,
+            # ya que ahora un Anticipo puede tener más de uno (ver action_crear_pago()).
+            'pago_ids': [(4, p.id) for p in self.pago_ids],
         })
         return {
             'type': 'ir.actions.act_window',

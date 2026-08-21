@@ -77,15 +77,13 @@
 
                     <group invisible="tipo not in ('anticipo', 'anticipo_viaticos')">
                         <group>
-                            <field name="monto" readonly="state not in ('borrador', 'aprobado')"/>
+                            <field name="monto"
+                                   readonly="tipo == 'anticipo_viaticos' or state not in ('borrador', 'aprobado')"/>
                             <field name="cuenta_anticipo_id" invisible="not es_procesador"
                                    readonly="state not in ('borrador', 'aprobado')"/>
                             <field name="available_payment_method_line_ids" invisible="1"/>
                             <field name="payment_method_line_id" invisible="not es_procesador"
                                    readonly="state not in ('borrador', 'aprobado')"/>
-                        </group>
-                        <group>
-                            <field name="payment_id" readonly="1"/>
                         </group>
                     </group>
 
