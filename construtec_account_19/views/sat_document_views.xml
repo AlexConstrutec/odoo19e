@@ -148,6 +148,10 @@
                                 </group>
                             </group>
                         </page>
+                        <page string="XML" invisible="not xml_attachment_id">
+                            <field name="xml_content" widget="ace" options="{'mode': 'xml'}"
+                                   readonly="1" nolabel="1"/>
+                        </page>
                     </notebook>
                 </sheet>
             </form>

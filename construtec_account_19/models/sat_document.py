@@ -1,5 +1,6 @@
 import base64
 import logging
+from xml.dom import minidom
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
@@ -128,6 +129,10 @@ class ConstructecSatDocument(models.Model):
     anulado = fields.Boolean(string='Anulado')
     fecha_anulacion = fields.Datetime(string='Fecha de Anulación')
     xml_attachment_id = fields.Many2one('ir.attachment', string='XML', copy=False)
+    xml_content = fields.Text(
+        string='Contenido XML', compute='_compute_xml_content',
+        help='Vista de solo lectura del XML certificado (formateado con sangría para que sea '
+             'legible) - se lee directamente de xml_attachment_id cada vez, no se guarda aparte.')
     pdf_attachment_id = fields.Many2one('ir.attachment', string='PDF', copy=False)
     cuenta_analitica_id = fields.Many2one('account.analytic.account', string='Cuenta Analítica')
     cuenta_contable_id = fields.Many2one('account.account', string='Cuenta Contable')
@@ -148,6 +153,28 @@ class ConstructecSatDocument(models.Model):
         'unique(numero_autorizacion)',
         'Ya existe un documento SAT importado con este número de autorización.',
     )
+
+    @api.depends('xml_attachment_id')
+    def _compute_xml_content(self):
+        """Lee xml_attachment_id.raw (bytes crudos, ya resueltos por Odoo sin importar si el
+        adjunto está en filestore o en la base de datos) y lo reformatea con sangría para que
+        sea legible en pantalla - el XML que certifica la SAT viene sin espacios/saltos de
+        línea entre etiquetas. Si el reformateo falla (XML mal formado, poco probable ya que
+        es el mismo que se parseó al importar), se muestra el texto tal cual en vez de nada."""
+        for document in self:
+            attachment = document.xml_attachment_id
+            if not attachment:
+                document.xml_content = False
+                continue
+            crudo = attachment.raw or b''
+            try:
+                texto = crudo.decode('utf-8')
+            except UnicodeDecodeError:
+                texto = crudo.decode('utf-8', errors='replace')
+            try:
+                document.xml_content = minidom.parseString(texto).toprettyxml(indent='  ')
+            except Exception:
+                document.xml_content = texto
 
     @api.onchange('cuenta_contable_id')
     def _onchange_cuenta_contable_id(self):
