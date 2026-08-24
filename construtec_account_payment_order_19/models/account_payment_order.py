@@ -183,6 +183,33 @@ class AccountPaymentOrder(models.Model):
         ('local', 'Local'),
         ('synced', 'Sincronizada'),
     ], string='Origen', default='local', copy=False)
+    origin_record_id = fields.Integer(
+        string='ID en la instalación de origen', readonly=True, copy=False,
+        help='Solo en el lado Procesador (`origin=\'synced\'`): el id real de este registro en '
+             'la instalación Solicitante (Community) - junto con `origin_base_url`, arma '
+             '`community_url`. No confundir con el id de este registro en ESTA base - son '
+             'ids de dos bases de datos distintas.')
+    origin_base_url = fields.Char(
+        string='URL de la instalación de origen', readonly=True, copy=False,
+        help='Solo en el lado Procesador: la URL base (`web.base.url`) de la instalación '
+             'Solicitante que envió esta Orden, capturada al sincronizar.')
+    enterprise_record_id = fields.Integer(
+        string='ID en la instalación Procesadora', readonly=True, copy=False,
+        help='Solo en el lado Solicitante (`tipo` sincronizable, `origin=\'local\'`): el id que '
+             'la instalación Procesadora (Enterprise) le asignó a la copia de esta Orden, '
+             'devuelto por `create_sync_record()` al sincronizar - junto con '
+             '`company_id.payment_order_sync_url`, arma `enterprise_url`.')
+    community_url = fields.Char(
+        string='Ver en Community', compute='_compute_community_url',
+        help='Link directo al registro de origen en Community - solo se puede armar del lado '
+             'Procesador, con lo que la propia Orden llegó guardando al sincronizarse '
+             '(`origin_record_id`/`origin_base_url`).')
+    enterprise_url = fields.Char(
+        string='Ver en Enterprise', compute='_compute_enterprise_url',
+        help='Link directo a la copia de esta Orden en la instalación Procesadora - solo se '
+             'puede armar del lado Solicitante, una vez que `_sync_to_enterprise()` haya '
+             'guardado `enterprise_record_id` y la compañía tenga configurada '
+             '`payment_order_sync_url`.')
     es_procesador = fields.Boolean(
         compute='_compute_es_procesador',
         help='Auxiliar para mostrar/ocultar Aprobar/Rechazar según el rol de la compañía - una '
@@ -364,6 +391,27 @@ class AccountPaymentOrder(models.Model):
     def _compute_es_procesador(self):
         for rec in self:
             rec.es_procesador = rec.company_id.payment_order_role == 'procesador'
+
+    @api.depends('origin_record_id', 'origin_base_url')
+    def _compute_community_url(self):
+        for rec in self:
+            if rec.origin_record_id and rec.origin_base_url:
+                rec.community_url = (
+                    f'{rec.origin_base_url}/web#id={rec.origin_record_id}'
+                    f'&model=account.payment.order&view_type=form')
+            else:
+                rec.community_url = False
+
+    @api.depends('enterprise_record_id', 'company_id.payment_order_sync_url')
+    def _compute_enterprise_url(self):
+        for rec in self:
+            base_url = rec.company_id.payment_order_sync_url
+            if rec.enterprise_record_id and base_url:
+                rec.enterprise_url = (
+                    f'{base_url.rstrip("/")}/web#id={rec.enterprise_record_id}'
+                    f'&model=account.payment.order&view_type=form')
+            else:
+                rec.enterprise_url = False
 
     @api.onchange('analytic_account_id')
     def _onchange_analytic_account_id(self):
@@ -689,6 +737,13 @@ class AccountPaymentOrder(models.Model):
             'tipo': 'anticipo_viaticos',
             'external_ref': self.name,
             'origin': 'synced',
+            # Ids "de vuelta" hacia esta base - deliberadamente SÍ son ids (a diferencia de
+            # employee_enterprise_ref/etc., que se resuelven como FK reales del otro lado, este
+            # nunca se usa para buscar/vincular nada - solo arma un link de texto
+            # (`community_url`) que un usuario puede clickear, así que no hay riesgo de
+            # "id que no significa nada allá" siendo tratado como una relación real.
+            'origin_record_id': self.id,
+            'origin_base_url': self.get_base_url(),
             'requested_by_name': self.requested_by_name or '',
             'employee_enterprise_ref': self.employee_id.enterprise_employee_ref or False,
             'company_enterprise_ref':
@@ -753,6 +808,7 @@ class AccountPaymentOrder(models.Model):
                     'sync_state': 'synced',
                     'sync_error': False,
                     'sync_date': fields.Datetime.now(),
+                    'enterprise_record_id': int(remote_id),
                 })
                 company._payment_order_sync_log(
                     True, self.env._(

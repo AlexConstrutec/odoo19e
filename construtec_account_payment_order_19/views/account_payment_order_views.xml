@@ -123,6 +123,13 @@
                                     <field name="user_id"/>
                                 </group>
                             </group>
+                            <group string="Vínculo Community / Enterprise"
+                                   invisible="not community_url and not enterprise_url">
+                                <field name="community_url" widget="url" invisible="not community_url"
+                                       string="Ver Orden en Community"/>
+                                <field name="enterprise_url" widget="url" invisible="not enterprise_url"
+                                       string="Ver Orden en Enterprise"/>
+                            </group>
                         </page>
                     </notebook>
                     <group invisible="tipo not in ('anticipo', 'anticipo_viaticos')">
