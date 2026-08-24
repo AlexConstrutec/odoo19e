@@ -40,6 +40,19 @@ TIPO_DTE_SELECTION = [
 # débito nativas via el wizard de "Debit Note" (crea una factura nueva, no una nota de crédito).
 TIPOS_DTE_NOTA_CREDITO = ('NCRE',)
 
+# La Factura Especial (FESP) es un caso real confirmado con el contador: la ley
+# obliga al comprador YA INSCRITO ante la SAT a generar/certificar él mismo el
+# DTE cuando compra a alguien sin NIT/no inscrito (el vendedor no puede emitir
+# su propia factura) - por eso Construtec aparece como nit_emisor y el
+# documento cae del lado direction='emitida' (ver _sat_nits_permitidos, que ya
+# filtra correctamente por nit_emisor en ese caso). Pero económicamente sigue
+# siendo una COMPRA: debe convertirse a factura de proveedor (in_invoice), no
+# de cliente, y sus impuestos deben buscarse como 'purchase', no 'sale'.
+# nit_receptor (de donde ya se resolvía partner_id para 'emitida') sigue
+# siendo el vendedor real en este tipo de documento, así que la resolución de
+# partner_id no cambia - solo el tipo de factura/impuesto resultante.
+TIPOS_DTE_FACTURA_ESPECIAL = ('FESP',)
+
 
 class ConstructecSatDocument(models.Model):
     _name = 'construtec.sat.document'
@@ -363,18 +376,26 @@ class ConstructecSatDocument(models.Model):
         company_vat = (self.env.company.vat or '').strip()
         return {company_vat} if company_vat else set()
 
+    def _sat_es_compra(self):
+        """True si el documento debe contabilizarse como compra (factura de
+        proveedor) aunque la SAT lo marque direction='emitida' - hoy, solo la
+        Factura Especial (FESP, ver TIPOS_DTE_FACTURA_ESPECIAL). Centralizado
+        aquí porque tanto action_convertir_a_factura como
+        _sat_get_default_iva_tax necesitan el mismo criterio."""
+        return self.direction == 'recibida' or self.tipo_dte in TIPOS_DTE_FACTURA_ESPECIAL
+
     def _sat_get_default_iva_tax(self):
         """Impuesto de IVA a asignar por defecto en action_convertir_a_factura cuando
         una línea trae monto_iva > 0 en el propio DTE pero no tiene tax_ids puesto a
-        mano. Se busca por tipo/importe (12%, purchase en recibidas o sale en
-        emitidas) en vez de por un external ID fijo: los impuestos que vienen de un
-        account.chart.template (ej. l10n_gt) se instancian con un ID distinto por
-        compañía, no hay un ID único reutilizable entre instalaciones. Si no
-        encuentra ninguno (plan de cuentas de Guatemala no aplicado, o ningún
+        mano. Se busca por tipo/importe (12%, purchase en recibidas/FESP o sale en
+        el resto de emitidas) en vez de por un external ID fijo: los impuestos que
+        vienen de un account.chart.template (ej. l10n_gt) se instancian con un ID
+        distinto por compañía, no hay un ID único reutilizable entre instalaciones.
+        Si no encuentra ninguno (plan de cuentas de Guatemala no aplicado, o ningún
         impuesto de 12% configurado), regresa vacío - se deja sin tax_ids en vez de
         adivinar con otro impuesto, igual que el resto de este módulo.
         """
-        type_tax_use = 'purchase' if self.direction == 'recibida' else 'sale'
+        type_tax_use = 'purchase' if self._sat_es_compra() else 'sale'
         return self.env['account.tax'].search([
             ('company_id', '=', self.company_id.id),
             ('type_tax_use', '=', type_tax_use),
@@ -438,7 +459,7 @@ class ConstructecSatDocument(models.Model):
 
         es_nota_credito = self.tipo_dte in TIPOS_DTE_NOTA_CREDITO
         es_nota_debito = self.tipo_dte == 'NDEB'
-        if self.direction == 'recibida':
+        if self._sat_es_compra():
             move_type = 'in_refund' if es_nota_credito else 'in_invoice'
         else:
             move_type = 'out_refund' if es_nota_credito else 'out_invoice'
@@ -839,6 +860,10 @@ class ConstructecSatDocument(models.Model):
         if self.direction != 'emitida':
             raise UserError(self.env._(
                 'Solo los documentos Emitidos (ventas) se pueden convertir a Pedido de Venta.'))
+        if self.tipo_dte in TIPOS_DTE_FACTURA_ESPECIAL:
+            raise UserError(self.env._(
+                'Una Factura Especial (FESP) documenta una compra, no una venta - conviértela '
+                'a Factura (de proveedor) en vez de Pedido de Venta.'))
         if self.state != 'pendiente':
             raise UserError(self.env._('Este documento ya fue convertido.'))
         if not self.partner_id:

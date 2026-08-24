@@ -18,7 +18,7 @@
                     <button name="action_convertir_a_orden_compra" string="Convertir a Orden de Compra" type="object"
                             invisible="state != 'pendiente' or direction != 'recibida'"/>
                     <button name="action_convertir_a_pedido_venta" string="Convertir a Pedido de Venta" type="object"
-                            invisible="state != 'pendiente' or direction != 'emitida'"/>
+                            invisible="state != 'pendiente' or direction != 'emitida' or tipo_dte == 'FESP'"/>
                     <button name="action_aplicar_reglas_categorizacion" string="Aplicar Reglas de Categorización"
                             type="object" invisible="state != 'pendiente'"/>
                     <button name="action_rectificar_desde_xml" string="Rectificar desde XML"
