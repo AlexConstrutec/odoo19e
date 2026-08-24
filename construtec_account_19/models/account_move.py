@@ -2,6 +2,8 @@ from datetime import date
 
 from odoo import api, fields, models
 
+from .sat_document import BIEN_O_SERVICIO_SELECTION, TIPO_COMPRA_SELECTION, TIPO_DTE_SELECTION
+
 
 class AccountMove(models.Model):
     _inherit = 'account.move'
@@ -10,6 +12,15 @@ class AccountMove(models.Model):
         'construtec.sat.document', string='Documento SAT', readonly=True, copy=False,
         help='Documento SAT (DTE) desde el que se generó esta factura, si vino importado vía '
              'la bandeja de documentos SAT en vez de crearse manualmente.')
+    sat_tipo_dte = fields.Selection(
+        TIPO_DTE_SELECTION, string='Tipo de Documento SAT', copy=False,
+        help='Heredado de construtec.sat.document.tipo_dte al convertir (o al usar el botón '
+             '"Sincronizar a Factura" desde el Documento SAT). Informativo - no afecta la '
+             'contabilización.')
+    sat_tipo_compra = fields.Selection(
+        TIPO_COMPRA_SELECTION, string='Tipo de Compra', copy=False,
+        help='Heredado de construtec.sat.document.tipo_compra - clasificación para el Libro de '
+             'Compras y Servicios Recibidos que se presenta a la SAT.')
 
     def action_view_sat_document(self):
         self.ensure_one()
@@ -124,3 +135,18 @@ class AccountMove(models.Model):
                 self._recompute_partida_numeros(self.env['res.company'].browse(company_id), year)
 
         return res
+
+
+class AccountMoveLine(models.Model):
+    _inherit = 'account.move.line'
+
+    sat_document_line_id = fields.Many2one(
+        'construtec.sat.document.line', string='Línea de Documento SAT', readonly=True, copy=False,
+        help='Línea de origen en el Documento SAT, si esta línea de factura vino de convertir '
+             'uno - fijada una sola vez al convertir. Es la clave que usa el botón "Sincronizar a '
+             'Factura" del Documento SAT para saber a qué línea de la factura aplicar cada '
+             'actualización, en vez de emparejar por posición/descripción.')
+    sat_bien_o_servicio = fields.Selection(
+        BIEN_O_SERVICIO_SELECTION, string='Bien/Servicio', copy=False,
+        help='Heredado de construtec.sat.document.line.bien_o_servicio al convertir (o al usar '
+             'el botón "Sincronizar a Factura" desde el Documento SAT).')

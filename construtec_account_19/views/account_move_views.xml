@@ -7,6 +7,8 @@
         <field name="arch" type="xml">
             <field name="date" position="after">
                 <field name="partida_numero" readonly="state != 'posted'"/>
+                <field name="sat_tipo_dte" invisible="not sat_document_id" readonly="1"/>
+                <field name="sat_tipo_compra" invisible="not sat_document_id" readonly="1"/>
             </field>
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button name="action_view_sat_document" type="object" class="oe_stat_button"
@@ -15,6 +17,9 @@
                         <span class="o_stat_text">Documento SAT</span>
                     </div>
                 </button>
+            </xpath>
+            <xpath expr="//field[@name='invoice_line_ids']/list/field[@name='product_id']" position="after">
+                <field name="sat_bien_o_servicio" optional="hide" readonly="1"/>
             </xpath>
         </field>
     </record>

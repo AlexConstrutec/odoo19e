@@ -24,6 +24,9 @@
                     <button name="action_rectificar_desde_xml" string="Rectificar desde XML"
                             type="object"
                             invisible="not xml_attachment_id or (state != 'pendiente' and tipo_dte not in ('NCRE', 'NDEB'))"/>
+                    <button name="action_sincronizar_a_factura" string="Sincronizar a Factura"
+                            type="object"
+                            invisible="state != 'convertido_factura'"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="pendiente,convertido_factura,convertido_orden_compra,convertido_pedido_venta"/>
                 </header>
@@ -53,6 +56,7 @@
                         <group>
                             <field name="direction"/>
                             <field name="tipo_dte"/>
+                            <field name="tipo_compra"/>
                             <field name="serie"/>
                             <field name="numero_documento"/>
                             <field name="fecha_certificacion"/>

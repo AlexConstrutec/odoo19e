@@ -54,6 +54,20 @@ TIPOS_DTE_NOTA_CREDITO = ('NCRE',)
 # partner_id no cambia - solo el tipo de factura/impuesto resultante.
 TIPOS_DTE_FACTURA_ESPECIAL = ('FESP',)
 
+BIEN_O_SERVICIO_SELECTION = [('B', 'Bien'), ('S', 'Servicio')]
+
+# Clasificación para el Libro de Compras y Servicios Recibidos que se presenta a
+# la SAT (Reglamento de la Ley del IVA, Acuerdo Gubernativo 5-2013): una compra
+# "Local" se respalda con un DTE normal (factura, factura especial, etc. - todo
+# lo que este módulo importa desde Agencia Virtual), mientras que una
+# "Importación" se respalda con una Declaración Aduanera de Importación (DAI/
+# póliza), un documento de Aduanas que NO es un DTE y que este módulo/bot no
+# descarga (no aparece en la consulta de documentos de Agencia Virtual). Por
+# eso el default es 'local' - prácticamente todo lo que llega por este canal
+# lo es - y queda editable a mano para el caso ocasional de una importación que
+# el contador necesite marcar así para su propio Libro de Compras.
+TIPO_COMPRA_SELECTION = [('local', 'Compra Local'), ('importacion', 'Importación')]
+
 
 class ConstructecSatDocument(models.Model):
     _name = 'construtec.sat.document'
@@ -69,6 +83,11 @@ class ConstructecSatDocument(models.Model):
         help='UUID de autorización del DTE, tal como lo certifica la SAT. Es el identificador '
              'único usado para evitar reimportar el mismo documento.')
     tipo_dte = fields.Selection(TIPO_DTE_SELECTION, string='Tipo DTE', required=True)
+    tipo_compra = fields.Selection(
+        TIPO_COMPRA_SELECTION, string='Tipo de Compra', default='local',
+        help='Para el Libro de Compras y Servicios Recibidos que se presenta a la SAT. Ver '
+             'comentario de TIPO_COMPRA_SELECTION en el código - por defecto "Local" porque este '
+             'módulo solo importa DTE (nunca una Declaración Aduanera de Importación).')
     numero_autorizacion_referencia = fields.Char(
         string='No. Autorización Documento de Referencia',
         help='Solo en Notas de Crédito/Débito (NCRE/NDEB): número de autorización del documento '
@@ -547,6 +566,8 @@ class ConstructecSatDocument(models.Model):
                 'account_id': linea.account_id.id,
                 'tax_ids': [(6, 0, tax_ids_linea)],
                 'analytic_distribution': linea.analytic_distribution,
+                'sat_document_line_id': linea.id,
+                'sat_bien_o_servicio': linea.bien_o_servicio,
             }
             if linea.product_id:
                 vals['product_id'] = linea.product_id.id
@@ -563,6 +584,8 @@ class ConstructecSatDocument(models.Model):
             'ref': self.numero_documento or self.numero_autorizacion,
             'invoice_line_ids': invoice_line_ids,
             'sat_document_id': self.id,
+            'sat_tipo_dte': self.tipo_dte,
+            'sat_tipo_compra': self.tipo_compra,
         }
         if documento_referencia and documento_referencia.move_id:
             if es_nota_credito:
@@ -590,6 +613,57 @@ class ConstructecSatDocument(models.Model):
         self.write({'move_id': move.id, 'state': 'convertido_factura'})
 
         return self.action_ver_factura()
+
+    def action_sincronizar_a_factura(self):
+        """Botón "Sincronizar a Factura" (visible solo cuando state == 'convertido_factura'):
+        vuelve a copiar hacia la factura YA GENERADA los campos que el usuario puede seguir
+        editando en este Documento SAT después de la conversión inicial - tipo_dte/tipo_compra
+        (cabecera), bien_o_servicio y analytic_distribution (por línea, vía sat_document_line_id,
+        fijado en cada línea al momento de convertir). Explícitamente NO toca account_id/tax_ids
+        de las líneas de la factura ya creada - esos representan decisiones contables ya tomadas
+        que esta sincronización no debe pisar (mismo criterio que action_rectificar_desde_xml).
+
+        Deliberadamente un botón separado de action_rectificar_desde_xml (que solo actúa sobre
+        documentos 'pendiente'/NCRE-NDEB y refresca desde el XML) - éste actúa sobre documentos
+        YA convertidos y refresca desde los propios campos del Documento SAT, sin volver a leer
+        el XML."""
+        self.ensure_one()
+        if self.state != 'convertido_factura' or not self.move_id:
+            raise UserError(self.env._(
+                'Este documento no tiene una factura generada para sincronizar.'))
+
+        self.move_id.write({
+            'sat_tipo_dte': self.tipo_dte,
+            'sat_tipo_compra': self.tipo_compra,
+        })
+        lineas_actualizadas = 0
+        for linea in self.line_ids:
+            move_line = self.move_id.invoice_line_ids.filtered(
+                lambda l, linea=linea: l.sat_document_line_id == linea)
+            if not move_line:
+                continue
+            move_line.write({
+                'sat_bien_o_servicio': linea.bien_o_servicio,
+                'analytic_distribution': linea.analytic_distribution,
+            })
+            lineas_actualizadas += 1
+
+        self.move_id.message_post(body=self.env._(
+            'Sincronizado desde el Documento SAT: Tipo de Documento, Tipo de Compra, y Bien/'
+            'Servicio + distribución analítica en %(cantidad)s línea(s).',
+            cantidad=lineas_actualizadas,
+        ))
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': self.env._('Sincronizar a Factura'),
+                'message': self.env._(
+                    '%(cantidad)s línea(s) actualizadas en la factura.', cantidad=lineas_actualizadas),
+                'type': 'success',
+                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
+            },
+        }
 
     def action_convertir_a_factura_masivo(self):
         """Versión en lote de action_convertir_a_factura(), para seleccionar varios
@@ -977,8 +1051,7 @@ class ConstructecSatDocumentLine(models.Model):
     fecha_certificacion = fields.Datetime(
         related='document_id.fecha_certificacion', string='Fecha de Certificación', store=True)
     numero_linea = fields.Integer(string='No. Línea')
-    bien_o_servicio = fields.Selection(
-        [('B', 'Bien'), ('S', 'Servicio')], string='Bien/Servicio')
+    bien_o_servicio = fields.Selection(BIEN_O_SERVICIO_SELECTION, string='Bien/Servicio')
     descripcion = fields.Char(string='Descripción', required=True)
     cantidad = fields.Float(string='Cantidad', default=1.0)
     precio_unitario = fields.Float(string='Precio Unitario')
