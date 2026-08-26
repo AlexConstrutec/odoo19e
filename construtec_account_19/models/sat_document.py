@@ -132,6 +132,22 @@ class ConstructecSatDocument(models.Model):
     monto_bebidas_no_alcoholicas = fields.Monetary(
         string='Impuesto Bebidas No Alcohólicas', currency_field='currency_id')
     monto_tarifa_portuaria = fields.Monetary(string='Tarifa Portuaria', currency_field='currency_id')
+    monto_retencion_isr_fesp = fields.Monetary(
+        string='Retención ISR (Factura Especial)', currency_field='currency_id',
+        help='Solo en Factura Especial (FESP): "RetencionISR" del complemento '
+             'RetencionesFacturaEspecial del propio XML - 5% de la base imponible, obligado por '
+             'ley. No confundir con las Constancias de Retención de IVA/ISR (modelo separado, '
+             'construtec.sat.retention) - ese caso depende del régimen del vendedor y nunca se '
+             'puede inferir del documento; este SÍ, porque la ley lo fija siempre igual.')
+    monto_retencion_iva_fesp = fields.Monetary(
+        string='Retención IVA (Factura Especial)', currency_field='currency_id',
+        help='Solo en Factura Especial (FESP): "RetencionIVA" del complemento - coincide con el '
+             'IVA total del documento (se retiene el 100%, ya que el vendedor sin NIT no puede '
+             'cobrarlo/remitirlo él mismo).')
+    monto_neto_pagado_fesp = fields.Monetary(
+        string='Neto Pagado al Vendedor (Factura Especial)', currency_field='currency_id',
+        help='Solo en Factura Especial (FESP): "TotalMenosRetenciones" del complemento - lo que '
+             'realmente se le pagó en efectivo/transferencia al vendedor sin NIT, informativo.')
     codigo_establecimiento = fields.Char(string='Código Establecimiento')
     nombre_establecimiento = fields.Char(string='Nombre Establecimiento', help='Solo viene en el Excel del portal.')
     nombre_comercial_emisor = fields.Char(string='Nombre Comercial Emisor')
@@ -317,6 +333,9 @@ class ConstructecSatDocument(models.Model):
                 'monto_total': vals.get('monto_total', 0.0),
                 'monto_iva': vals.get('monto_iva', 0.0),
                 'monto_petroleo': vals.get('monto_petroleo', 0.0),
+                'monto_retencion_isr_fesp': vals.get('monto_retencion_isr_fesp', 0.0),
+                'monto_retencion_iva_fesp': vals.get('monto_retencion_iva_fesp', 0.0),
+                'monto_neto_pagado_fesp': vals.get('monto_neto_pagado_fesp', 0.0),
                 'line_ids': line_ids,
             })
 
@@ -449,6 +468,29 @@ class ConstructecSatDocument(models.Model):
             ('amount', '=', 12.0),
         ], limit=1)
 
+    def _sat_get_retencion_taxes_fesp(self):
+        """Impuestos de retención (ISR 5% + IVA 12%) a asignar por defecto en las líneas de
+        una Factura Especial (FESP), ADEMÁS del IVA de _sat_get_default_iva_tax - a diferencia
+        de una Constancia de Retención (que depende del régimen del vendedor y nunca se puede
+        inferir del documento, ver construtec.sat.retention), en una FESP la ley obliga siempre
+        a retener el 100% del IVA y el 5% de ISR sobre la base imponible, y el propio XML lo
+        confirma (monto_retencion_isr_fesp/monto_retencion_iva_fesp, ver
+        _extraer_retencion_fesp en sat_document_import.py) - por eso aquí SÍ es seguro
+        auto-asignar. Se buscan por tipo/importe (purchase, -5%/-12% - los mismos
+        tax_isr_withhold/tax_vat_withhold de la plantilla l10n_gt), no por un external ID fijo,
+        mismo criterio que _sat_get_default_iva_tax. Vacío si el documento no trae retención
+        real (monto en 0) o si esos impuestos no están configurados - nunca se adivina con
+        otro impuesto."""
+        if float_is_zero(self.monto_retencion_isr_fesp, precision_digits=2) and \
+                float_is_zero(self.monto_retencion_iva_fesp, precision_digits=2):
+            return self.env['account.tax']
+        return self.env['account.tax'].search([
+            ('company_id', '=', self.company_id.id),
+            ('type_tax_use', '=', 'purchase'),
+            ('amount_type', '=', 'percent'),
+            ('amount', 'in', (-5.0, -12.0)),
+        ])
+
     def _sat_find_or_create_partner(self, nit, name):
         if not nit:
             return self.env['res.partner']
@@ -557,6 +599,11 @@ class ConstructecSatDocument(models.Model):
                 # (monto_petroleo, etc.) NO se traducen a account.tax a propósito -
                 # ver CLAUDE.md, sección de impuestos.
                 tax_ids_linea = self._sat_get_default_iva_tax().ids
+                if self.tipo_dte in TIPOS_DTE_FACTURA_ESPECIAL:
+                    # FESP: además del IVA, la ley obliga a retener ISR/IVA - ver
+                    # _sat_get_retencion_taxes_fesp (confirmado por el propio
+                    # XML, no una suposición).
+                    tax_ids_linea += self._sat_get_retencion_taxes_fesp().ids
             else:
                 tax_ids_linea = []
             vals = {
@@ -658,6 +705,59 @@ class ConstructecSatDocument(models.Model):
             'tag': 'display_notification',
             'params': {
                 'title': self.env._('Sincronizar a Factura'),
+                'message': self.env._(
+                    '%(cantidad)s línea(s) actualizadas en la factura.', cantidad=lineas_actualizadas),
+                'type': 'success',
+                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
+            },
+        }
+
+    def action_aplicar_retenciones_fesp(self):
+        """Botón "Aplicar Retenciones FESP" (visible solo en Factura Especial YA convertida,
+        con retención real confirmada por el XML): agrega los impuestos de retención de ISR/IVA
+        (ver _sat_get_retencion_taxes_fesp) a las líneas de la factura YA GENERADA que todavía
+        no los tengan - retrofit para facturas convertidas ANTES de que este módulo supiera leer
+        el complemento RetencionesFacturaEspecial del XML. Las conversiones NUEVAS ya no
+        necesitan este botón: action_convertir_a_factura() aplica estos impuestos automáticamente
+        desde el principio.
+
+        Deliberadamente separado de action_sincronizar_a_factura (que a propósito nunca toca
+        tax_ids) - agregar un impuesto de retención SÍ es una decisión contable, pero una que la
+        ley fija siempre igual para una FESP y que el propio XML confirma, así que aquí sí se
+        justifica aplicarla con un botón dedicado en vez de dejarla 100% manual. Solo AGREGA
+        impuestos que falten (no quita ni reemplaza tax_ids existentes) - si una línea ya trae
+        ambos impuestos de retención, se deja intacta."""
+        self.ensure_one()
+        if self.tipo_dte not in TIPOS_DTE_FACTURA_ESPECIAL:
+            raise UserError(self.env._('Esto solo aplica a Factura Especial (FESP).'))
+        if self.state != 'convertido_factura' or not self.move_id:
+            raise UserError(self.env._(
+                'Este documento no tiene una factura generada para aplicar retenciones.'))
+        retenciones = self._sat_get_retencion_taxes_fesp()
+        if not retenciones:
+            raise UserError(self.env._(
+                'No se encontraron los impuestos de retención (purchase, -5%% o -12%%) '
+                'configurados en Odoo, o el documento no trae montos de retención en el XML.'))
+
+        lineas_actualizadas = 0
+        for move_line in self.move_id.invoice_line_ids.filtered(lambda l: l.display_type == 'product'):
+            faltantes = retenciones - move_line.tax_ids
+            if not faltantes:
+                continue
+            move_line.tax_ids = [(4, tax.id) for tax in faltantes]
+            lineas_actualizadas += 1
+
+        self.move_id.message_post(body=self.env._(
+            'Aplicadas las retenciones de Factura Especial (ISR %(isr)s / IVA %(iva)s) en '
+            '%(cantidad)s línea(s).',
+            isr=self.monto_retencion_isr_fesp, iva=self.monto_retencion_iva_fesp,
+            cantidad=lineas_actualizadas,
+        ))
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': self.env._('Aplicar Retenciones FESP'),
                 'message': self.env._(
                     '%(cantidad)s línea(s) actualizadas en la factura.', cantidad=lineas_actualizadas),
                 'type': 'success',
@@ -768,6 +868,7 @@ class ConstructecSatDocument(models.Model):
         'monto_turismo_pasajes', 'monto_timbre_prensa', 'monto_bomberos',
         'monto_tasa_municipal', 'monto_bebidas_alcoholicas', 'monto_tabaco',
         'monto_cemento', 'monto_bebidas_no_alcoholicas', 'monto_tarifa_portuaria',
+        'monto_retencion_isr_fesp', 'monto_retencion_iva_fesp', 'monto_neto_pagado_fesp',
     ]
 
     def _sat_verificar_enlace_nota(self, document):

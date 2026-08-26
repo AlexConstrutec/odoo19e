@@ -130,6 +130,40 @@ def _extraer_referencia_nota(root):
         'motivo_ajuste_nota': _fix_mangled_accents(referencia.get('MotivoAjuste')),
     }
 
+# Complemento de Factura Especial (FESP) - confirmado contra un XML real: cuando
+# el comprador ya inscrito emite la FESP en nombre del vendedor sin NIT (ver
+# TIPOS_DTE_FACTURA_ESPECIAL en sat_document.py), el propio DTE trae, dentro de
+# <dte:Complemento IDComplemento="FESP">, el elemento
+# <cfe:RetencionesFacturaEspecial> con RetencionISR/RetencionIVA/
+# TotalMenosRetenciones - la ley obliga a retener el 100% del IVA (RetencionIVA
+# coincide exactamente con el TotalMontoImpuesto NombreCorto="IVA" del propio
+# documento) y el 5% de ISR sobre la base imponible, así que a diferencia de una
+# Constancia de Retención (que depende del régimen del vendedor y nunca se puede
+# inferir), aquí SÍ es seguro leer estos montos directo del XML - la SAT ya
+# certificó que corresponden. Mismo criterio de namespace-sin-condicionar-al-
+# padre que _extraer_referencia_nota.
+_NS_RETENCION_FESP = 'http://www.sat.gob.gt/face2/ComplementoFacturaEspecial/0.1.0'
+
+
+def _extraer_retencion_fesp(root):
+    retencion = root.find(f'.//{{{_NS_RETENCION_FESP}}}RetencionesFacturaEspecial')
+    if retencion is None:
+        return {
+            'monto_retencion_isr_fesp': 0.0,
+            'monto_retencion_iva_fesp': 0.0,
+            'monto_neto_pagado_fesp': 0.0,
+        }
+
+    def _text(tag):
+        el = retencion.find(f'{{{_NS_RETENCION_FESP}}}{tag}')
+        return float(el.text) if el is not None and el.text else 0.0
+
+    return {
+        'monto_retencion_isr_fesp': _text('RetencionISR'),
+        'monto_retencion_iva_fesp': _text('RetencionIVA'),
+        'monto_neto_pagado_fesp': _text('TotalMenosRetenciones'),
+    }
+
 # Nombre de subcarpeta de sección -> dirección del documento SAT. Confirmado con
 # datos reales: section_1 son documentos donde el Receptor del DTE es la cuenta
 # propia (compras/recibidas); section_2 son donde el Emisor es la cuenta propia
@@ -264,6 +298,7 @@ def _parse_dte_xml(xml_bytes: bytes) -> dict:
         if numero_autorizacion_el is not None else '',
         'tipo_dte': datos_generales.get('Tipo') if datos_generales is not None else None,
         **_extraer_referencia_nota(root),
+        **_extraer_retencion_fesp(root),
         'moneda_codigo': datos_generales.get('CodigoMoneda') if datos_generales is not None else None,
         'serie': numero_autorizacion_el.get('Serie') if numero_autorizacion_el is not None else None,
         'numero_documento': numero_autorizacion_el.get('Numero') if numero_autorizacion_el is not None else None,

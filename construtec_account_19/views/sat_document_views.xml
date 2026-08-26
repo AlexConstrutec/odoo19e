@@ -27,6 +27,9 @@
                     <button name="action_sincronizar_a_factura" string="Sincronizar a Factura"
                             type="object"
                             invisible="state != 'convertido_factura'"/>
+                    <button name="action_aplicar_retenciones_fesp" string="Aplicar Retenciones FESP"
+                            type="object"
+                            invisible="state != 'convertido_factura' or tipo_dte != 'FESP' or (not monto_retencion_isr_fesp and not monto_retencion_iva_fesp)"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="pendiente,convertido_factura,convertido_orden_compra,convertido_pedido_venta"/>
                 </header>
@@ -114,6 +117,13 @@
                                     <field name="motivo_ajuste_nota"/>
                                 </group>
                             </group>
+                            <group string="Retenciones (Factura Especial)" invisible="tipo_dte != 'FESP'">
+                                <group>
+                                    <field name="monto_retencion_isr_fesp"/>
+                                    <field name="monto_retencion_iva_fesp"/>
+                                    <field name="monto_neto_pagado_fesp"/>
+                                </group>
+                            </group>
                             <group>
                                 <group string="Emisor">
                                     <field name="nombre_comercial_emisor"/>
@@ -153,8 +163,8 @@
                             </group>
                         </page>
                         <page string="XML" invisible="not xml_attachment_id">
-                            <field name="xml_content" widget="ace" options="{'mode': 'xml'}"
-                                   readonly="1" nolabel="1"/>
+                            <field name="xml_content" widget="text" readonly="1" nolabel="1"
+                                   class="font-monospace"/>
                         </page>
                     </notebook>
                 </sheet>
