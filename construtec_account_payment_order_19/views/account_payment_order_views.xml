@@ -15,7 +15,10 @@
                             groups="construtec_account_payment_order_19.group_payment_order_approver"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'enviado' or not es_procesador"/>
                     <button name="action_reset_to_draft" string="Volver a Borrador" type="object"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state not in ('enviado', 'rechazado')"/>
+                            groups="construtec_account_payment_order_19.group_payment_order_approver"
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'enviado'"/>
+                    <button name="action_reset_to_draft" string="Volver a Borrador" type="object"
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'rechazado'"/>
                     <button name="action_cancel" string="Cancelar" type="object"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state in ('cancelado', 'rechazado', 'aplicado')"/>
                     <button name="action_aplicar" string="Aplicar" type="object" class="oe_highlight"

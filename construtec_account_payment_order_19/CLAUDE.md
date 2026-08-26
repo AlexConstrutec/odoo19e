@@ -384,6 +384,14 @@ Reportado por el usuario en producción: eligió una Cuenta Analítica al captur
 
 El usuario pidió, y luego pidió deshacer en el mismo hilo, una función para configurar una cuenta contable de gastos por Tipo de Gasto: primero un campo simple (`account.account` directo), luego - al notar que Community no tiene el plan de cuentas real de Enterprise - un modelo espejo completo (`account.payment.order.enterprise.account`/`...journal`, sync consciente del rol, botón en Ajustes). Antes de terminar de probarlo, el usuario concluyó que "es algo muy muy complejo" y pidió eliminarlo por completo. **Se revirtió íntegramente**: los dos modelos espejo, `_sync_enterprise_accounts()`/`_sync_enterprise_journals()`/sus `_upsert_*` en `res_company.py`, `fetch_accounts()`/`fetch_journals()` en `enterprise_sync_api.py`, el bloque de Ajustes y su botón, las filas de `ir.model.access.csv`, y el campo `cuenta_contable_id` mismo - no queda nada de este intento en el módulo. Documentado aquí únicamente para que una sesión futura no reintente el mismo diseño sin saber que ya se probó y se descartó por decisión explícita del usuario (complejidad, no un defecto técnico).
 
+### Bug real: "Volver a Borrador" desde Enviada no tenía ningún gate de permiso
+
+Reportado por el usuario: cualquiera con acceso de Facturación (incluido el Jefe de técnicos, quien solo debería poder crear/enviar) podía retirar en silencio una Orden ya Enviada de vuelta a Borrador - `action_reset_to_draft()` no llamaba a ningún chequeo de permiso, y el botón en la vista no tenía `groups=` (a diferencia de `action_approve()`/`action_reject()`, justo arriba en el mismo `<header>`).
+
+**Matiz importante, no una restricción uniforme**: el mismo botón/método también cubre Rechazada → Borrador, que SÍ debe seguir abierto para el solicitante original - es el camino normal para corregir y reenviar algo que ya fue rechazado, no una acción que amerite permiso especial. Gatear las dos transiciones por igual habría roto ese flujo legítimo.
+
+**El fix**: `action_reset_to_draft()` ahora llama `rec._check_is_approver()` (el mismo chequeo que ya usa `action_reject()`) **solo cuando `rec.state == 'enviado'`** - Rechazada → Borrador queda sin cambios. La vista se dividió en **dos** `<button name="action_reset_to_draft">` con el mismo `name` (llaman al mismo método) pero `invisible=`/`groups=` distintos: uno para `state == 'enviado'` con `groups="...group_payment_order_approver"`, otro para `state == 'rechazado'` sin `groups=` - un solo `groups=` en un botón que cubre ambos estados no puede expresar "requerido para este estado, no para aquel". Verificado con un script real en `construtec_test`: un usuario sin el grupo aprobador queda bloqueado en `enviado` (`AccessError`), el mismo usuario CON el grupo sí puede resetear un `enviado`, y sin el grupo igual puede resetear un `rechazado`.
+
 ## Common commands
 
 ```

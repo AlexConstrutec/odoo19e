@@ -680,6 +680,13 @@ class AccountPaymentOrder(models.Model):
             if rec.tipo not in ANTICIPO_TIPOS:
                 raise UserError(self.env._(
                     'Volver a Borrador solo aplica a Órdenes de Pago de tipo Anticipo.'))
+            # Enviada -> Borrador requiere el mismo permiso que aprobar/rechazar (el
+            # solicitante -ej. Jefe de técnicos- no debe poder retirar en silencio una Orden
+            # que ya está en revisión). Rechazada -> Borrador se deja SIN este gate a propósito:
+            # es el camino normal para que el propio solicitante corrija y reenvíe algo que ya
+            # fue rechazado, no una acción que necesite permiso especial.
+            if rec.state == 'enviado':
+                rec._check_is_approver()
             rec.write({
                 'state': 'borrador',
                 'approved_by_id': False,
