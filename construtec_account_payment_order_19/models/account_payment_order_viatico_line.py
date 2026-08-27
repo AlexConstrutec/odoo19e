@@ -37,6 +37,37 @@ class AccountPaymentOrderViaticoLine(models.Model):
     cantidad = fields.Integer(string='Cantidad', default=1)
     costo_individual = fields.Float(string='Costo Individual')
     total = fields.Float(string='Total', compute='_compute_total', store=True)
+    viaticos_sin_liquidar_count = fields.Integer(
+        string='Viáticos sin Liquidar', compute='_compute_viaticos_sin_liquidar_count',
+        help='Cantidad de OTRAS líneas de viáticos de este mismo empleado (`employee_partner_id`) '
+             'en Órdenes de Pago tipo Anticipo Viáticos ya Aplicadas que todavía no tienen su '
+             'Liquidación conciliada (`order_id.esta_liquidado = False`) - ayuda a detectar, al '
+             'capturar una solicitud nueva, si un técnico ya tiene viáticos pendientes de '
+             'liquidar en otra solicitud. No cuenta líneas de la propia Orden que se está '
+             'capturando/editando. No stored a propósito (mismo criterio que '
+             '`diferencia_conciliacion`/`anticipos_disponibles_ids` en account_payment_order.py: '
+             'es un indicador en vivo sobre datos de OTROS registros, no algo que tenga sentido '
+             'cachear).')
+
+    @api.depends('employee_partner_id')
+    def _compute_viaticos_sin_liquidar_count(self):
+        for line in self:
+            if not line.employee_partner_id:
+                line.viaticos_sin_liquidar_count = 0
+                continue
+            domain = [
+                ('employee_partner_id', '=', line.employee_partner_id.id),
+                ('order_id.tipo', '=', 'anticipo_viaticos'),
+                ('order_id.state', '=', 'aplicado'),
+                ('order_id.esta_liquidado', '=', False),
+            ]
+            # order_id.id puede ser un NewId (formulario todavía sin guardar) - un NewId no es
+            # un valor válido para un domain de search_count, y de todas formas una Orden nueva
+            # nunca está en state='aplicado' todavía, así que excluirla es innecesario en ese
+            # caso. Solo se excluye por id real cuando existe.
+            if isinstance(line.order_id.id, int):
+                domain.append(('order_id', '!=', line.order_id.id))
+            line.viaticos_sin_liquidar_count = self.search_count(domain)
 
     @api.depends('employee_partner_id', 'order_id.company_id')
     def _compute_employee_id(self):

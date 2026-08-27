@@ -95,6 +95,8 @@
                                     <field name="cantidad"/>
                                     <field name="costo_individual"/>
                                     <field name="total" sum="Total"/>
+                                    <field name="viaticos_sin_liquidar_count" string="Sin Liquidar"
+                                           decoration-warning="viaticos_sin_liquidar_count &gt; 0"/>
                                 </list>
                             </field>
                             <group class="oe_subtotal_footer oe_right">

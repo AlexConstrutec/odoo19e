@@ -21,6 +21,7 @@
         'data/payment_order_status_sync_cron.xml',
         'data/employee_sync_cron.xml',
         'views/account_payment_order_views.xml',
+        'views/account_payment_order_viatico_line_views.xml',
         'views/account_move_views.xml',
         'views/account_payment_views.xml',
         'views/hr_employee_views.xml',
