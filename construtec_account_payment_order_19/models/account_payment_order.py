@@ -44,6 +44,17 @@ class AccountPaymentOrder(models.Model):
     _description = 'Orden de Pago (Anticipo / Liquidación / Pago Directo)'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'fecha desc'
+    _sql_constraints = [
+        # Un Anticipo (tipo != 'liquidacion') siempre tiene anticipo_id = NULL, así que estas
+        # filas nunca chocan entre sí en Postgres (NULL nunca es igual a NULL en un UNIQUE) -
+        # este índice solo protege contra DOS Liquidaciones apuntando al mismo Anticipo, que es
+        # justo el caso que _check_anticipo_id() no cubría. Defensa en profundidad junto con esa
+        # constraint de Python: esta atrapa incluso una carrera (dos usuarios guardando "al
+        # mismo tiempo"), donde el chequeo en Python de uno podría no ver todavía el write() del
+        # otro.
+        ('anticipo_id_uniq', 'unique(anticipo_id)',
+         'Este Anticipo ya tiene una Liquidación registrada - un Anticipo solo puede tener una.'),
+    ]
 
     tipo = fields.Selection([
         ('anticipo', 'Anticipo'),
@@ -92,6 +103,20 @@ class AccountPaymentOrder(models.Model):
              'botón "Registrar Liquidación" de un Anticipo aplicado - editable en borrador por '
              'si se necesita corregirlo a mano, listando únicamente Anticipos ya Aplicados que '
              'todavía no tengan otra Liquidación registrada (ver `_compute_anticipos_disponibles_ids`).')
+    liquidacion_ids = fields.One2many(
+        'account.payment.order', 'anticipo_id', string='Liquidación',
+        help='Liquidación registrada contra este Anticipo - técnicamente One2many, pero en la '
+             'práctica nunca trae más de un registro (forzado por `_sql_constraints`/'
+             '`_check_anticipo_id`, arriba). Existe solo como respaldo de `esta_liquidado`.')
+    esta_liquidado = fields.Boolean(
+        string='Liquidado', compute='_compute_esta_liquidado', store=True,
+        help='Indica que este Anticipo ya tiene una Liquidación registrada y que esa '
+             'Liquidación ya llegó a `state=\'liquidado\'` (facturas y pagos conciliados vía '
+             'action_conciliar()). Deliberadamente NO cambia el `state` del propio Anticipo '
+             '(que se queda en `aplicado`) para no afectar ningún guard/dominio existente que '
+             'compara contra ese valor (`_compute_anticipos_disponibles_ids`, '
+             '`action_registrar_liquidacion`, `action_cancelar_anticipo_aplicado`) - es solo un '
+             'indicador visual aparte (ribbon en el formulario, columna en la lista).')
     anticipos_disponibles_ids = fields.Many2many(
         'account.payment.order', compute='_compute_anticipos_disponibles_ids',
         help='Auxiliar para el dominio de `anticipo_id` (mismo patrón que '
@@ -167,12 +192,16 @@ class AccountPaymentOrder(models.Model):
         ('aprobado', 'Aprobado'),
         ('rechazado', 'Rechazado'),
         ('aplicado', 'Aplicado'),
+        ('liquidado', 'Liquidado'),
         ('cancelado', 'Cancelado'),
     ], default='borrador', copy=False, tracking=True,
         help='`enviado`/`aprobado`/`rechazado` solo aplican a `tipo=\'anticipo\'` (el ciclo '
              'heredado de la antigua Solicitud de Pago, fusionada aquí) - Liquidación y Pago '
-             'Directo siguen yendo directo de `borrador` a `aplicado` vía `action_conciliar()`, '
-             'sin pasar por enviar/aprobar, exactamente como antes de esta fusión.')
+             'Directo siguen yendo directo de `borrador` a `liquidado` vía `action_conciliar()`, '
+             'sin pasar por enviar/aprobar, exactamente como antes de esta fusión (el único '
+             'cambio: el estado final para esos dos tipos se llama `liquidado`, no `aplicado` - '
+             'ver "Estado Liquidado" en el CLAUDE.md de este módulo). `aplicado` sigue siendo el '
+             'estado final de Anticipo/Anticipo Viáticos, sin cambios.')
 
     # --- Campos absorbidos de la antigua account.payment.order.request (fusión Solicitud+Anticipo) ---
     external_ref = fields.Char(
@@ -309,6 +338,11 @@ class AccountPaymentOrder(models.Model):
             ]
         return res
 
+    @api.depends('liquidacion_ids.state')
+    def _compute_esta_liquidado(self):
+        for rec in self:
+            rec.esta_liquidado = any(l.state == 'liquidado' for l in rec.liquidacion_ids)
+
     @api.depends('anticipo_id')
     def _compute_anticipos_disponibles_ids(self):
         ya_liquidados = self.env['account.payment.order'].search([
@@ -322,11 +356,27 @@ class AccountPaymentOrder(models.Model):
 
     @api.constrains('tipo', 'anticipo_id')
     def _check_anticipo_id(self):
+        """Dos reglas: (1) toda Liquidación necesita un Anticipo de origen, (2) un Anticipo solo
+        puede tener UNA Liquidación - la (2) también está forzada a nivel de base de datos
+        (`_sql_constraints`, arriba) como respaldo ante una carrera; este chequeo en Python
+        existe además para dar un mensaje más útil (con el nombre de la Liquidación ya
+        registrada) en el caso normal, sin carrera de por medio."""
         for rec in self:
             if rec.tipo == 'liquidacion' and not rec.anticipo_id:
                 raise ValidationError(rec.env._(
                     'Una Liquidación debe originarse desde un Anticipo: usa el botón "Registrar '
                     'Liquidación" en el Anticipo correspondiente en vez de crearla directamente.'))
+            if rec.tipo == 'liquidacion' and rec.anticipo_id:
+                duplicada = self.search([
+                    ('tipo', '=', 'liquidacion'),
+                    ('anticipo_id', '=', rec.anticipo_id.id),
+                    ('id', '!=', rec.id),
+                ], limit=1)
+                if duplicada:
+                    raise ValidationError(rec.env._(
+                        'El Anticipo %(anticipo)s ya tiene la Liquidación %(existente)s '
+                        'registrada - un Anticipo solo puede tener una Liquidación.',
+                        anticipo=rec.anticipo_id.name, existente=duplicada.name))
 
     @api.constrains('tipo', 'journal_id')
     def _check_journal_id(self):
@@ -922,7 +972,7 @@ class AccountPaymentOrder(models.Model):
         for linea, nueva_linea in zip(lineas, move.line_ids):
             (linea | nueva_linea).reconcile()
 
-        self.write({'move_id': move.id, 'state': 'aplicado'})
+        self.write({'move_id': move.id, 'state': 'liquidado'})
         return True
 
     def action_cancelar(self):

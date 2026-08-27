@@ -32,18 +32,20 @@
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'aplicado'"/>
                     <button name="action_conciliar" string="Conciliar" type="object" class="oe_highlight"
                             groups="account.group_account_manager"
-                            invisible="tipo not in ('liquidacion', 'pago_directo') or state == 'aplicado'"/>
+                            invisible="tipo not in ('liquidacion', 'pago_directo') or state == 'liquidado'"/>
                     <button name="action_cancelar" string="Cancelar" type="object"
                             groups="account.group_account_manager"
-                            invisible="tipo not in ('liquidacion', 'pago_directo') or state != 'aplicado'"/>
+                            invisible="tipo not in ('liquidacion', 'pago_directo') or state != 'liquidado'"/>
                     <field name="es_procesador" invisible="1"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="borrador,enviado,aprobado,aplicado"
                            invisible="tipo not in ('anticipo', 'anticipo_viaticos')"/>
-                    <field name="state" widget="statusbar" statusbar_visible="borrador,aplicado"
+                    <field name="state" widget="statusbar" statusbar_visible="borrador,liquidado"
                            invisible="tipo not in ('liquidacion', 'pago_directo')"/>
                 </header>
                 <sheet>
+                    <widget name="web_ribbon" title="Liquidado" bg_color="text-bg-success"
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or not esta_liquidado"/>
                     <div class="oe_title">
                         <h1><field name="name" readonly="1"/></h1>
                     </div>
@@ -229,7 +231,9 @@
                 <field name="partner_id"/>
                 <field name="total_acreditar" sum="Total" optional="show"/>
                 <field name="origin" optional="hide"/>
-                <field name="state" widget="badge" decoration-success="state == 'aplicado'"
+                <field name="esta_liquidado" optional="hide"
+                       invisible="tipo not in ('anticipo', 'anticipo_viaticos')"/>
+                <field name="state" widget="badge" decoration-success="state in ('aplicado', 'liquidado')"
                        decoration-info="state == 'borrador'"
                        decoration-warning="state in ('enviado', 'aprobado')"
                        decoration-danger="state in ('rechazado', 'cancelado')"/>
@@ -250,6 +254,11 @@
                         domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos')), ('state', '=', 'enviado')]"/>
                 <filter string="Aprobadas" name="aprobadas"
                         domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos')), ('state', '=', 'aprobado')]"/>
+                <filter string="Anticipos Liquidados" name="anticipos_liquidados"
+                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos')), ('esta_liquidado', '=', True)]"/>
+                <filter string="Anticipos sin Liquidar" name="anticipos_sin_liquidar"
+                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos')),
+                                 ('state', '=', 'aplicado'), ('esta_liquidado', '=', False)]"/>
                 <separator/>
                 <filter string="Tipo" name="group_tipo" context="{'group_by': 'tipo'}"/>
                 <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
