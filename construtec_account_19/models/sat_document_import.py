@@ -164,6 +164,32 @@ def _extraer_retencion_fesp(root):
         'monto_neto_pagado_fesp': _text('TotalMenosRetenciones'),
     }
 
+# Complemento de Factura Cambiaria (FCAM/FCAP) - confirmado contra la plantilla de
+# EMISIÓN propia de Odoo (server/odoo/addons/l10n_gt_edi/data/templates.xml,
+# dte_complemento_cambiaria): <dte:Complemento IDComplemento="Cambiaria"> trae un
+# único <cfc:AbonosFacturaCambiaria>, con uno o más <cfc:Abono> (cada abono/cuota
+# con su propio NumeroAbono/FechaVencimiento/MontoAbono) - NO se ha confirmado
+# todavía contra un XML real con más de un abono, así que si hay varios se toma
+# la fecha MÁS TARDÍA (fecha en la que la factura queda completamente vencida) -
+# ajustar aquí si un documento real con varias cuotas confirma que se necesita
+# la más próxima en vez de la última. Mismo criterio de namespace-sin-
+# condicionar-al-IDComplemento-del-padre que _extraer_referencia_nota/
+# _extraer_retencion_fesp.
+_NS_CAMBIARIA = 'http://www.sat.gob.gt/dte/fel/CompCambiaria/0.1.0'
+
+
+def _extraer_fecha_vencimiento_cambiaria(root):
+    fechas = [
+        el.text for el in root.findall(f'.//{{{_NS_CAMBIARIA}}}Abono/{{{_NS_CAMBIARIA}}}FechaVencimiento')
+        if el.text
+    ]
+    if not fechas:
+        return {'fecha_vencimiento': None}
+    # Las fechas del complemento vienen 'YYYY-MM-DD' (sin hora) - comparan bien como texto,
+    # pero se parsean para devolver siempre el mismo formato que espera el campo Date.
+    ultima = max(datetime.fromisoformat(f).date() for f in fechas)
+    return {'fecha_vencimiento': ultima.isoformat()}
+
 # Nombre de subcarpeta de sección -> dirección del documento SAT. Confirmado con
 # datos reales: section_1 son documentos donde el Receptor del DTE es la cuenta
 # propia (compras/recibidas); section_2 son donde el Emisor es la cuenta propia
@@ -299,6 +325,7 @@ def _parse_dte_xml(xml_bytes: bytes) -> dict:
         'tipo_dte': datos_generales.get('Tipo') if datos_generales is not None else None,
         **_extraer_referencia_nota(root),
         **_extraer_retencion_fesp(root),
+        **_extraer_fecha_vencimiento_cambiaria(root),
         'moneda_codigo': datos_generales.get('CodigoMoneda') if datos_generales is not None else None,
         'serie': numero_autorizacion_el.get('Serie') if numero_autorizacion_el is not None else None,
         'numero_documento': numero_autorizacion_el.get('Numero') if numero_autorizacion_el is not None else None,

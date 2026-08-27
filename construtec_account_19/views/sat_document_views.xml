@@ -63,6 +63,7 @@
                             <field name="serie"/>
                             <field name="numero_documento"/>
                             <field name="fecha_certificacion"/>
+                            <field name="fecha_vencimiento"/>
                         </group>
                         <group>
                             <field name="partner_id"/>

@@ -98,6 +98,14 @@ class ConstructecSatDocument(models.Model):
     serie = fields.Char(string='Serie')
     numero_documento = fields.Char(string='Número de Documento')
     fecha_certificacion = fields.Datetime(string='Fecha de Certificación', required=True)
+    fecha_vencimiento = fields.Date(
+        string='Fecha de Vencimiento',
+        help='Solo en Factura Cambiaria (FCAM/FCAP): fecha límite de pago tal como viene en el '
+             'complemento "Cambiaria" del propio XML (cfc:AbonosFacturaCambiaria/cfc:Abono/'
+             'cfc:FechaVencimiento - si trae varios abonos/cuotas, se toma la fecha MÁS TARDÍA). '
+             'Editable a mano por si el documento no la trae o hay que corregirla. Al convertir a '
+             'factura, reemplaza el default de invoice_date_due (que si no, usa la misma fecha de '
+             'certificación).')
     nit_emisor = fields.Char(string='NIT Emisor')
     nombre_emisor = fields.Char(string='Nombre Emisor')
     nit_receptor = fields.Char(string='NIT Receptor')
@@ -165,9 +173,12 @@ class ConstructecSatDocument(models.Model):
     fecha_anulacion = fields.Datetime(string='Fecha de Anulación')
     xml_attachment_id = fields.Many2one('ir.attachment', string='XML', copy=False)
     xml_content = fields.Text(
-        string='Contenido XML', compute='_compute_xml_content',
-        help='Vista de solo lectura del XML certificado (formateado con sangría para que sea '
-             'legible) - se lee directamente de xml_attachment_id cada vez, no se guarda aparte.')
+        string='Contenido XML', compute='_compute_xml_content', store=True,
+        help='Respaldo del XML certificado (formateado con sangría para que sea legible), '
+             'guardado en este mismo registro - sobrevive aunque se borre xml_attachment_id (el '
+             'adjunto real), ya que se calcula UNA VEZ al fijar el adjunto y no se vuelve a tocar '
+             'si luego el adjunto desaparece. store=True también hace que se rellene solo, vía '
+             '-u, en los documentos ya existentes que todavía conserven su adjunto.')
     pdf_attachment_id = fields.Many2one('ir.attachment', string='PDF', copy=False)
     cuenta_analitica_id = fields.Many2one('account.analytic.account', string='Cuenta Analítica')
     cuenta_contable_id = fields.Many2one('account.account', string='Cuenta Contable')
@@ -195,11 +206,17 @@ class ConstructecSatDocument(models.Model):
         adjunto está en filestore o en la base de datos) y lo reformatea con sangría para que
         sea legible en pantalla - el XML que certifica la SAT viene sin espacios/saltos de
         línea entre etiquetas. Si el reformateo falla (XML mal formado, poco probable ya que
-        es el mismo que se parseó al importar), se muestra el texto tal cual en vez de nada."""
+        es el mismo que se parseó al importar), se muestra el texto tal cual en vez de nada.
+
+        Real caso detectado: al menos un documento ya existente se quedó SIN xml_attachment_id
+        (el adjunto se perdió/borró). Por eso, si NO hay adjunto, este método simplemente no
+        toca xml_content - un compute stored en Odoo solo pisa el valor de un registro cuando
+        LE ASIGNA algo explícitamente, así que omitir la asignación aquí deja intacto el
+        respaldo que ya se había guardado la primera vez (cuando sí existía el adjunto), en vez
+        de borrarlo por accidente si xml_attachment_id se pone en False más adelante."""
         for document in self:
             attachment = document.xml_attachment_id
             if not attachment:
-                document.xml_content = False
                 continue
             crudo = attachment.raw or b''
             try:
@@ -319,6 +336,7 @@ class ConstructecSatDocument(models.Model):
                 'serie': vals.get('serie'),
                 'numero_documento': vals.get('numero_documento'),
                 'fecha_certificacion': vals.get('fecha_certificacion'),
+                'fecha_vencimiento': vals.get('fecha_vencimiento'),
                 'nit_emisor': vals.get('nit_emisor'),
                 'nombre_emisor': vals.get('nombre_emisor'),
                 'nombre_comercial_emisor': vals.get('nombre_comercial_emisor'),
@@ -625,7 +643,7 @@ class ConstructecSatDocument(models.Model):
             'move_type': move_type,
             'partner_id': self.partner_id.id,
             'invoice_date': fecha,
-            'invoice_date_due': fecha,
+            'invoice_date_due': self.fecha_vencimiento or fecha,
             'date': fecha,
             'currency_id': self.currency_id.id,
             'ref': self.numero_documento or self.numero_autorizacion,
@@ -860,7 +878,7 @@ class ConstructecSatDocument(models.Model):
 
     _CAMPOS_RECTIFICABLES_DESDE_XML = [
         'tipo_dte', 'numero_autorizacion_referencia', 'motivo_ajuste_nota',
-        'serie', 'numero_documento', 'fecha_certificacion',
+        'serie', 'numero_documento', 'fecha_certificacion', 'fecha_vencimiento',
         'nit_emisor', 'nombre_emisor', 'nombre_comercial_emisor', 'direccion_emisor',
         'codigo_establecimiento', 'nit_receptor', 'nombre_receptor',
         'nit_certificador', 'nombre_certificador', 'moneda_codigo',
