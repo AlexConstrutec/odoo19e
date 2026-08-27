@@ -433,6 +433,18 @@ Pedido explícito del usuario, apoyado en el `esta_liquidado` recién agregado: 
 
 Verificado en `construtec_test` (`-u ... --stop-after-init --no-http`, luego un script por `odoo-bin shell`): dos Anticipos Viáticos Aplicados sin liquidar para el mismo técnico (Orden A y B) → la línea de B ve `viaticos_sin_liquidar_count=1` (cuenta a A, no a sí misma); un tercer Anticipo (Orden C) se registra, se liquida completo (factura exacta + `action_conciliar()`) → el conteo en la línea de B sigue en 1 (A sigue pendiente, C ya no cuenta); el reporte (a nivel de encabezado, agrupado por `partner_id`) incluye A y B pero excluye C.
 
+### `liquidacion_id`: ver desde el Anticipo hacia su Liquidación (antes solo se veía al revés)
+
+Reportado por el usuario: la Liquidación siempre mostró `anticipo_id` ("Anticipo de Origen"), pero el Anticipo no tenía ningún campo simétrico para ver hacia qué Liquidación quedó vinculado - había que ir a buscarla a mano (o confiar en `esta_liquidado`, que solo dice sí/no, sin decir cuál).
+
+`liquidacion_id` (Many2one, `compute='_compute_liquidacion_id'`, `@api.depends('liquidacion_ids')` - toma el primero de `liquidacion_ids`, el One2many agregado junto con `esta_liquidado`) - de solo lectura, visible en el mismo grupo que `anticipo_id`, justo debajo, con `invisible="tipo not in ('anticipo', 'anticipo_viaticos') or not liquidacion_id"` (no ocupa espacio en un Anticipo que todavía no tiene Liquidación registrada). Verificado: vacío antes de `action_registrar_liquidacion()`, apunta a la Liquidación correcta después.
+
+### Investigado: `community_url` "no se ve" en Enterprise - no es un bug de código, es cobertura de datos
+
+Reportado por el usuario: en Enterprise, un Anticipo Viáticos no muestra el link "Ver Orden en Community" (`community_url`), mientras que en Community el link "Ver Orden en Enterprise" (`enterprise_url`) sí se ve correctamente. Investigado con un script que simula exactamente lo que `create_sync_record()` hace en Enterprise al recibir una sincronización (`Order.create({'origin_record_id': ..., 'origin_base_url': ..., ...})`, el mismo payload real que arma `_prepare_sync_vals()`): tanto el compute (`_compute_community_url`) como el `arch` de la vista de formulario (confirmado con `get_view()`) resuelven y muestran el campo correctamente cuando `origin_record_id`/`origin_base_url` están presentes - **no hay ningún bug de código aquí**.
+
+La causa real, casi seguro: `origin_record_id`/`origin_base_url` solo se llenan en un registro que llegó por sincronización (`origin='synced'`) - un Anticipo creado directamente a mano en Enterprise (no sincronizado desde Community) nunca los tiene, y por diseño su `community_url` se queda vacío correctamente (no hay ninguna "Orden en Community" que enlazar, porque no existe). También es posible que sea un Anticipo sincronizado ANTES de que este campo existiera en el módulo (sin migración de datos retroactiva, mismo criterio ya documentado varias veces en este archivo). **Para confirmar**: revisar en un Anticipo Viáticos sincronizado nuevo (creado en Community después de este despliegue, con la sincronización habilitada) si el link aparece - si sigue sin verse en un registro genuinamente nuevo y sincronizado, ahí sí habría un bug real que investigar más a fondo con ese caso concreto.
+
 ## Common commands
 
 ```

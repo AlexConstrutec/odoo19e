@@ -108,6 +108,13 @@ class AccountPaymentOrder(models.Model):
         help='Liquidación registrada contra este Anticipo - técnicamente One2many, pero en la '
              'práctica nunca trae más de un registro (forzado por `_sql_constraints`/'
              '`_check_anticipo_id`, arriba). Existe solo como respaldo de `esta_liquidado`.')
+    liquidacion_id = fields.Many2one(
+        'account.payment.order', string='Liquidación Vinculada',
+        compute='_compute_liquidacion_id',
+        help='La Liquidación registrada contra este Anticipo (ver `liquidacion_ids`, arriba) - '
+             'campo de solo lectura, simétrico a `anticipo_id` en la Liquidación (que sí '
+             'muestra el Anticipo de Origen); antes no había ninguna forma de ver, desde el '
+             'propio Anticipo, hacia qué Liquidación quedó vinculado.')
     esta_liquidado = fields.Boolean(
         string='Liquidado', compute='_compute_esta_liquidado', store=True,
         help='Indica que este Anticipo ya tiene una Liquidación registrada y que esa '
@@ -337,6 +344,11 @@ class AccountPaymentOrder(models.Model):
                 (value, label) for value, label in tipo_desc['selection'] if value in allowed
             ]
         return res
+
+    @api.depends('liquidacion_ids')
+    def _compute_liquidacion_id(self):
+        for rec in self:
+            rec.liquidacion_id = rec.liquidacion_ids[:1]
 
     @api.depends('liquidacion_ids.state')
     def _compute_esta_liquidado(self):

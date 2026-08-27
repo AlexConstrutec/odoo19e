@@ -55,6 +55,8 @@
                             <field name="anticipos_disponibles_ids" invisible="1"/>
                             <field name="anticipo_id" readonly="state != 'borrador'"
                                    invisible="tipo != 'liquidacion'"/>
+                            <field name="liquidacion_id" readonly="1"
+                                   invisible="tipo not in ('anticipo', 'anticipo_viaticos') or not liquidacion_id"/>
                             <field name="analytic_account_id" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="proyecto" invisible="1"/>
                             <field name="journal_id" invisible="not es_procesador"
