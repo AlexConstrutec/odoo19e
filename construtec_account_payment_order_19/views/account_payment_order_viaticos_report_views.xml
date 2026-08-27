@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Reporte "Viáticos sin Liquidar": pedido explícito del usuario, agrupado por el
+         empleado/jefe de técnicos del ENCABEZADO de la Orden (`partner_id` - quien
+         solicitó/capturó el Anticipo Viáticos), no por cada técnico de las líneas de detalle
+         (ver `viaticos_sin_liquidar_count` en account_payment_order_viatico_line.py para eso -
+         es un indicador distinto, a nivel de línea). Solo tiene sentido en la instalación
+         Procesadora - una Liquidación nunca se crea ni se sincroniza hacia Community, así que
+         ahí este reporte siempre mostraría "sin liquidar" para todo, sea o no cierto (ver el
+         domain de la acción, que filtra por company_id.payment_order_role = 'procesador' en vez
+         de ocultar el menú por completo - mismo criterio que usa `es_procesador` en
+         account_payment_order.py). -->
+    <record id="view_account_payment_order_viaticos_sin_liquidar_list" model="ir.ui.view">
+        <field name="name">account.payment.order.viaticos.sin.liquidar.list</field>
+        <field name="model">account.payment.order</field>
+        <field name="arch" type="xml">
+            <list string="Viáticos sin Liquidar" create="0" edit="0" delete="0">
+                <field name="partner_id" string="Jefe de Técnicos"/>
+                <field name="name"/>
+                <field name="fecha"/>
+                <field name="departamento" optional="show"/>
+                <field name="puesto" optional="show"/>
+                <field name="monto" sum="Total"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_account_payment_order_viaticos_sin_liquidar_search" model="ir.ui.view">
+        <field name="name">account.payment.order.viaticos.sin.liquidar.search</field>
+        <field name="model">account.payment.order</field>
+        <field name="arch" type="xml">
+            <search string="Viáticos sin Liquidar">
+                <field name="partner_id"/>
+                <field name="name"/>
+                <field name="departamento"/>
+                <filter string="Jefe de Técnicos" name="group_partner"
+                        context="{'group_by': 'partner_id'}"/>
+                <filter string="Departamento" name="group_departamento"
+                        context="{'group_by': 'departamento'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_viaticos_sin_liquidar" model="ir.actions.act_window">
+        <field name="name">Viáticos sin Liquidar</field>
+        <field name="res_model">account.payment.order</field>
+        <field name="view_mode">list,pivot</field>
+        <field name="search_view_id" ref="view_account_payment_order_viaticos_sin_liquidar_search"/>
+        <field name="domain">[
+            ('tipo', '=', 'anticipo_viaticos'),
+            ('state', '=', 'aplicado'),
+            ('esta_liquidado', '=', False),
+            ('company_id.payment_order_role', '=', 'procesador'),
+        ]</field>
+        <field name="context">{'search_default_group_partner': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No hay Anticipos Viáticos pendientes de liquidar.
+            </p>
+            <p>
+                Este reporte solo trae datos en la instalación Procesadora (Enterprise) - una
+                Liquidación nunca se crea ni se sincroniza hacia una instalación Solicitante
+                (Community).
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_viaticos_sin_liquidar" name="Viáticos sin Liquidar"
+              action="action_viaticos_sin_liquidar"
+              parent="account.menu_finance_payables" sequence="22"
+              groups="account.group_account_invoice"/>
+</odoo>
