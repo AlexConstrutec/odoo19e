@@ -179,6 +179,13 @@ class ConstructecSatDocument(models.Model):
              'adjunto real), ya que se calcula UNA VEZ al fijar el adjunto y no se vuelve a tocar '
              'si luego el adjunto desaparece. store=True también hace que se rellene solo, vía '
              '-u, en los documentos ya existentes que todavía conserven su adjunto.')
+    etiquetas_no_reconocidas = fields.Char(
+        string='Etiquetas No Reconocidas en XML', copy=False,
+        help='Etiquetas que SÍ aparecen en el XML de este documento pero que este módulo '
+             'todavía no lee/guarda en ningún campo (ver _ETIQUETAS_CONOCIDAS en '
+             'sat_document_import.py) - vacío si el documento no trae nada fuera de lo ya '
+             'capturado. Filtra la lista por "no está vacío" para encontrar documentos con '
+             'datos potencialmente sin aprovechar. Se recalcula al usar "Rectificar desde XML".')
     pdf_attachment_id = fields.Many2one('ir.attachment', string='PDF', copy=False)
     cuenta_analitica_id = fields.Many2one('account.analytic.account', string='Cuenta Analítica')
     cuenta_contable_id = fields.Many2one('account.account', string='Cuenta Contable')
@@ -337,6 +344,7 @@ class ConstructecSatDocument(models.Model):
                 'numero_documento': vals.get('numero_documento'),
                 'fecha_certificacion': vals.get('fecha_certificacion'),
                 'fecha_vencimiento': vals.get('fecha_vencimiento'),
+                'etiquetas_no_reconocidas': vals.get('etiquetas_no_reconocidas'),
                 'nit_emisor': vals.get('nit_emisor'),
                 'nombre_emisor': vals.get('nombre_emisor'),
                 'nombre_comercial_emisor': vals.get('nombre_comercial_emisor'),
@@ -879,6 +887,7 @@ class ConstructecSatDocument(models.Model):
     _CAMPOS_RECTIFICABLES_DESDE_XML = [
         'tipo_dte', 'numero_autorizacion_referencia', 'motivo_ajuste_nota',
         'serie', 'numero_documento', 'fecha_certificacion', 'fecha_vencimiento',
+        'etiquetas_no_reconocidas',
         'nit_emisor', 'nombre_emisor', 'nombre_comercial_emisor', 'direccion_emisor',
         'codigo_establecimiento', 'nit_receptor', 'nombre_receptor',
         'nit_certificador', 'nombre_certificador', 'moneda_codigo',

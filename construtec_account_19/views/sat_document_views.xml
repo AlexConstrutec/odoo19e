@@ -38,6 +38,10 @@
                         Este documento fue <strong>ANULADO</strong> en la SAT
                         (<field name="fecha_anulacion" readonly="1" nolabel="1"/>).
                     </div>
+                    <div class="alert alert-warning" role="alert" invisible="not etiquetas_no_reconocidas">
+                        El XML de este documento trae etiquetas que todavía no se guardan en
+                        ningún campo: <field name="etiquetas_no_reconocidas" readonly="1" nolabel="1"/>.
+                    </div>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_ver_factura" type="object" class="oe_stat_button"
                                 icon="fa-file-text-o" invisible="not move_id">
@@ -187,6 +191,7 @@
                 <field name="monto_total" sum="Total"/>
                 <field name="cuenta_contable_id"/>
                 <field name="anulado" optional="hide"/>
+                <field name="etiquetas_no_reconocidas" optional="hide"/>
                 <field name="state" widget="badge"
                        decoration-success="state in ('convertido_factura', 'convertido_orden_compra')"
                        decoration-info="state == 'pendiente'"/>
@@ -208,6 +213,8 @@
                 <filter string="Convertidos" name="convertidos"
                         domain="[('state', 'in', ('convertido_factura', 'convertido_orden_compra'))]"/>
                 <filter string="Anuladas" name="anuladas" domain="[('anulado', '=', True)]"/>
+                <filter string="Con Etiquetas No Reconocidas" name="con_etiquetas_no_reconocidas"
+                        domain="[('etiquetas_no_reconocidas', '!=', False)]"/>
                 <group>
                     <filter string="Dirección" name="group_direction" context="{'group_by': 'direction'}"/>
                     <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>

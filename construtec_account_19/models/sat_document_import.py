@@ -190,6 +190,64 @@ def _extraer_fecha_vencimiento_cambiaria(root):
     ultima = max(datetime.fromisoformat(f).date() for f in fechas)
     return {'fecha_vencimiento': ultima.isoformat()}
 
+# Detección de etiquetas del XML que el parser NO lee todavía (petición real del
+# contador: "que me diga que hay un dato que no se está almacenando... una
+# etiqueta nueva, una etiqueta extraña"). Namespaces de la FIRMA DIGITAL
+# (ds:Signature/xades:...) se excluyen del todo - son metadatos criptográficos
+# de la certificación, nunca datos de negocio del DTE, y aparecen en TODOS los
+# documentos por igual (serían puro ruido en cada uno).
+_NS_IGNORAR_FIRMA = {
+    'http://www.w3.org/2000/09/xmldsig#',
+    'http://uri.etsi.org/01903/v1.3.2#',
+    'http://uri.etsi.org/01903/v1.4.1#',
+}
+
+# Nombres de etiqueta (SIN namespace/prefijo - simplificación deliberada: más
+# simple de mantener que namespace+nombre, aceptando el riesgo teórico de que
+# dos complementos distintos reusen el mismo nombre local para cosas distintas)
+# que _parse_dte_xml y sus _extraer_* YA leen, o que son simples envoltorios
+# estructurales sin dato propio (GTDocumento/SAT/DTE/DatosEmision). Mantenida a
+# mano - agregar aquí en cuanto se decida capturar un campo que hoy aparece como
+# "no reconocido" (mismo criterio incremental que TIPO_DTE_SELECTION/
+# _NOMBRE_CORTO_A_CAMPO), para que deje de marcarse una vez que ya se lee.
+_ETIQUETAS_CONOCIDAS = {
+    'GTDocumento', 'SAT', 'DTE', 'DatosEmision',
+    'DatosGenerales', 'Emisor', 'DireccionEmisor', 'Direccion', 'Receptor',
+    'Certificacion', 'NumeroAutorizacion', 'NITCertificador', 'NombreCertificador',
+    'FechaHoraCertificacion',
+    'Items', 'Item', 'Descripcion', 'Cantidad', 'PrecioUnitario', 'Descuento',
+    'OtrosDescuento', 'Total', 'Impuestos', 'Impuesto', 'NombreCorto', 'MontoImpuesto',
+    'Totales', 'TotalImpuestos', 'TotalImpuesto', 'GranTotal',
+    'Complementos', 'Complemento', 'ReferenciasNota',
+    'RetencionesFacturaEspecial', 'RetencionISR', 'RetencionIVA', 'TotalMenosRetenciones',
+    'AbonosFacturaCambiaria', 'Abono', 'FechaVencimiento',
+}
+
+
+def _detectar_etiquetas_no_reconocidas(root):
+    """Recorre TODO el árbol del XML (menos la firma digital) y regresa, ordenadas y
+    separadas por coma, las etiquetas que aparecen en el documento pero que
+    _ETIQUETAS_CONOCIDAS no reconoce - es decir, datos que el DTE sí trae pero que
+    este módulo todavía no guarda en ningún campo. Regresa None si no encuentra
+    ninguna (todo lo que trae el documento ya se está leyendo). Verificado contra un
+    XML real de Factura Especial: detecta correctamente 'Precio' (duplica
+    PrecioUnitario pero con IVA incluido, no capturado), 'DireccionReceptor' (solo se
+    lee la del Emisor), y 'CodigoUnidadGravable'/'MontoGravable' (dentro de cada
+    Impuesto de línea, no capturados) - ninguno falso positivo sobre las ~36
+    etiquetas que sí se leen."""
+    encontradas = set()
+    for el in root.iter():
+        if el.tag.startswith('{'):
+            ns, local = el.tag[1:].split('}', 1)
+        else:
+            ns, local = '', el.tag
+        if ns in _NS_IGNORAR_FIRMA:
+            continue
+        encontradas.add(local)
+    nuevas = sorted(encontradas - _ETIQUETAS_CONOCIDAS)
+    return ', '.join(nuevas) if nuevas else None
+
+
 # Nombre de subcarpeta de sección -> dirección del documento SAT. Confirmado con
 # datos reales: section_1 son documentos donde el Receptor del DTE es la cuenta
 # propia (compras/recibidas); section_2 son donde el Emisor es la cuenta propia
@@ -326,6 +384,7 @@ def _parse_dte_xml(xml_bytes: bytes) -> dict:
         **_extraer_referencia_nota(root),
         **_extraer_retencion_fesp(root),
         **_extraer_fecha_vencimiento_cambiaria(root),
+        'etiquetas_no_reconocidas': _detectar_etiquetas_no_reconocidas(root),
         'moneda_codigo': datos_generales.get('CodigoMoneda') if datos_generales is not None else None,
         'serie': numero_autorizacion_el.get('Serie') if numero_autorizacion_el is not None else None,
         'numero_documento': numero_autorizacion_el.get('Numero') if numero_autorizacion_el is not None else None,
