@@ -40,10 +40,12 @@ class AccountPaymentOrderViaticoLine(models.Model):
     viaticos_sin_liquidar_count = fields.Integer(
         string='Viáticos sin Liquidar', compute='_compute_viaticos_sin_liquidar_count',
         help='Cantidad de OTRAS líneas de viáticos de este mismo empleado (`employee_partner_id`) '
-             'en Órdenes de Pago tipo Anticipo Viáticos ya Aplicadas que todavía no tienen su '
-             'Liquidación conciliada (`order_id.esta_liquidado = False`) - ayuda a detectar, al '
-             'capturar una solicitud nueva, si un técnico ya tiene viáticos pendientes de '
-             'liquidar en otra solicitud. No cuenta líneas de la propia Orden que se está '
+             'en Órdenes de Pago tipo Anticipo Viáticos que todavía no tienen su Liquidación '
+             'conciliada (`order_id.esta_liquidado = False`) y no están Rechazadas/Canceladas - '
+             'ayuda a detectar, al capturar una solicitud nueva, si un técnico ya tiene viáticos '
+             'pendientes en otra solicitud, sea cual sea su estado (Borrador/Enviada/Aprobada/'
+             'Aplicada - todas cuentan como "aún no liquidada"; solo Rechazada/Cancelada quedan '
+             'fuera, por estar muertas). No cuenta líneas de la propia Orden que se está '
              'capturando/editando. No stored a propósito (mismo criterio que '
              '`diferencia_conciliacion`/`anticipos_disponibles_ids` en account_payment_order.py: '
              'es un indicador en vivo sobre datos de OTROS registros, no algo que tenga sentido '
@@ -58,13 +60,13 @@ class AccountPaymentOrderViaticoLine(models.Model):
             domain = [
                 ('employee_partner_id', '=', line.employee_partner_id.id),
                 ('order_id.tipo', '=', 'anticipo_viaticos'),
-                ('order_id.state', '=', 'aplicado'),
+                ('order_id.state', 'not in', ('rechazado', 'cancelado')),
                 ('order_id.esta_liquidado', '=', False),
             ]
             # order_id.id puede ser un NewId (formulario todavía sin guardar) - un NewId no es
             # un valor válido para un domain de search_count, y de todas formas una Orden nueva
-            # nunca está en state='aplicado' todavía, así que excluirla es innecesario en ese
-            # caso. Solo se excluye por id real cuando existe.
+            # sin guardar no existe todavía en la base para que search_count() la encuentre, así
+            # que excluirla es innecesaria en ese caso. Solo se excluye por id real cuando existe.
             if isinstance(line.order_id.id, int):
                 domain.append(('order_id', '!=', line.order_id.id))
             line.viaticos_sin_liquidar_count = self.search_count(domain)
