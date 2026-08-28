@@ -157,18 +157,24 @@ class ResCompany(models.Model):
             })
 
     def _pull_payment_order_status(self):
-        """Trae de vuelta el estado real (Enviado/Aprobado/Rechazado/Aplicado) de las propias
-        Órdenes de Pago ya enviadas a la instalación Procesadora - `_sync_to_enterprise()` es de
-        un solo sentido (crea un registro NUEVO allá al Enviar), así que sin este pull el
+        """Trae de vuelta el estado real (Enviado/Aprobado/Rechazado/Aplicado/Liquidado) de las
+        propias Órdenes de Pago ya enviadas a la instalación Procesadora - `_sync_to_enterprise()`
+        es de un solo sentido (crea un registro NUEVO allá al Enviar), así que sin este pull el
         registro original se queda congelado en 'enviado' para siempre, sin enterarse de nada
-        de lo que pasó después en Enterprise (aprobación, rechazo, aplicación).
+        de lo que pasó después en Enterprise (aprobación, rechazo, aplicación, liquidación).
+
+        `'aplicado'` NO es terminal (a diferencia de antes de la fusión de Liquidación dentro de
+        Anticipo) - un Anticipo Aplicado en Enterprise puede seguir avanzando a `'liquidado'`
+        sobre el mismo registro, así que hay que seguir consultándolo hasta que llegue ahí (o se
+        cancele). Solo `'liquidado'`/`'rechazado'`/`'cancelado'` son terminales de verdad.
 
         Empareja por `external_ref` = el propio `name` de esta Orden (guardado del lado de
         Enterprise por `_prepare_sync_vals()`) - nunca por id, son bases de datos distintas.
         Solo actualiza `state`/`reject_reason`/`approve_date`/`reject_date` - un `write()` plano,
-        NO se llaman `action_approve()`/`action_reject()`/`action_aplicar()` (esos son para
-        ejecutar la transición AQUÍ; esto solo refleja una transición que ya ocurrió allá, sin
-        repetir ningún efecto secundario - crear un pago local, disparar sync, etc. - de nuevo)."""
+        NO se llaman `action_approve()`/`action_reject()`/`action_aplicar()`/`action_conciliar()`
+        (esos son para ejecutar la transición AQUÍ; esto solo refleja una transición que ya
+        ocurrió allá, sin repetir ningún efecto secundario - crear un pago local, disparar sync,
+        etc. - de nuevo)."""
         self.ensure_one()
         if self.payment_order_role != 'solicitante' or not self.payment_order_sync_enabled:
             return True, self.env._(
@@ -179,7 +185,7 @@ class ResCompany(models.Model):
             ('tipo', 'in', ('anticipo', 'anticipo_viaticos')),
             ('origin', '=', 'local'),
             ('sync_state', '=', 'synced'),
-            ('state', 'not in', ('aplicado', 'rechazado', 'cancelado')),
+            ('state', 'not in', ('liquidado', 'rechazado', 'cancelado')),
         ])
         if not pendientes:
             return True, self.env._('No hay Órdenes de Pago pendientes de actualizar.')
