@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Sube a 4 decimales la precisión de "Cantidad" (nombre interno "Product Unit",
+         id externo uom.decimal_product_uom) en TODO Odoo - no es un registro nuevo,
+         se referencia el mismo id externo del módulo uom para sobrescribir su único
+         campo 'digits'. Afecta cualquier campo con digits='Product Unit' en el
+         sistema (cantidad de líneas de factura/venta/compra/inventario, y también
+         construtec.sat.document.line.cantidad en este mismo módulo) - petición
+         explícita del usuario/contador, no limitada a Documentos SAT. -->
+    <record id="uom.decimal_product_uom" model="decimal.precision">
+        <field name="digits">4</field>
+    </record>
+</odoo>

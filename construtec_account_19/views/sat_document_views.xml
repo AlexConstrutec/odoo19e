@@ -23,7 +23,7 @@
                             type="object" invisible="state != 'pendiente'"/>
                     <button name="action_rectificar_desde_xml" string="Rectificar desde XML"
                             type="object"
-                            invisible="not xml_attachment_id or (state != 'pendiente' and tipo_dte not in ('NCRE', 'NDEB'))"/>
+                            invisible="not xml_attachment_id or state in ('convertido_orden_compra', 'convertido_pedido_venta')"/>
                     <button name="action_sincronizar_a_factura" string="Sincronizar a Factura"
                             type="object"
                             invisible="state != 'convertido_factura'"/>

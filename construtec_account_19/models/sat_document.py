@@ -962,9 +962,17 @@ class ConstructecSatDocument(models.Model):
         satisface la condición de alguna regla). Requiere un XML adjunto - se
         omiten sin error los documentos que no lo tengan.
 
-        Para NCRE/NDEB YA CONVERTIDAS (state != 'pendiente'), en vez del refresco
-        de encabezado (ya no tendría efecto contable), se verifica/corrige el
-        vínculo con su documento de referencia - ver _sat_verificar_enlace_nota().
+        Para cualquier documento YA CONVERTIDO A FACTURA (state == 'convertido_factura',
+        sin importar tipo_dte): además de refrescar el encabezado del propio Documento
+        SAT, empuja lo que corresponda hacia la factura YA GENERADA - mismo alcance que
+        action_sincronizar_a_factura() (tipo_dte/tipo_compra/bien_o_servicio/
+        analytic_distribution, nunca account_id/tax_ids ya decididos a mano) y, si es
+        Factura Especial con retención pendiente, también action_aplicar_retenciones_fesp()
+        (agrega el impuesto de retención solo si falta, nunca lo quita/reemplaza). Para
+        NCRE/NDEB específicamente, además se verifica/corrige el vínculo con su documento
+        de referencia (ver _sat_verificar_enlace_nota()) tanto si está convertida como si
+        no. Un documento convertido a Orden de Compra/Pedido de Venta (sin move_id) no
+        tiene factura a la cual empujar nada - se omite.
         """
         # Import diferido (no al nivel del módulo): sat_document_import.py extiende
         # este mismo modelo (_inherit = 'construtec.sat.document') - un import al
@@ -996,7 +1004,25 @@ class ConstructecSatDocument(models.Model):
                         for line in document.line_ids:
                             categorization_model._sat_apply_to_line(document, line)
                         rectificados += 1
-                    elif self._sat_verificar_enlace_nota(document):
+                    elif document.move_id:
+                        # Ya convertido a factura: refresca el encabezado con lo último
+                        # que diga el XML y empuja lo que corresponda hacia la factura
+                        # ya creada - ver docstring de arriba para el alcance exacto.
+                        xml_bytes = base64.b64decode(document.xml_attachment_id.datas)
+                        datos = _parse_dte_xml(xml_bytes)
+                        vals = {
+                            campo: datos[campo] for campo in self._CAMPOS_RECTIFICABLES_DESDE_XML
+                            if campo in datos
+                        }
+                        document.write(vals)
+                        document.action_sincronizar_a_factura()
+                        if document.tipo_dte in TIPOS_DTE_FACTURA_ESPECIAL \
+                                and document._sat_get_retencion_taxes_fesp():
+                            document.action_aplicar_retenciones_fesp()
+                        if document._sat_verificar_enlace_nota(document):
+                            enlaces_corregidos += 1
+                        rectificados += 1
+                    elif document._sat_verificar_enlace_nota(document):
                         enlaces_corregidos += 1
                     else:
                         omitidos += 1
@@ -1181,7 +1207,7 @@ class ConstructecSatDocumentLine(models.Model):
     numero_linea = fields.Integer(string='No. Línea')
     bien_o_servicio = fields.Selection(BIEN_O_SERVICIO_SELECTION, string='Bien/Servicio')
     descripcion = fields.Char(string='Descripción', required=True)
-    cantidad = fields.Float(string='Cantidad', default=1.0)
+    cantidad = fields.Float(string='Cantidad', default=1.0, digits='Product Unit')
     precio_unitario = fields.Float(string='Precio Unitario')
     monto_descuento = fields.Float(
         string='Descuento',
