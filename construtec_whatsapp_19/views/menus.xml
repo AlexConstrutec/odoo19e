@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_construtec_whatsapp_root" name="WhatsApp"
+              parent="account.menu_finance_payables" sequence="22"/>
+    <menuitem action="action_construtec_whatsapp_template" id="menu_construtec_whatsapp_template"
+              parent="menu_construtec_whatsapp_root" sequence="10"/>
+    <menuitem action="action_construtec_whatsapp_recipient_group" id="menu_construtec_whatsapp_recipient_group"
+              parent="menu_construtec_whatsapp_root" sequence="20"/>
+    <menuitem action="action_construtec_whatsapp_payment_order_notification"
+              id="menu_construtec_whatsapp_payment_order_notification"
+              parent="menu_construtec_whatsapp_root" sequence="25"/>
+    <menuitem action="action_construtec_whatsapp_log" id="menu_construtec_whatsapp_log"
+              parent="menu_construtec_whatsapp_root" sequence="30"/>
+</odoo>

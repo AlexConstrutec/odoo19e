@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_construtec_whatsapp_template_list" model="ir.ui.view">
+        <field name="name">construtec.whatsapp.template.list</field>
+        <field name="model">construtec.whatsapp.template</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="meta_template_name"/>
+                <field name="meta_template_language"/>
+                <field name="active" column_invisible="True"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_construtec_whatsapp_template_form" model="ir.ui.view">
+        <field name="name">construtec.whatsapp.template.form</field>
+        <field name="model">construtec.whatsapp.template</field>
+        <field name="arch" type="xml">
+            <form string="Plantilla de WhatsApp">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Ej. Orden de Pago Enviada"/></h1>
+                    </div>
+                    <group>
+                        <field name="meta_template_name"/>
+                        <field name="meta_template_language"/>
+                        <field name="active"/>
+                    </group>
+                    <group>
+                        <field name="param_help" nolabel="1" placeholder="Ej. {{1}} = nombre de la Orden, {{2}} = contacto, {{3}} = monto"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_construtec_whatsapp_template" model="ir.actions.act_window">
+        <field name="name">Plantillas de WhatsApp</field>
+        <field name="res_model">construtec.whatsapp.template</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Crea una referencia a una plantilla YA aprobada en Meta Business Manager.
+            </p>
+        </field>
+    </record>
+</odoo>

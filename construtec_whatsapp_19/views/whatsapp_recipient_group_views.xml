@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_construtec_whatsapp_recipient_group_list" model="ir.ui.view">
+        <field name="name">construtec.whatsapp.recipient.group.list</field>
+        <field name="model">construtec.whatsapp.recipient.group</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="partner_ids" widget="many2many_tags"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_construtec_whatsapp_recipient_group_form" model="ir.ui.view">
+        <field name="name">construtec.whatsapp.recipient.group.form</field>
+        <field name="model">construtec.whatsapp.recipient.group</field>
+        <field name="arch" type="xml">
+            <form string="Grupo de Destinatarios de WhatsApp">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Ej. Aprobadores Nivel Alto"/></h1>
+                    </div>
+                    <p class="text-muted">
+                        No es un grupo real de WhatsApp - al enviar, se manda un mensaje individual
+                        a cada contacto de esta lista (la API de Meta no soporta mandar a grupos).
+                    </p>
+                    <field name="partner_ids">
+                        <list>
+                            <field name="name"/>
+                            <field name="phone"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_construtec_whatsapp_recipient_group" model="ir.actions.act_window">
+        <field name="name">Grupos de Destinatarios de WhatsApp</field>
+        <field name="res_model">construtec.whatsapp.recipient.group</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Crea una lista de contactos a notificar por WhatsApp.
+            </p>
+        </field>
+    </record>
+</odoo>

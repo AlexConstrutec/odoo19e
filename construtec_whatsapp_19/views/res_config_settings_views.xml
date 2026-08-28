@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.construtec.whatsapp</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="account.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='account']" position="inside">
+                <block title="WhatsApp (Meta Cloud API)" name="construtec_whatsapp_settings">
+                    <setting id="whatsapp_enabled" string="WhatsApp Habilitado"
+                             help="Interruptor general - si está apagado, ningún envío de WhatsApp de este módulo hace nada, sin importar la demás configuración.">
+                        <field name="whatsapp_enabled"/>
+                    </setting>
+                    <setting string="Credenciales de la cuenta de WhatsApp Business (Meta)"
+                             invisible="not whatsapp_enabled">
+                        <div class="content-group">
+                            <div class="row mt16">
+                                <label for="whatsapp_phone_number_id" class="col-lg-3 o_light_label"/>
+                                <field name="whatsapp_phone_number_id"/>
+                            </div>
+                            <div class="row mt8">
+                                <label for="whatsapp_access_token" class="col-lg-3 o_light_label"/>
+                                <field name="whatsapp_access_token" password="True"/>
+                            </div>
+                            <div class="row mt8">
+                                <label for="whatsapp_api_version" class="col-lg-3 o_light_label"/>
+                                <field name="whatsapp_api_version"/>
+                            </div>
+                            <div class="row mt8">
+                                <label for="whatsapp_business_account_id" class="col-lg-3 o_light_label"/>
+                                <field name="whatsapp_business_account_id"/>
+                            </div>
+                            <div class="text-muted mt8">
+                                El Phone Number ID y el Access Token se obtienen en
+                                developers.facebook.com &gt; tu App &gt; WhatsApp &gt; API Setup.
+                                Usa un token PERMANENTE (System User) para producción, no el
+                                temporal de 24h.
+                            </div>
+                            <div class="mt8">
+                                <button name="action_test_whatsapp_connection" type="object"
+                                        string="Probar conexión" class="btn btn-secondary" icon="fa-plug"/>
+                            </div>
+                        </div>
+                    </setting>
+                    <setting string="Registro de WhatsApp" invisible="not whatsapp_enabled">
+                        <field name="whatsapp_log_ids" nolabel="1">
+                            <list create="0" delete="0">
+                                <field name="create_date" string="Fecha"/>
+                                <field name="to_number"/>
+                                <field name="success"/>
+                                <field name="message"/>
+                            </list>
+                        </field>
+                    </setting>
+                </block>
+                <block title="Notificar Órdenes de Pago por WhatsApp" name="construtec_whatsapp_payment_order_settings"
+                       invisible="not whatsapp_enabled">
+                    <setting id="payment_order_whatsapp_enabled" string="Habilitado"
+                             help="Interruptor general - si está apagado, ninguna notificación de Orden de Pago se manda, sin importar la configuración de abajo.">
+                        <field name="payment_order_whatsapp_enabled"/>
+                    </setting>
+                    <setting string="Eventos, plantillas y destinatarios" invisible="not payment_order_whatsapp_enabled">
+                        <div class="text-muted">
+                            Qué plantilla (y a quién) se manda para cada evento - Enviado,
+                            Aprobado, Aplicado, Liquidado - se configura en
+                            <b>WhatsApp &gt; Notificaciones de Órdenes de Pago</b>, no aquí.
+                        </div>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

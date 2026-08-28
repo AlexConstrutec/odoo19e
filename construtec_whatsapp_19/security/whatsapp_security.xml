@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="group_whatsapp_manager" model="res.groups">
+        <field name="name">WhatsApp: Administrar plantillas y destinatarios</field>
+        <field name="comment">Puede crear/editar plantillas y grupos de destinatarios de WhatsApp,
+            y configurar la cuenta en Ajustes. Implícito en account.group_account_invoice (el
+            mismo grupo que ya usa este proyecto para "administra Órdenes de Pago") - así un
+            usuario de Contabilidad normal puede configurar esto sin depender de TI ni del grupo
+            técnico de Administrador (Ajustes).</field>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+
+    <record id="account.group_account_invoice" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('group_whatsapp_manager'))]"/>
+    </record>
+</odoo>
