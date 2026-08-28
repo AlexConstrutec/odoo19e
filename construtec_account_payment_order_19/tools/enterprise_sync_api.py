@@ -161,7 +161,7 @@ def fetch_order_status(url, db, login, api_key, external_refs):
     Usa las MISMAS credenciales que `create_sync_record()` - el usuario de integración
     (`group_payment_order_sync_integration`) ya tiene permiso de lectura sobre este modelo
     (lo necesitan sus propios `@api.constrains` al validar un `create()`, ej.
-    `_check_anticipo_id`), así que no hace falta un usuario/grupo aparte para esto."""
+    `_check_journal_id`), así que no hace falta un usuario/grupo aparte para esto."""
     if not (url and db and login and api_key):
         raise EnterpriseSyncError(
             'Sincronización de estado de Órdenes de Pago incompleta (falta URL, base de datos, '

@@ -4,12 +4,14 @@
          empleado/jefe de técnicos del ENCABEZADO de la Orden (`partner_id` - quien
          solicitó/capturó el Anticipo Viáticos), no por cada técnico de las líneas de detalle
          (ver `viaticos_sin_liquidar_count` en account_payment_order_viatico_line.py para eso -
-         es un indicador distinto, a nivel de línea). Solo tiene sentido en la instalación
-         Procesadora - una Liquidación nunca se crea ni se sincroniza hacia Community, así que
-         ahí este reporte siempre mostraría "sin liquidar" para todo, sea o no cierto (ver el
-         domain de la acción, que filtra por company_id.payment_order_role = 'procesador' en vez
-         de ocultar el menú por completo - mismo criterio que usa `es_procesador` en
-         account_payment_order.py). -->
+         es un indicador distinto, a nivel de línea). `state = 'aplicado'` ya significa "sin
+         liquidar" por sí solo desde que Liquidación dejó de ser un registro aparte (una Orden
+         Aplicada que ya se liquidó pasa directo a `state='liquidado'`, no se queda en
+         `aplicado`). Solo tiene sentido en la instalación Procesadora - una Orden nunca se
+         liquida en Community, así que ahí este reporte siempre mostraría "sin liquidar" para
+         todo, sea o no cierto (ver el domain de la acción, que filtra por
+         company_id.payment_order_role = 'procesador' en vez de ocultar el menú por completo -
+         mismo criterio que usa `es_procesador` en account_payment_order.py). -->
     <record id="view_account_payment_order_viaticos_sin_liquidar_list" model="ir.ui.view">
         <field name="name">account.payment.order.viaticos.sin.liquidar.list</field>
         <field name="model">account.payment.order</field>
@@ -49,7 +51,6 @@
         <field name="domain">[
             ('tipo', '=', 'anticipo_viaticos'),
             ('state', '=', 'aplicado'),
-            ('esta_liquidado', '=', False),
             ('company_id.payment_order_role', '=', 'procesador'),
         ]</field>
         <field name="context">{'search_default_group_partner': 1}</field>
@@ -58,9 +59,8 @@
                 No hay Anticipos Viáticos pendientes de liquidar.
             </p>
             <p>
-                Este reporte solo trae datos en la instalación Procesadora (Enterprise) - una
-                Liquidación nunca se crea ni se sincroniza hacia una instalación Solicitante
-                (Community).
+                Este reporte solo trae datos en la instalación Procesadora (Enterprise) - un
+                Anticipo nunca llega a liquidarse en una instalación Solicitante (Community).
             </p>
         </field>
     </record>

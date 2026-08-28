@@ -45,7 +45,7 @@
             leerlos (`fetch_order_status()` - lee `state`/`reject_reason`/fechas por `external_ref`,
             para que la instalación Solicitante sepa qué pasó con lo que envió) - nunca modificar ni
             eliminar. La lectura ya era necesaria de todos modos para los propios `@api.constrains`
-            del modelo al validar un `create()` (ej. `_check_anticipo_id`), así que no es un permiso
+            del modelo al validar un `create()` (ej. `_check_journal_id`), así que no es un permiso
             nuevo, solo se documenta aquí con precisión (antes decía "nunca leer", desactualizado).</field>
     </record>
 

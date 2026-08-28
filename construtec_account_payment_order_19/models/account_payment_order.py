@@ -41,25 +41,13 @@ def _resolve_employee_for_partner(partner, company):
 
 class AccountPaymentOrder(models.Model):
     _name = 'account.payment.order'
-    _description = 'Orden de Pago (Anticipo / Liquidación / Pago Directo)'
+    _description = 'Orden de Pago (Anticipo / Pago Directo)'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'fecha desc'
-    _sql_constraints = [
-        # Un Anticipo (tipo != 'liquidacion') siempre tiene anticipo_id = NULL, así que estas
-        # filas nunca chocan entre sí en Postgres (NULL nunca es igual a NULL en un UNIQUE) -
-        # este índice solo protege contra DOS Liquidaciones apuntando al mismo Anticipo, que es
-        # justo el caso que _check_anticipo_id() no cubría. Defensa en profundidad junto con esa
-        # constraint de Python: esta atrapa incluso una carrera (dos usuarios guardando "al
-        # mismo tiempo"), donde el chequeo en Python de uno podría no ver todavía el write() del
-        # otro.
-        ('anticipo_id_uniq', 'unique(anticipo_id)',
-         'Este Anticipo ya tiene una Liquidación registrada - un Anticipo solo puede tener una.'),
-    ]
 
     tipo = fields.Selection([
         ('anticipo', 'Anticipo'),
         ('anticipo_viaticos', 'Anticipo Viáticos'),
-        ('liquidacion', 'Liquidación'),
         ('pago_directo', 'Pago Directo'),
     ], string='Tipo', required=True,
         default=lambda self: (self.env.company._get_payment_order_allowed_tipos() or ['anticipo'])[0],
@@ -72,11 +60,10 @@ class AccountPaymentOrder(models.Model):
     fecha = fields.Date(string='Fecha', required=True, default=fields.Date.context_today)
     journal_id = fields.Many2one(
         'account.journal', string='Diario',
-        help='Para Liquidación/Pago Directo se exige siempre (ver `_check_journal_id()`). Para '
-             'Anticipo, deliberadamente NO es obligatorio al crear - lo llena el contable '
-             'DESPUÉS de Aprobar (fusión Solicitud+Anticipo: ya no hay un Wizard "Crear '
-             'Anticipo" que lo pida en un paso aparte) - se exige en cambio dentro de '
-             '`action_aplicar()`.')
+        help='Para Pago Directo se exige siempre (ver `_check_journal_id()`). Para Anticipo, '
+             'deliberadamente NO es obligatorio al crear - lo llena el contable DESPUÉS de '
+             'Aprobar (fusión Solicitud+Anticipo: ya no hay un Wizard "Crear Anticipo" que lo '
+             'pida en un paso aparte) - se exige en cambio dentro de `action_aplicar()`.')
     company_id = fields.Many2one('res.company', string='Compañía', required=True,
                                   default=lambda self: self.env.company.id)
     user_id = fields.Many2one('res.users', string='Usuario', default=lambda self: self.env.user.id)
@@ -84,8 +71,8 @@ class AccountPaymentOrder(models.Model):
         'res.partner', string='Contacto',
         default=lambda self: self.env['hr.employee'].search(
             [('user_id', '=', self.env.user.id)], limit=1).work_contact_id,
-        help='Para Liquidación/Pago Directo, el contacto/proveedor normal, sin restricción - '
-             'sin cambios. Para Anticipo Viáticos, este es el "Empleado Solicitante" fusionado '
+        help='Para Pago Directo, el contacto/proveedor normal, sin restricción - sin cambios. '
+             'Para Anticipo Viáticos, este es el "Empleado Solicitante" fusionado '
              'aquí (antes un campo separado) - la vista restringe el dominio a contactos '
              'marcados como empleado (`res.partner.employee`, nativo) y lo bloquea después de '
              'crear (ver write()), solo para ese tipo, para evitar suplantación. '
@@ -96,50 +83,6 @@ class AccountPaymentOrder(models.Model):
                                    default=lambda self: self.env.company.currency_id.id)
     cuenta_ajuste_id = fields.Many2one('account.account', string='Cuenta de Ajuste')
     move_id = fields.Many2one('account.move', string='Asiento', readonly=True, copy=False)
-    anticipo_id = fields.Many2one(
-        'account.payment.order', string='Anticipo de Origen',
-        domain="[('id', 'in', anticipos_disponibles_ids)]", copy=False,
-        help='Anticipo del que se origina esta Liquidación. Se llena solo al generarla desde el '
-             'botón "Registrar Liquidación" de un Anticipo aplicado - editable en borrador por '
-             'si se necesita corregirlo a mano, listando únicamente Anticipos ya Aplicados que '
-             'todavía no tengan otra Liquidación registrada (ver `_compute_anticipos_disponibles_ids`).')
-    liquidacion_ids = fields.One2many(
-        'account.payment.order', 'anticipo_id', string='Liquidación',
-        help='Liquidación registrada contra este Anticipo - técnicamente One2many, pero en la '
-             'práctica nunca trae más de un registro (forzado por `_sql_constraints`/'
-             '`_check_anticipo_id`, arriba). Existe solo como respaldo de `esta_liquidado`.')
-    liquidacion_id = fields.Many2one(
-        'account.payment.order', string='Liquidación Vinculada',
-        compute='_compute_liquidacion_id',
-        help='La Liquidación registrada contra este Anticipo (ver `liquidacion_ids`, arriba) - '
-             'campo de solo lectura, simétrico a `anticipo_id` en la Liquidación (que sí '
-             'muestra el Anticipo de Origen); antes no había ninguna forma de ver, desde el '
-             'propio Anticipo, hacia qué Liquidación quedó vinculado.')
-    esta_liquidado = fields.Boolean(
-        string='Liquidado', compute='_compute_esta_liquidado', store=True,
-        help='Indica que este Anticipo ya tiene una Liquidación registrada y que esa '
-             'Liquidación ya llegó a `state=\'liquidado\'` (facturas y pagos conciliados vía '
-             'action_conciliar()). Deliberadamente NO cambia el `state` del propio Anticipo '
-             '(que se queda en `aplicado`) para no afectar ningún guard/dominio existente que '
-             'compara contra ese valor (`_compute_anticipos_disponibles_ids`, '
-             '`action_registrar_liquidacion`, `action_cancelar_anticipo_aplicado`) - es solo un '
-             'indicador visual aparte (ribbon en el formulario, columna en la lista).')
-    anticipos_disponibles_ids = fields.Many2many(
-        'account.payment.order', compute='_compute_anticipos_disponibles_ids',
-        help='Auxiliar para el dominio de `anticipo_id` (mismo patrón que '
-             '`available_payment_method_line_ids`: un domain string no puede expresar "sin '
-             'Liquidación registrada" como subquery directa, así que se materializa aquí). '
-             'Anticipos con tipo Anticipo/Anticipo Viáticos, estado Aplicado, sin ninguna otra '
-             'Orden tipo Liquidación que ya los referencie en `anticipo_id` - más el propio '
-             'valor actual de `anticipo_id`, para que no desaparezca del desplegable si la '
-             'configuración cambia después de haberlo elegido.\n\n'
-             'OJO al probarlo en `odoo-bin shell` con `.new()`: Odoo envuelve los ids reales que '
-             'trae un campo x2many en un registro sin guardar como `NewId(origin=<id real>)` - '
-             'comparar con `in` contra el recordset real (`anticipo in registro.new().campo`) da '
-             'un falso negativo aunque el id interno sea correcto. Para verificar, comparar por '
-             '`origin` (`{getattr(i, "origin", i) for i in registro.campo.ids}`), no por `in` '
-             'directo. Esto es un artefacto de `.new()`, no ocurre en la app real: el cliente web '
-             'recibe ids planos de la respuesta de onchange, nunca el wrapper NewId.')
     monto = fields.Monetary(
         string='Monto', currency_field='currency_id',
         help='Monto del Anticipo a entregar al Contacto. Para Anticipo Viáticos, se llena solo '
@@ -193,6 +136,12 @@ class AccountPaymentOrder(models.Model):
              'totales de cada documento (`amount_total`/`amount`), no con las líneas contables '
              'reales que usa `action_conciliar()` - coinciden en el caso normal, pero la cifra '
              'final la decide siempre `action_conciliar()`, no este campo.')
+    puede_conciliar = fields.Boolean(
+        compute='_compute_puede_conciliar',
+        help='Auxiliar de vista: True cuando esta Orden puede pasar por `action_conciliar()` '
+             'ahora mismo - Anticipo/Anticipo Viáticos ya Aplicados, o Pago Directo todavía en '
+             'Borrador. Centraliza en un solo campo la condición que antes se repetía en varios '
+             'botones/secciones de la vista (Conciliar, Crear Pago, Diferencia a conciliar).')
     state = fields.Selection([
         ('borrador', 'Borrador'),
         ('enviado', 'Enviado'),
@@ -202,13 +151,14 @@ class AccountPaymentOrder(models.Model):
         ('liquidado', 'Liquidado'),
         ('cancelado', 'Cancelado'),
     ], default='borrador', copy=False, tracking=True,
-        help='`enviado`/`aprobado`/`rechazado` solo aplican a `tipo=\'anticipo\'` (el ciclo '
-             'heredado de la antigua Solicitud de Pago, fusionada aquí) - Liquidación y Pago '
-             'Directo siguen yendo directo de `borrador` a `liquidado` vía `action_conciliar()`, '
-             'sin pasar por enviar/aprobar, exactamente como antes de esta fusión (el único '
-             'cambio: el estado final para esos dos tipos se llama `liquidado`, no `aplicado` - '
-             'ver "Estado Liquidado" en el CLAUDE.md de este módulo). `aplicado` sigue siendo el '
-             'estado final de Anticipo/Anticipo Viáticos, sin cambios.')
+        help='`enviado`/`aprobado`/`rechazado` solo aplican a Anticipo/Anticipo Viáticos (el '
+             'ciclo heredado de la antigua Solicitud de Pago, fusionada aquí). Pago Directo va '
+             'directo de `borrador` a `liquidado` vía `action_conciliar()`, sin pasar por '
+             'enviar/aprobar. Anticipo/Anticipo Viáticos, tras `aplicado` (dinero ya '
+             'desembolsado), pueden seguir agregando facturas/pagos sobre sí mismos y llamar a '
+             '`action_conciliar()` para llegar también a `liquidado` - no existe un registro '
+             '"Liquidación" aparte (ver "Fusión: Liquidación deja de ser un tipo aparte" en el '
+             'CLAUDE.md de este módulo).')
 
     # --- Campos absorbidos de la antigua account.payment.order.request (fusión Solicitud+Anticipo) ---
     external_ref = fields.Char(
@@ -315,12 +265,8 @@ class AccountPaymentOrder(models.Model):
     @api.depends('tipo')
     def _compute_name(self):
         """El nombre real (secuencia OP/0001) se asigna en create() ANTES del insert (ver
-        `create()`) para los 4 tipos - este compute solo cubre el placeholder de un registro
-        `.new()` que todavía no se ha guardado. Antes existía un "No. Liquidación" manual
-        (Integer, con su propia numeración aparte) que le daba a la Liquidación un nombre
-        distinto ("Liquidación N") - se retiró por decisión explícita del usuario: la propia
-        Orden de Pago (`tipo`) ya distingue si es Anticipo/Liquidación/Pago Directo, no hacía
-        falta una segunda numeración paralela."""
+        `create()`) - este compute solo cubre el placeholder de un registro `.new()` que
+        todavía no se ha guardado."""
         for rec in self:
             if not rec.name:
                 rec.name = 'Nueva Orden de Pago'
@@ -333,9 +279,8 @@ class AccountPaymentOrder(models.Model):
 
         Deliberadamente solo toca lo que el CLIENTE ofrece elegir en un formulario nuevo, no la
         validación de create()/write() (que sigue aceptando cualquier valor del Selection
-        completo) - una Orden sincronizada o creada por `action_registrar_liquidacion()` debe
-        poder existir sin importar esta configuración. Ver el `help=` de cada campo booleano en
-        res_company.py."""
+        completo) - una Orden sincronizada debe poder existir sin importar esta configuración.
+        Ver el `help=` de cada campo booleano en res_company.py."""
         res = super().fields_get(allfields=allfields, attributes=attributes)
         tipo_desc = res.get('tipo')
         if tipo_desc and tipo_desc.get('selection'):
@@ -345,58 +290,12 @@ class AccountPaymentOrder(models.Model):
             ]
         return res
 
-    @api.depends('liquidacion_ids')
-    def _compute_liquidacion_id(self):
-        for rec in self:
-            rec.liquidacion_id = rec.liquidacion_ids[:1]
-
-    @api.depends('liquidacion_ids.state')
-    def _compute_esta_liquidado(self):
-        for rec in self:
-            rec.esta_liquidado = any(l.state == 'liquidado' for l in rec.liquidacion_ids)
-
-    @api.depends('anticipo_id')
-    def _compute_anticipos_disponibles_ids(self):
-        ya_liquidados = self.env['account.payment.order'].search([
-            ('tipo', '=', 'liquidacion'), ('anticipo_id', '!=', False),
-        ]).anticipo_id
-        disponibles = self.env['account.payment.order'].search([
-            ('tipo', 'in', ANTICIPO_TIPOS), ('state', '=', 'aplicado'),
-        ]) - ya_liquidados
-        for rec in self:
-            rec.anticipos_disponibles_ids = disponibles | rec.anticipo_id
-
-    @api.constrains('tipo', 'anticipo_id')
-    def _check_anticipo_id(self):
-        """Dos reglas: (1) toda Liquidación necesita un Anticipo de origen, (2) un Anticipo solo
-        puede tener UNA Liquidación - la (2) también está forzada a nivel de base de datos
-        (`_sql_constraints`, arriba) como respaldo ante una carrera; este chequeo en Python
-        existe además para dar un mensaje más útil (con el nombre de la Liquidación ya
-        registrada) en el caso normal, sin carrera de por medio."""
-        for rec in self:
-            if rec.tipo == 'liquidacion' and not rec.anticipo_id:
-                raise ValidationError(rec.env._(
-                    'Una Liquidación debe originarse desde un Anticipo: usa el botón "Registrar '
-                    'Liquidación" en el Anticipo correspondiente en vez de crearla directamente.'))
-            if rec.tipo == 'liquidacion' and rec.anticipo_id:
-                duplicada = self.search([
-                    ('tipo', '=', 'liquidacion'),
-                    ('anticipo_id', '=', rec.anticipo_id.id),
-                    ('id', '!=', rec.id),
-                ], limit=1)
-                if duplicada:
-                    raise ValidationError(rec.env._(
-                        'El Anticipo %(anticipo)s ya tiene la Liquidación %(existente)s '
-                        'registrada - un Anticipo solo puede tener una Liquidación.',
-                        anticipo=rec.anticipo_id.name, existente=duplicada.name))
-
     @api.constrains('tipo', 'journal_id')
     def _check_journal_id(self):
-        """Liquidación/Pago Directo siempre necesitan un Diario (antes se garantizaba con
-        `required=True` a nivel de campo, cuando `journal_id` solo existía para estos dos
-        tipos). Un Anticipo NO lo necesita todavía al crearse - lo llena el contable después de
-        Aprobar (ver el `help=` de `journal_id` y `action_aplicar()`, que sí lo exige antes de
-        aplicar)."""
+        """Pago Directo siempre necesita un Diario (antes se garantizaba con `required=True` a
+        nivel de campo, cuando `journal_id` solo existía para ese tipo). Un Anticipo NO lo
+        necesita todavía al crearse - lo llena el contable después de Aprobar (ver el `help=`
+        de `journal_id` y `action_aplicar()`, que sí lo exige antes de aplicar)."""
         for rec in self:
             if rec.tipo not in ANTICIPO_TIPOS and not rec.journal_id:
                 raise ValidationError(rec.env._(
@@ -497,30 +396,13 @@ class AccountPaymentOrder(models.Model):
                 lambda p: p.state in ('in_process', 'paid')).mapped('amount'))
             rec.diferencia_conciliacion = total_facturas - total_pagos
 
-    @api.onchange('anticipo_id')
-    def _onchange_anticipo_id_heredar_datos(self):
-        """Al elegir/cambiar el Anticipo de Origen a mano (fuera del flujo normal del botón
-        "Registrar Liquidación", que ya hace esto mismo en action_registrar_liquidacion()),
-        hereda del Anticipo lo que hace falta para que el contable sepa de una vez qué le falta
-        cargar (`diferencia_conciliacion`) sin ir a buscar cada dato a mano: diario, método de
-        pago, pagos y facturas. El dominio de `anticipo_id` (`anticipos_disponibles_ids`) ya
-        exige que sea un Anticipo `aplicado` - solo un Anticipo aplicado tiene esta información
-        completa (diario/método de pago definidos, pago real ya creado).
-
-        Solo agrega/rellena, nunca quita ni sobreescribe algo que el contable ya haya puesto a
-        mano (`journal_id`/`payment_method_line_id` solo se llenan si están vacíos; `pago_ids`/
-        `factura_ids` solo se completan con lo que falte, nunca se les quita nada - por si ya
-        traían algo de otra fuente)."""
-        if self.tipo == 'liquidacion' and self.anticipo_id:
-            self.journal_id = self.journal_id or self.anticipo_id.journal_id
-            self.payment_method_line_id = (
-                self.payment_method_line_id or self.anticipo_id.payment_method_line_id)
-            nuevos_pagos = self.anticipo_id.pago_ids - self.pago_ids
-            if nuevos_pagos:
-                self.pago_ids = self.pago_ids | nuevos_pagos
-            nuevas_facturas = self.anticipo_id.factura_ids - self.factura_ids
-            if nuevas_facturas:
-                self.factura_ids = self.factura_ids | nuevas_facturas
+    @api.depends('tipo', 'state')
+    def _compute_puede_conciliar(self):
+        for rec in self:
+            rec.puede_conciliar = (
+                (rec.tipo in ANTICIPO_TIPOS and rec.state == 'aplicado')
+                or (rec.tipo == 'pago_directo' and rec.state == 'borrador')
+            )
 
     @api.onchange('viaticos_line_ids.total', 'anticipo_previo')
     def _onchange_sync_monto(self):
@@ -540,7 +422,7 @@ class AccountPaymentOrder(models.Model):
     def create(self, vals_list):
         for vals in vals_list:
             if vals.get('tipo', 'anticipo') in (
-                    'anticipo', 'anticipo_viaticos', 'liquidacion', 'pago_directo') \
+                    'anticipo', 'anticipo_viaticos', 'pago_directo') \
                     and not vals.get('name'):
                 vals['name'] = self.env['ir.sequence'].next_by_code(
                     'account.payment.order.sequence') or '/'
@@ -639,10 +521,10 @@ class AccountPaymentOrder(models.Model):
     def write(self, vals):
         if not self.env.user.has_group(APPROVER_GROUP_XMLID):
             for rec in self:
-                # Anti-suplantación, solo para Anticipo Viáticos - partner_id de una
-                # Liquidación/Pago Directo/Anticipo normal debe seguir siendo libremente
-                # editable (nunca tuvo esta restricción). employee_id (calculado) se revisa
-                # también por defensa en profundidad.
+                # Anti-suplantación, solo para Anticipo Viáticos - partner_id de un Pago
+                # Directo/Anticipo normal debe seguir siendo libremente editable (nunca tuvo
+                # esta restricción). employee_id (calculado) se revisa también por defensa en
+                # profundidad.
                 if rec.tipo != 'anticipo_viaticos':
                     continue
                 if ('partner_id' in vals and rec.partner_id
@@ -757,18 +639,29 @@ class AccountPaymentOrder(models.Model):
             })
 
     def action_cancel(self):
+        """Cancela un Anticipo que TODAVÍA no tiene ningún efecto contable real (antes de
+        Aplicar) - solo cambia el estado, no revierte nada. Bloqueado a propósito desde
+        `aplicado`/`liquidado` en adelante (ya existe un pago y/o un asiento reales) - usa
+        `action_cancelar_anticipo_aplicado()`/`action_cancelar()` para esos casos, que sí
+        revierten el efecto contable correspondiente. Antes de este chequeo, el único freno
+        contra llamar esto sobre un Anticipo ya Aplicado/Liquidado era que el botón estaba
+        oculto en la vista - no una validación real en Python."""
         for rec in self:
             if rec.tipo not in ANTICIPO_TIPOS:
                 raise UserError(self.env._('Cancelar (Anticipo) solo aplica a tipo Anticipo.'))
+            if rec.state not in ('borrador', 'enviado', 'aprobado', 'rechazado'):
+                raise UserError(self.env._(
+                    'No se puede cancelar así un Anticipo ya Aplicado/Liquidado - usa el botón '
+                    '"Cancelar" correspondiente a ese estado, que sí revierte el pago/asiento.'))
             rec.state = 'cancelado'
 
     def action_cancelar_anticipo_aplicado(self):
         """Cancela/revierte un Anticipo YA Aplicado (pago real ya contabilizado) - a diferencia
         de `action_cancel()` (sin restricción de grupo, pero solo visible ANTES de aplicar, ver
         la vista), esto deshace un pago real, así que está restringido a Gerente igual que
-        `action_cancelar()` (Liquidación/Pago Directo). Bloquea si ya existe una Liquidación
-        registrada para este Anticipo - cancelar el pago por debajo la dejaría en un estado
-        inconsistente (referenciando un pago cancelado, o rompiendo una conciliación ya hecha)."""
+        `action_cancelar()` (que deshace la conciliación de un Anticipo/Pago Directo ya
+        Liquidado). Exige `state == 'aplicado'` específicamente - si el Anticipo ya está
+        Liquidado, primero hay que usar `action_cancelar()` para regresarlo a `aplicado`."""
         self.ensure_one()
         if self.tipo not in ANTICIPO_TIPOS:
             raise UserError(self.env._(
@@ -776,12 +669,9 @@ class AccountPaymentOrder(models.Model):
         if self.state != 'aplicado':
             raise UserError(self.env._(
                 'Solo se puede cancelar así un Anticipo ya Aplicado - use el botón "Cancelar" '
-                'normal para uno que todavía no se ha aplicado.'))
+                'normal para uno que todavía no se ha aplicado, o revierte primero su '
+                'Liquidación si ya está Liquidado.'))
         self._check_es_administrador_contable()
-        if self.search_count([('anticipo_id', '=', self.id)]):
-            raise UserError(self.env._(
-                'Este Anticipo ya tiene una Liquidación registrada - cancela o revierte esa '
-                'Liquidación primero (botón "Cancelar" en la Liquidación).'))
         for pago in self.pago_ids.filtered(lambda p: p.state in ('in_process', 'paid')):
             for line in pago.move_id.line_ids:
                 if line.reconciled:
@@ -898,10 +788,19 @@ class AccountPaymentOrder(models.Model):
         pending._sync_to_enterprise()
 
     def action_conciliar(self):
+        """Neteo de facturas contra pagos, terminando en `state='liquidado'`. Aplica a Pago
+        Directo (desde `borrador`, sin `action_aplicar()` de por medio) y a Anticipo/Anticipo
+        Viáticos (desde `aplicado` - el mismo registro que ya recibió el desembolso original
+        vía `action_aplicar()` ahora agrega sus propias facturas y se concilia sobre sí mismo,
+        sin crear una Liquidación aparte - ver "Fusión: Liquidación deja de ser un tipo aparte"
+        en el CLAUDE.md de este módulo)."""
         self.ensure_one()
-        if self.tipo not in ('liquidacion', 'pago_directo'):
+        if self.tipo not in ANTICIPO_TIPOS + ('pago_directo',):
             raise UserError(self.env._(
-                'Conciliar solo aplica a órdenes de tipo Liquidación o Pago Directo.'))
+                'Conciliar solo aplica a órdenes de tipo Anticipo o Pago Directo.'))
+        if self.tipo in ANTICIPO_TIPOS and self.state != 'aplicado':
+            raise UserError(self.env._(
+                'Solo se puede Conciliar/Liquidar un Anticipo ya Aplicado.'))
         self._check_es_administrador_contable()
         if self.tipo == 'pago_directo' and not self.factura_ids:
             raise UserError(self.env._(
@@ -940,8 +839,8 @@ class AccountPaymentOrder(models.Model):
                 raise UserError(self.env._(
                     'El monto del pago no coincide con el total de la(s) factura(s) - un Pago '
                     'Directo debe cubrir exactamente el 100%s de las facturas, sin diferencia '
-                    '(a diferencia de una Liquidación, no admite Cuenta de Ajuste). Corrige el '
-                    'monto del pago o registra esto como una Liquidación en su lugar.', '%'))
+                    '(a diferencia de un Anticipo, no admite Cuenta de Ajuste). Corrige el '
+                    'monto del pago o registra esto como un Anticipo en su lugar.', '%'))
             if not self.cuenta_ajuste_id:
                 raise UserError(self.env._(
                     'El total de las facturas no coincide con el total de los pagos. Define una '
@@ -988,10 +887,14 @@ class AccountPaymentOrder(models.Model):
         return True
 
     def action_cancelar(self):
+        """Deshace la conciliación (`action_conciliar()`) - unreconcilia y cancela `move_id`.
+        Para Pago Directo regresa a `borrador` (como siempre); para Anticipo/Anticipo Viáticos
+        regresa a `aplicado`, NO a `borrador` - el desembolso original (`action_aplicar()`) ya
+        ocurrió y sigue siendo válido, solo se deshace la parte de la liquidación."""
         self.ensure_one()
-        if self.tipo not in ('liquidacion', 'pago_directo'):
+        if self.tipo not in ANTICIPO_TIPOS + ('pago_directo',):
             raise UserError(self.env._(
-                'Cancelar solo aplica a órdenes de tipo Liquidación o Pago Directo.'))
+                'Cancelar solo aplica a órdenes de tipo Anticipo o Pago Directo.'))
         self._check_es_administrador_contable()
         if self.move_id:
             for line in self.move_id.line_ids:
@@ -999,7 +902,8 @@ class AccountPaymentOrder(models.Model):
                     line.remove_move_reconcile()
             self.move_id.button_cancel()
             self.move_id.unlink()
-        self.write({'move_id': False, 'state': 'borrador'})
+        nuevo_estado = 'aplicado' if self.tipo in ANTICIPO_TIPOS else 'borrador'
+        self.write({'move_id': False, 'state': nuevo_estado})
         return True
 
     def action_crear_pago(self):
@@ -1013,9 +917,12 @@ class AccountPaymentOrder(models.Model):
         veces (cada uno cubre lo que quede pendiente en ese momento), o agregar pagos ya
         existentes a mano en `pago_ids` como ya se podía hacer antes."""
         self.ensure_one()
-        if self.tipo not in ('liquidacion', 'pago_directo'):
+        if self.tipo not in ANTICIPO_TIPOS + ('pago_directo',):
             raise UserError(self.env._(
-                'Crear Pago solo aplica a órdenes de tipo Liquidación o Pago Directo.'))
+                'Crear Pago solo aplica a órdenes de tipo Anticipo o Pago Directo.'))
+        if self.tipo in ANTICIPO_TIPOS and self.state != 'aplicado':
+            raise UserError(self.env._(
+                'Solo se puede crear un pago adicional para un Anticipo ya Aplicado.'))
         self._check_es_administrador_contable()
         if not self.journal_id:
             raise UserError(self.env._('Define el Diario antes de crear un pago.'))
@@ -1095,9 +1002,8 @@ class AccountPaymentOrder(models.Model):
         self.write({'state': 'aplicado'})
 
         # Dos avisos posibles, ninguno bloquea: si el contacto ya tiene otro Anticipo aplicado
-        # sin Liquidación registrada (antes vivía en el Wizard "Crear Anticipo", ya retirado -
-        # ver CLAUDE.md), y/o si esta Orden ya cubre el 100% de facturas adjuntas (pudo haber
-        # sido un Pago Directo). Se encadenan con el mecanismo nativo `next` de
+        # sin liquidar todavía, y/o si esta Orden ya cubre el 100% de facturas adjuntas (pudo
+        # haber sido un Pago Directo). Se encadenan con el mecanismo nativo `next` de
         # display_notification si ambos aplican a la vez.
         aviso_pendientes = None
         pendientes = self._find_anticipos_sin_liquidar(self.partner_id, exclude=self)
@@ -1125,11 +1031,12 @@ class AccountPaymentOrder(models.Model):
 
     @api.model
     def _find_anticipos_sin_liquidar(self, partner, exclude=None):
-        """Anticipos ya APLICADOS de este contacto que todavía no tienen una Liquidación
-        registrada (ver action_registrar_liquidacion(), que fija `anticipo_id` en la
-        Liquidación resultante) - se usa para avisar antes de entregar un Anticipo nuevo a
-        alguien que ya tiene uno pendiente de liquidar, sin bloquear la operación (puede ser
-        intencional: viáticos de dos viajes distintos, por ejemplo)."""
+        """Anticipos de este contacto que ya están Aplicados (dinero entregado) pero todavía no
+        han llegado a `state='liquidado'` - se usa para avisar antes de entregar un Anticipo
+        nuevo a alguien que ya tiene uno pendiente de liquidar, sin bloquear la operación (puede
+        ser intencional: viáticos de dos viajes distintos, por ejemplo). Desde que Liquidación
+        dejó de ser un tipo/registro aparte, `state='aplicado'` YA significa "sin liquidar" por
+        sí solo - no hace falta ningún filtro adicional."""
         domain = [
             ('tipo', 'in', ANTICIPO_TIPOS),
             ('state', '=', 'aplicado'),
@@ -1137,9 +1044,7 @@ class AccountPaymentOrder(models.Model):
         ]
         if exclude:
             domain.append(('id', '!=', exclude.id))
-        anticipos = self.search(domain)
-        return anticipos.filtered(
-            lambda a: not self.search_count([('anticipo_id', '=', a.id)]))
+        return self.search(domain)
 
     def _aviso_posible_pago_directo(self):
         """Si el Anticipo lleva factura(s) adjunta(s) (opcional) cuyo total coincide con el monto
@@ -1171,31 +1076,3 @@ class AccountPaymentOrder(models.Model):
             },
         }
 
-    def action_registrar_liquidacion(self):
-        self.ensure_one()
-        if self.tipo not in ANTICIPO_TIPOS:
-            raise UserError(self.env._('Esta acción solo aplica a órdenes de tipo Anticipo.'))
-        if self.state != 'aplicado':
-            raise UserError(self.env._('Aplica el Anticipo antes de registrar su Liquidación.'))
-
-        liquidacion = self.env['account.payment.order'].create({
-            'tipo': 'liquidacion',
-            'anticipo_id': self.id,
-            'journal_id': self.journal_id.id,
-            'payment_method_line_id': self.payment_method_line_id.id,
-            'fecha': fields.Date.context_today(self),
-            'partner_id': self.partner_id.id,
-            # pago_ids/factura_ids son One2many (payment_order_id) - (4, id) reasigna cada uno
-            # del Anticipo hacia esta Liquidación (ya no queda un campo `payment_id` aparte que
-            # preserve la referencia del lado del Anticipo - ver CLAUDE.md). Todos los pagos, no
-            # solo uno, ya que ahora un Anticipo puede tener más de uno (ver action_crear_pago()).
-            'pago_ids': [(4, p.id) for p in self.pago_ids],
-            'factura_ids': [(4, f.id) for f in self.factura_ids],
-        })
-        return {
-            'type': 'ir.actions.act_window',
-            'res_model': 'account.payment.order',
-            'view_mode': 'form',
-            'res_id': liquidacion.id,
-            'target': 'current',
-        }

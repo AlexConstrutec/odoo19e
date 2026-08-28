@@ -20,43 +20,34 @@
                     <button name="action_reset_to_draft" string="Volver a Borrador" type="object"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'rechazado'"/>
                     <button name="action_cancel" string="Cancelar" type="object"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state in ('cancelado', 'rechazado', 'aplicado')"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state in ('cancelado', 'rechazado', 'aplicado', 'liquidado')"/>
                     <button name="action_aplicar" string="Aplicar" type="object" class="oe_highlight"
                             groups="account.group_account_manager"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'aprobado'"/>
-                    <button name="action_registrar_liquidacion" string="Registrar Liquidación" type="object"
-                            class="oe_highlight"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'aplicado'"/>
                     <button name="action_cancelar_anticipo_aplicado" string="Cancelar" type="object"
                             groups="account.group_account_manager"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'aplicado'"/>
-                    <button name="action_conciliar" string="Conciliar" type="object" class="oe_highlight"
+                    <button name="action_conciliar" string="Liquidar" type="object" class="oe_highlight"
                             groups="account.group_account_manager"
-                            invisible="tipo not in ('liquidacion', 'pago_directo') or state == 'liquidado'"/>
+                            invisible="not puede_conciliar"/>
                     <button name="action_cancelar" string="Cancelar" type="object"
                             groups="account.group_account_manager"
-                            invisible="tipo not in ('liquidacion', 'pago_directo') or state != 'liquidado'"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'pago_directo') or state != 'liquidado'"/>
                     <field name="es_procesador" invisible="1"/>
+                    <field name="puede_conciliar" invisible="1"/>
                     <field name="state" widget="statusbar"
-                           statusbar_visible="borrador,enviado,aprobado,aplicado"
+                           statusbar_visible="borrador,enviado,aprobado,aplicado,liquidado"
                            invisible="tipo not in ('anticipo', 'anticipo_viaticos')"/>
                     <field name="state" widget="statusbar" statusbar_visible="borrador,liquidado"
-                           invisible="tipo not in ('liquidacion', 'pago_directo')"/>
+                           invisible="tipo != 'pago_directo'"/>
                 </header>
                 <sheet>
-                    <widget name="web_ribbon" title="Liquidado" bg_color="text-bg-success"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or not esta_liquidado"/>
                     <div class="oe_title">
                         <h1><field name="name" readonly="1"/></h1>
                     </div>
                     <group>
                         <group>
                             <field name="tipo"/>
-                            <field name="anticipos_disponibles_ids" invisible="1"/>
-                            <field name="anticipo_id" readonly="state != 'borrador'"
-                                   invisible="tipo != 'liquidacion'"/>
-                            <field name="liquidacion_id" readonly="1"
-                                   invisible="tipo not in ('anticipo', 'anticipo_viaticos') or not liquidacion_id"/>
                             <field name="analytic_account_id" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="proyecto" invisible="1"/>
                             <field name="journal_id" invisible="not es_procesador"
@@ -156,7 +147,7 @@
                     <p class="text-muted" invisible="tipo != 'pago_directo' or not es_procesador">
                         Obligatorio en un Pago Directo: agrega al menos una factura. Al Conciliar, el
                         monto del pago debe coincidir exactamente con el total de la(s) factura(s) - sin
-                        diferencia admitida (a diferencia de una Liquidación, no usa Cuenta de Ajuste).
+                        diferencia admitida (a diferencia de un Anticipo, no usa Cuenta de Ajuste).
                     </p>
                     <field name="factura_ids" widget="many2many" nolabel="1" invisible="not es_procesador">
                         <list>
@@ -195,20 +186,19 @@
                     </field>
                     <button name="action_crear_pago" string="Crear Pago" type="object"
                             groups="account.group_account_manager"
-                            invisible="tipo not in ('liquidacion', 'pago_directo') or state != 'borrador' or not es_procesador"/>
+                            invisible="not puede_conciliar or not es_procesador"/>
 
-                    <group invisible="tipo not in ('liquidacion', 'pago_directo') or not es_procesador"
+                    <group invisible="not puede_conciliar or not es_procesador"
                            class="oe_subtotal_footer oe_right">
                         <field name="diferencia_conciliacion" class="oe_subtotal_footer_separator"/>
                     </group>
-                    <p class="text-muted"
-                       invisible="tipo not in ('liquidacion', 'pago_directo') or not es_procesador or state != 'borrador'">
+                    <p class="text-muted" invisible="not puede_conciliar or not es_procesador">
                         Positivo: faltan pagos por cubrir (usa "Crear Pago" o agrega uno a mano). Negativo:
-                        faltan facturas, o hay pagos de más. En cero, Conciliar debería funcionar sin pedir
-                        Cuenta de Ajuste.
+                        faltan facturas, o hay pagos de más. En cero, Conciliar/Liquidar debería funcionar
+                        sin pedir Cuenta de Ajuste.
                     </p>
 
-                    <div invisible="tipo in ('anticipo', 'anticipo_viaticos')">
+                    <div invisible="not es_procesador">
                         <group>
                             <group>
                                 <field name="cuenta_ajuste_id"/>
@@ -235,8 +225,6 @@
                 <field name="partner_id"/>
                 <field name="total_acreditar" sum="Total" optional="show"/>
                 <field name="origin" optional="hide"/>
-                <field name="esta_liquidado" optional="hide"
-                       invisible="tipo not in ('anticipo', 'anticipo_viaticos')"/>
                 <field name="state" widget="badge" decoration-success="state in ('aplicado', 'liquidado')"
                        decoration-info="state == 'borrador'"
                        decoration-warning="state in ('enviado', 'aprobado')"
@@ -259,10 +247,9 @@
                 <filter string="Aprobadas" name="aprobadas"
                         domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos')), ('state', '=', 'aprobado')]"/>
                 <filter string="Anticipos Liquidados" name="anticipos_liquidados"
-                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos')), ('esta_liquidado', '=', True)]"/>
+                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos')), ('state', '=', 'liquidado')]"/>
                 <filter string="Anticipos sin Liquidar" name="anticipos_sin_liquidar"
-                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos')),
-                                 ('state', '=', 'aplicado'), ('esta_liquidado', '=', False)]"/>
+                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos')), ('state', '=', 'aplicado')]"/>
                 <separator/>
                 <filter string="Tipo" name="group_tipo" context="{'group_by': 'tipo'}"/>
                 <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
