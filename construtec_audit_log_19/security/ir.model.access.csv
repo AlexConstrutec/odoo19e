@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_construtec_audit_log_rule_manager,construtec.audit.log.rule manager,model_construtec_audit_log_rule,group_construtec_audit_log_manager,1,1,1,1
+access_construtec_audit_log_manager,construtec.audit.log manager,model_construtec_audit_log,group_construtec_audit_log_manager,1,0,0,0
+access_construtec_audit_log_line_manager,construtec.audit.log.line manager,model_construtec_audit_log_line,group_construtec_audit_log_manager,1,0,0,0

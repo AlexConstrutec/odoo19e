@@ -10,7 +10,7 @@ This is the **custom addons directory** for the Odoo19E (Enterprise) installatio
 addons_path = c:\users\alex\documents\proyectos\odoo19e\server\odoo\addons,c:\users\alex\documents\proyectos\odoo19e\server\odoo19e
 ```
 
-It contains a set of custom modules being migrated from a legacy Odoo 16 deployment (source preserved under `Odoo16\`, one folder per legacy module — not wired into `addons_path`, kept only as migration source material) into 6 new Odoo 19 modules, each with its own `CLAUDE.md` with module-specific detail:
+It contains a set of custom modules being migrated from a legacy Odoo 16 deployment (source preserved under `Odoo16\`, one folder per legacy module — not wired into `addons_path`, kept only as migration source material) into several new Odoo 19 modules, each with its own `CLAUDE.md` with module-specific detail:
 
 | Module | Migrated from | Status |
 |---|---|---|
@@ -21,8 +21,9 @@ It contains a set of custom modules being migrated from a legacy Odoo 16 deploym
 | [construtec_account_19](construtec_account_19/CLAUDE.md) | n/a (new, not a migration) | Built (fiscal fields only; FEL certification pending) |
 | [construtec_account_payment_order_19](construtec_account_payment_order_19/CLAUDE.md) | `bolson` | Built — all three `tipo` values (`anticipo`/`liquidacion`/`pago_directo`) have real logic; `pago_directo` reuses Liquidación's own reconciliation engine. Also installed verbatim in Odoo19C (`payment_order_role` Solicitante/Procesador, synced via `/jsonrpc`) — see the module's own CLAUDE.md |
 | [construtec_materials_sync_19](construtec_materials_sync_19/CLAUDE.md) | n/a (new, receiving side of an API integration) | Built — receives a read-only mirror of Odoo19C's `construtec_materials_19` "Solicitud de Materiales" via `/jsonrpc`, `depends: ["base"]` only |
+| [construtec_audit_log_19](construtec_audit_log_19/CLAUDE.md) | n/a (new, generic) | Built — bitácora de auditoría configurable (creación/modificación/eliminación) por modelo, con retención automática vía cron. `depends: ["base"]` only — instala igual en Community y Enterprise, sin relación con los demás módulos de esta tabla |
 
-Dependency order (each depends on the ones above it): `construtec_hr_payroll_19` → `construtec_hr_employee_19` → `construtec_hr_reports_19` → `construtec_account_reports_19` (also depends on `construtec_hr_payroll_19` directly, for `account.payment.payslip_id`). `construtec_materials_sync_19` is independent of this chain.
+Dependency order (each depends on the ones above it): `construtec_hr_payroll_19` → `construtec_hr_employee_19` → `construtec_hr_reports_19` → `construtec_account_reports_19` (also depends on `construtec_hr_payroll_19` directly, for `account.payment.payslip_id`). `construtec_materials_sync_19` and `construtec_audit_log_19` are independent of this chain.
 
 ## Why this isn't a straight port
 

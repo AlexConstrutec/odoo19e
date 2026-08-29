@@ -1,0 +1,7 @@
+<odoo>
+    <record id="group_construtec_audit_log_manager" model="res.groups">
+        <field name="name">Auditoría: Administrador</field>
+        <field name="implied_ids" eval="[(4, ref('base.group_system'))]"/>
+        <field name="comment">Puede configurar qué modelos se auditan y consultar la bitácora. Implica Ajustes Técnicos porque exponer qué campos cambiaron en cualquier registro del sistema es información sensible.</field>
+    </record>
+</odoo>

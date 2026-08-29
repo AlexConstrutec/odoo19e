@@ -1,0 +1,11 @@
+<odoo>
+    <record id="ir_cron_audit_log_cleanup" model="ir.cron">
+        <field name="name">Auditoría: autoeliminar bitácora vencida</field>
+        <field name="model_id" ref="model_construtec_audit_log_rule"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_cleanup_logs()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+    </record>
+</odoo>

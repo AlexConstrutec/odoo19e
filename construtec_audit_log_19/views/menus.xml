@@ -1,0 +1,10 @@
+<odoo>
+    <menuitem id="menu_construtec_audit_log_root" name="Auditoría"
+              groups="group_construtec_audit_log_manager" sequence="95"/>
+    <menuitem id="menu_construtec_audit_log" name="Bitácora"
+              parent="menu_construtec_audit_log_root"
+              action="action_construtec_audit_log" sequence="10"/>
+    <menuitem id="menu_construtec_audit_log_rule" name="Reglas de Auditoría"
+              parent="menu_construtec_audit_log_root"
+              action="action_construtec_audit_log_rule" sequence="20"/>
+</odoo>

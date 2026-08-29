@@ -1,0 +1,68 @@
+<odoo>
+    <record id="view_construtec_audit_log_rule_list" model="ir.ui.view">
+        <field name="name">construtec.audit.log.rule.list</field>
+        <field name="model">construtec.audit.log.rule</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="model_id"/>
+                <field name="active" widget="boolean_toggle"/>
+                <field name="log_create" widget="boolean_toggle"/>
+                <field name="log_write" widget="boolean_toggle"/>
+                <field name="log_unlink" widget="boolean_toggle"/>
+                <field name="capture_field_values" widget="boolean_toggle"/>
+                <field name="retention_number"/>
+                <field name="retention_unit"/>
+                <field name="log_count"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_construtec_audit_log_rule_form" model="ir.ui.view">
+        <field name="name">construtec.audit.log.rule.form</field>
+        <field name="model">construtec.audit.log.rule</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_view_logs" string="Ver Bitácora" type="object"
+                            class="oe_highlight" invisible="not model_name"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_logs" type="object" class="oe_stat_button"
+                                icon="fa-list-alt" invisible="not model_name">
+                            <field name="log_count" widget="statinfo" string="Registros"/>
+                        </button>
+                    </div>
+                    <group>
+                        <group string="Qué modelo y qué operaciones">
+                            <field name="model_id"/>
+                            <field name="active"/>
+                            <field name="log_create"/>
+                            <field name="log_write"/>
+                            <field name="log_unlink"/>
+                        </group>
+                        <group string="Detalle y retención">
+                            <field name="capture_field_values"/>
+                            <field name="excluded_field_ids" widget="many2many_tags"
+                                   invisible="not capture_field_values"/>
+                            <label for="retention_number" string="Autoeliminar bitácora"/>
+                            <div class="o_row">
+                                <field name="retention_number"/>
+                                <field name="retention_unit"/>
+                            </div>
+                            <p class="text-muted" colspan="2">
+                                0 = conservar la bitácora de este modelo indefinidamente.
+                            </p>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_construtec_audit_log_rule" model="ir.actions.act_window">
+        <field name="name">Reglas de Auditoría</field>
+        <field name="res_model">construtec.audit.log.rule</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>
