@@ -16,13 +16,13 @@
         <field name="name">account.payment.order.viaticos.sin.liquidar.list</field>
         <field name="model">account.payment.order</field>
         <field name="arch" type="xml">
-            <list string="Viáticos sin Liquidar" editable="bottom" open_form_view="1" create="0" delete="0">
+            <list string="Viáticos sin Liquidar" create="0" delete="0">
                 <field name="partner_id" string="Jefe de Técnicos"/>
-                <field name="name" readonly="1"/>
+                <field name="name"/>
                 <field name="fecha"/>
                 <field name="departamento" optional="show"/>
                 <field name="puesto" optional="show"/>
-                <field name="monto" sum="Total" readonly="1"/>
+                <field name="monto" sum="Total"/>
             </list>
         </field>
     </record>
