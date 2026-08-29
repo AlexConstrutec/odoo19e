@@ -163,10 +163,15 @@ class ResCompany(models.Model):
         registro original se queda congelado en 'enviado' para siempre, sin enterarse de nada
         de lo que pasó después en Enterprise (aprobación, rechazo, aplicación, liquidación).
 
-        `'aplicado'` NO es terminal (a diferencia de antes de la fusión de Liquidación dentro de
-        Anticipo) - un Anticipo Aplicado en Enterprise puede seguir avanzando a `'liquidado'`
-        sobre el mismo registro, así que hay que seguir consultándolo hasta que llegue ahí (o se
-        cancele). Solo `'liquidado'`/`'rechazado'`/`'cancelado'` son terminales de verdad.
+        Ni `'aplicado'` NI `'liquidado'` son terminales de verdad - un Anticipo Aplicado en
+        Enterprise puede seguir avanzando a `'liquidado'` sobre el mismo registro, Y una
+        Liquidación ya hecha puede deshacerse automáticamente si alguien resetea a Borrador una
+        factura/pago ya conciliado por fuera de la Orden (ver
+        `account.payment.order._reaccionar_a_documento_desconciliado()` - el estado puede
+        REGRESAR de `liquidado` a `aplicado`, no solo avanzar). Solo `'rechazado'`/`'cancelado'`
+        son terminales de verdad - una Orden en cualquier otro estado sigue consultándose en
+        cada corrida, para siempre, precisamente porque ya no se puede asumir que el estado solo
+        avanza.
 
         Empareja por `external_ref` = el propio `name` de esta Orden (guardado del lado de
         Enterprise por `_prepare_sync_vals()`) - nunca por id, son bases de datos distintas.
@@ -185,7 +190,7 @@ class ResCompany(models.Model):
             ('tipo', 'in', ('anticipo', 'anticipo_viaticos')),
             ('origin', '=', 'local'),
             ('sync_state', '=', 'synced'),
-            ('state', 'not in', ('liquidado', 'rechazado', 'cancelado')),
+            ('state', 'not in', ('rechazado', 'cancelado')),
         ])
         if not pendientes:
             return True, self.env._('No hay Órdenes de Pago pendientes de actualizar.')

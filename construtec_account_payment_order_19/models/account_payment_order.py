@@ -1,3 +1,5 @@
+from markupsafe import Markup
+
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError, ValidationError
 
@@ -113,18 +115,21 @@ class AccountPaymentOrder(models.Model):
              'pagar para que la Liquidación pueda netearla contra las facturas reales.')
     factura_ids = fields.One2many('account.move', 'payment_order_id', string='Facturas', domain=[
         ('move_type', 'in', ('in_invoice', 'in_refund')),
-        ('state', '=', 'posted'),
     ])
+    # Deliberadamente SIN filtro de state=posted en el domain (bug real, ver "Bug real: una
+    # factura/pago conciliado que se resetea a Borrador desaparecía de la Orden" en el CLAUDE.md
+    # de este módulo) - un domain en un One2many se aplica también AL LEER, no solo al buscar
+    # candidatas para adjuntar, así que filtrar por estado aquí hacía que una factura ya
+    # adjuntada "desapareciera" de la Orden en cuanto alguien la reseteaba a Borrador por fuera
+    # de aquí (Contabilidad > Facturas), aunque `payment_order_id` siguiera apuntando aquí. Todo
+    # el código que SÍ necesita solo las posted/conciliables ya filtra explícitamente por state
+    # en Python (`_compute_diferencia_conciliacion`, `action_conciliar`, `action_crear_pago`) -
+    # el domain del campo nunca era necesario para eso, solo causaba esta desaparición.
     # No se filtra por reconciled_invoice_ids/reconciled_bill_ids aquí: son campos computados
     # cuyo método _search (account_payment.py:_search_reconciled_invoice_ids) solo entiende
     # 'in'/'=' contra un id concreto, no '=False' (lo traduce a "id in ()", que excluye todo).
     # Ese chequeo se hace en Python dentro de action_conciliar().
-    pago_ids = fields.One2many('account.payment', 'payment_order_id', string='Pagos/Cheques', domain=[
-        # account.payment.state ya no usa 'posted' (solo account.move lo usa) - un pago
-        # confirmado pasa a 'in_process' y llega a 'paid' cuando su cuenta puente
-        # (Outstanding Payments) queda en cero.
-        ('state', 'in', ('in_process', 'paid')),
-    ])
+    pago_ids = fields.One2many('account.payment', 'payment_order_id', string='Pagos/Cheques')
     diferencia_conciliacion = fields.Monetary(
         string='Diferencia (a conciliar)', compute='_compute_diferencia_conciliacion',
         currency_field='currency_id',
@@ -886,16 +891,14 @@ class AccountPaymentOrder(models.Model):
         self.write({'move_id': move.id, 'state': 'liquidado'})
         return True
 
-    def action_cancelar(self):
-        """Deshace la conciliación (`action_conciliar()`) - unreconcilia y cancela `move_id`.
-        Para Pago Directo regresa a `borrador` (como siempre); para Anticipo/Anticipo Viáticos
-        regresa a `aplicado`, NO a `borrador` - el desembolso original (`action_aplicar()`) ya
-        ocurrió y sigue siendo válido, solo se deshace la parte de la liquidación."""
+    def _deshacer_conciliacion(self):
+        """Unreconcilia y cancela `move_id` (el asiento regularizador de `action_conciliar()`),
+        y regresa `state` según el tipo - Pago Directo a `borrador`, Anticipo/Anticipo Viáticos
+        a `aplicado` (el desembolso original ya ocurrió y sigue siendo válido, solo se deshace
+        la parte de la liquidación). Compartido entre `action_cancelar()` (manual, exige permiso
+        de Administrador) y `_reaccionar_a_documento_desconciliado()` (automático, sin ese
+        permiso - ver ahí el porqué)."""
         self.ensure_one()
-        if self.tipo not in ANTICIPO_TIPOS + ('pago_directo',):
-            raise UserError(self.env._(
-                'Cancelar solo aplica a órdenes de tipo Anticipo o Pago Directo.'))
-        self._check_es_administrador_contable()
         if self.move_id:
             for line in self.move_id.line_ids:
                 if line.reconciled:
@@ -904,7 +907,45 @@ class AccountPaymentOrder(models.Model):
             self.move_id.unlink()
         nuevo_estado = 'aplicado' if self.tipo in ANTICIPO_TIPOS else 'borrador'
         self.write({'move_id': False, 'state': nuevo_estado})
+
+    def action_cancelar(self):
+        """Deshace la conciliación (`action_conciliar()`) a pedido manual del Administrador
+        Contable - ver `_deshacer_conciliacion()` para el detalle de qué hace."""
+        self.ensure_one()
+        if self.tipo not in ANTICIPO_TIPOS + ('pago_directo',):
+            raise UserError(self.env._(
+                'Cancelar solo aplica a órdenes de tipo Anticipo o Pago Directo.'))
+        self._check_es_administrador_contable()
+        self._deshacer_conciliacion()
         return True
+
+    def _reaccionar_a_documento_desconciliado(self, documentos, nuevo_state_label):
+        """Se llama desde account_move.py/account_payment.py cuando una factura o pago YA
+        conciliado (parte de `factura_ids`/`pago_ids` de una Orden en `state='liquidado'`)
+        cambia de estado por fuera de esta Orden - típicamente "Restablecer a Borrador" desde
+        Contabilidad > Facturas/Pagos. Esa conciliación ya no es válida (una de sus líneas ya no
+        está posteada), así que se deshace automáticamente (`_deshacer_conciliacion()` - mismo
+        efecto que el botón "Cancelar", incluyendo el regreso de `state` a `aplicado`/`borrador`
+        según el tipo) y se deja constancia en el chatter - pedido explícito del usuario:
+        "considero prudente que... cambie el estado de la orden de pago de liquidado a
+        aplicado... y que todo quede plasmado en el chatter".
+
+        Deliberadamente SIN `_check_es_administrador_contable()` - quien reseteó la factura/pago
+        ya tenía el permiso de Contabilidad correspondiente para hacer ESO; esto es solo una
+        consecuencia automática de esa acción sobre la Orden, no una acción nueva que alguien
+        esté ejecutando directamente sobre la Orden."""
+        self.ensure_one()
+        if self.state != 'liquidado':
+            return
+        nombres = ', '.join(str(nombre) for nombre in documentos.mapped('name') if nombre)
+        self._deshacer_conciliacion()
+        self.message_post(body=Markup(
+            '⚠️ <b>Conciliación deshecha automáticamente</b>: %(docs)s pasó a "%(nuevo)s" fuera '
+            'de esta Orden - la Liquidación ya no era válida, se deshizo y la Orden regresó a '
+            '"%(estado)s".') % {
+                'docs': nombres, 'nuevo': nuevo_state_label, 'estado': dict(
+                    self._fields['state'].selection).get(self.state, self.state),
+            })
 
     def action_crear_pago(self):
         """Crea y contabiliza UN account.payment por el monto todavía pendiente, en vez de exigir
