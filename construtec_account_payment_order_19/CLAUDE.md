@@ -509,6 +509,16 @@ Reportado por el usuario probando una Orden ya Liquidada de punta a punta: factu
 
 Verificado en `construtec_test` con 4 escenarios: (1) Anticipo Liquidado, resetear el PAGO a Borrador → Orden regresa a Aplicado, el pago SIGUE visible en `pago_ids` (ya en estado Borrador), chatter actualizado; (2) mismo Anticipo, resetear la FACTURA a Borrador → mismo resultado, la factura sigue visible; (3) Pago Directo Liquidado, resetear su pago → regresa a Borrador (no Aplicado, tipo-consciente); (4) resetear un pago de una Orden que NO estaba Liquidada → no pasa nada raro, sin mensaje espurio en el chatter. Por separado, se verificó con un mock de `fetch_order_status()` que una Orden en `liquidado` localmente sigue en la lista de pendientes a consultar, y que una reversión real (Enterprise reporta `aplicado` donde Community tenía `liquidado`) se refleja correctamente.
 
+### Reporte "Viáticos sin Liquidar": abrir en form + edición masiva
+
+Pedido explícito del usuario sobre esta lista (`views/account_payment_order_viaticos_report_views.xml`): que un clic en cualquier fila la abra en la vista de formulario, y que la edición masiva esté disponible (seleccionar varias filas y editar un campo aplica el cambio a todas).
+
+- **`view_mode` de la acción** pasó de `list,pivot` a `list,form,pivot` - sin `form` en la lista de vistas, la acción no tiene a dónde navegar al abrir un registro (no hacía nada al hacer clic). No se registró un `view_id` propio para el form - Odoo usa el form por defecto del modelo (`view_account_payment_order_form`, el mismo formulario real con los botones Liquidar/Cancelar/etc.), que es justo lo que se quería.
+- **La lista pasó a `editable="bottom"` con `open_form_view="1"`** (antes `create="0" edit="0" delete="0"`, de solo lectura) - `editable` habilita la edición inline y, con ella, la edición masiva nativa de Odoo (selecciona varias filas con los checkboxes, edita un campo en una, pregunta si aplicar a todas las seleccionadas). **Trampa evitada**: una lista `editable` intercepta el clic en cualquier celda para editar inline, así que sin más, un clic YA NO abre el formulario (`onCellClicked` en `list_renderer.js` entra en modo edición en vez de navegar) - `open_form_view="1"` es el atributo dedicado de Odoo para esto exacto: agrega una columna con un ícono de "abrir" por fila que sí navega al formulario, sin sacrificar la edición inline en las demás celdas.
+- **`name`/`monto` se marcaron `readonly="1"` en esta lista específicamente** - el resto de campos (`partner_id`/`fecha`/`departamento`/`puesto`) quedan editables sin restricción extra, pero estos dos ya tienen reglas propias en el formulario principal (`name` siempre `readonly="1"`; `monto` se autocalcula desde `total_acreditar` para Anticipo Viáticos y además queda bloqueado en cualquier estado posterior a Aprobado, que es exactamente el caso de todo lo que aparece aquí - `state='aplicado'`) - sin este freno, la edición masiva de esta lista habría sido una vía para saltarse esas reglas por un lado que no las conoce. `create="0"`/`delete="0"` se dejaron sin cambios (no se pidió poder crear/eliminar Órdenes desde este reporte).
+
+Verificado con `get_view()`: la acción incluye `form` en `view_mode`; el arch de la lista trae `editable="bottom"` y `open_form_view="1"`.
+
 ## Common commands
 
 ```
