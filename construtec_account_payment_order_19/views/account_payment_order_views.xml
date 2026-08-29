@@ -16,23 +16,23 @@
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'enviado' or not es_procesador"/>
                     <button name="action_reset_to_draft" string="Volver a Borrador" type="object"
                             groups="construtec_account_payment_order_19.group_payment_order_approver"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'enviado'"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'enviado' or not es_procesador"/>
                     <button name="action_reset_to_draft" string="Volver a Borrador" type="object"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'rechazado'"/>
                     <button name="action_cancel" string="Cancelar" type="object"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state in ('cancelado', 'rechazado', 'aplicado', 'liquidado')"/>
                     <button name="action_aplicar" string="Aplicar" type="object" class="oe_highlight"
                             groups="account.group_account_manager"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'aprobado'"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'aprobado' or not es_procesador"/>
                     <button name="action_cancelar_anticipo_aplicado" string="Cancelar" type="object"
                             groups="account.group_account_manager"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'aplicado'"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'aplicado' or not es_procesador"/>
                     <button name="action_conciliar" string="Liquidar" type="object" class="oe_highlight"
                             groups="account.group_account_manager"
-                            invisible="not puede_conciliar"/>
+                            invisible="not puede_conciliar or not es_procesador"/>
                     <button name="action_cancelar" string="Cancelar" type="object"
                             groups="account.group_account_manager"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'pago_directo') or state != 'liquidado'"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'pago_directo') or state != 'liquidado' or not es_procesador"/>
                     <field name="es_procesador" invisible="1"/>
                     <field name="puede_conciliar" invisible="1"/>
                     <field name="state" widget="statusbar"
