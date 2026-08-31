@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_wizard_export_voucher_form" model="ir.ui.view">
+        <field name="name">wizard.export.voucher.form</field>
+        <field name="model">wizard.export.voucher</field>
+        <field name="arch" type="xml">
+            <form string="Exportar Vouchers (PDF)">
+                <group>
+                    <field name="payslip_run_ids" widget="many2many_tags"/>
+                    <field name="employee_ids" widget="many2many_tags"/>
+                </group>
+                <p class="text-muted">
+                    Elige al menos uno de los dos - se pueden combinar: solo Lotes (todo el
+                    lote), solo Empleados (todas sus nóminas), o ambos (solo esos empleados
+                    dentro de esos lotes).
+                </p>
+                <footer>
+                    <button name="action_exportar" string="Exportar" type="object" class="oe_highlight"/>
+                    <button string="Cerrar" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_wizard_export_voucher" model="ir.actions.act_window">
+        <field name="name">Exportar Vouchers (PDF)</field>
+        <field name="res_model">wizard.export.voucher</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

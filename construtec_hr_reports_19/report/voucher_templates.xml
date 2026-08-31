@@ -3,15 +3,16 @@
     <template id="salary_voucher">
         <t t-call="web.html_container">
             <t t-call="construtec_hr_reports_19.custom_internal_layout">
+                <t t-foreach="docs" t-as="doc">
                 <div t-attf-class="header" t-att-style="report_header_style">
                     <div class="row">
                         <div class="col-3 text-center">
-                            <img t-if="docs.company_id.logo" t-att-src="image_data_uri(docs.company_id.logo)" style="max-height: 100px; width: auto; margin-left: auto; margin-right: auto;" alt="Logo"/>
+                            <img t-if="doc.company_id.logo" t-att-src="image_data_uri(doc.company_id.logo)" style="max-height: 100px; width: auto; margin-left: auto; margin-right: auto;" alt="Logo"/>
                         </div>
                         <div class="col-1 text"/>
                         <div class="col-8 text-center" style="font-family: Arial;">
-                            <h4 t-field="docs.company_id.name"/>
-                            Nit: <span t-field="docs.company_id.vat"/>
+                            <h4 t-field="doc.company_id.name"/>
+                            Nit: <span t-field="doc.company_id.vat"/>
                         </div>
                     </div>
                 </div>
@@ -24,7 +25,7 @@
                             <div class="row">
                                 <div class="col-1"/>
                                 <div class="col-4 text-left"><span>Mes: </span></div>
-                                <div class="col-7 text-left"><t t-esc="docs.date_from.strftime('%m')"/></div>
+                                <div class="col-7 text-left"><t t-esc="doc.date_from.strftime('%m')"/></div>
                             </div>
                         </div>
                         <div class="col-6"/>
@@ -34,13 +35,13 @@
                             <div class="row">
                                 <div class="col-1"/>
                                 <div class="col-4 text-left"><span>Periodo del: </span></div>
-                                <div class="col-7 text-left"><t t-esc="docs.fecha_del()"/> al <t t-esc="docs.fecha_al()"/></div>
+                                <div class="col-7 text-left"><t t-esc="doc.fecha_del()"/> al <t t-esc="doc.fecha_al()"/></div>
                             </div>
                         </div>
                         <div class="col-6">
                             <div class="row">
                                 <div class="col-7 text-left"><span>NIT del Empleado: </span></div>
-                                <div class="col-5 text-left"><t t-esc="docs.employee_id.nit"/></div>
+                                <div class="col-5 text-left"><t t-esc="doc.employee_id.nit"/></div>
                             </div>
                         </div>
                     </div>
@@ -49,14 +50,14 @@
                             <div class="row">
                                 <div class="col-1"/>
                                 <div class="col-4 text-left"><span>Fecha de pago: </span></div>
-                                <div class="col-7 text-left"><t t-esc="docs.date_to"/></div>
+                                <div class="col-7 text-left"><t t-esc="doc.date_to"/></div>
                             </div>
                         </div>
                         <div class="col-6">
                             <div class="row">
                                 <div class="col-7 text-left"><span>Cuenta Bancaria Acreditada: </span></div>
                                 <div class="col-5 text-left">
-                                    <t t-foreach="docs.employee_id.work_contact_id.bank_ids" t-as="bank">
+                                    <t t-foreach="doc.employee_id.work_contact_id.bank_ids" t-as="bank">
                                         <t t-if="bank.allow_out_payment">
                                             <div><t t-esc="bank.acc_number"/></div>
                                         </t>
@@ -70,13 +71,13 @@
                             <div class="row">
                                 <div class="col-1"/>
                                 <div class="col-4 text-left"><span>Empleado: </span></div>
-                                <div class="col-7 text-left"><t t-esc="docs.employee_id.name"/></div>
+                                <div class="col-7 text-left"><t t-esc="doc.employee_id.name"/></div>
                             </div>
                         </div>
                         <div class="col-6">
                             <div class="row">
                                 <div class="col-7 text-left"><span>Departamento: </span></div>
-                                <div class="col-5 text-left"><t t-esc="docs.version_id.department_id.parent_id.name"/></div>
+                                <div class="col-5 text-left"><t t-esc="doc.version_id.department_id.parent_id.name"/></div>
                             </div>
                         </div>
                     </div>
@@ -85,13 +86,13 @@
                             <div class="row">
                                 <div class="col-1"/>
                                 <div class="col-4 text-left"><span>Correo Electrónico:</span></div>
-                                <div class="col-7 text-left"><t t-esc="docs.employee_id.work_email"/></div>
+                                <div class="col-7 text-left"><t t-esc="doc.employee_id.work_email"/></div>
                             </div>
                         </div>
                         <div class="col-6">
                             <div class="row">
                                 <div class="col-7 text-left"><span>Área:</span></div>
-                                <div class="col-5 text-left"><t t-esc="docs.version_id.department_id.name"/></div>
+                                <div class="col-5 text-left"><t t-esc="doc.version_id.department_id.name"/></div>
                             </div>
                         </div>
                     </div>
@@ -125,7 +126,7 @@
                                     <div class="col-1"/>
                                     <div class="col-8" style="font-family: Arial; font-size: 16px; line-height: 1.5;"><span t-esc="pair[0]"/></div>
                                     <div class="col-3" style="font-family: Arial; font-size: 16px; line-height: 1.5; text-align: right;">
-                                        <t t-set="total" t-value="sum(l.total for l in docs.line_ids if l.code in pair[1])"/>
+                                        <t t-set="total" t-value="sum(l.total for l in doc.line_ids if l.code in pair[1])"/>
                                         <t t-esc="'{:,.2f}'.format(total)"/>
                                     </div>
                                 </div>
@@ -135,7 +136,7 @@
                                     <div class="col-1"/>
                                     <div class="col-6" style="font-family: Arial; font-size: 16px; line-height: 1.5;"><span t-esc="pair[2]"/></div>
                                     <div class="col-3" style="font-family: Arial; font-size: 16px; line-height: 1.5; text-align: right;">
-                                        <t t-set="total" t-value="sum(l.total for l in docs.line_ids if l.code in pair[3])"/>
+                                        <t t-set="total" t-value="sum(l.total for l in doc.line_ids if l.code in pair[3])"/>
                                         <t t-esc="'{:,.2f}'.format(total)"/>
                                     </div>
                                 </div>
@@ -150,7 +151,7 @@
                                 <div class="col-8" style="font-family: Arial; font-size: 16px; line-height: 1.5;"><strong>Total Bruto:</strong></div>
                                 <div class="col-3" style="font-family: Arial; font-size: 16px; line-height: 1.5; text-align: right;">
                                     <strong>
-                                        <t t-set="total" t-value="sum(l.total for l in docs.line_ids if l.code == 'GROSS')"/>
+                                        <t t-set="total" t-value="sum(l.total for l in doc.line_ids if l.code == 'GROSS')"/>
                                         <t t-esc="'{:,.2f}'.format(total)"/>
                                     </strong>
                                 </div>
@@ -162,7 +163,7 @@
                                 <div class="col-6" style="font-family: Arial; font-size: 16px; line-height: 1.5; border-top: 1px solid black;"><strong>Total Deducciones: </strong></div>
                                 <div class="col-3" style="font-family: Arial; font-size: 16px; line-height: 1.5; text-align: right; border-top: 1px solid black;">
                                     <strong>
-                                        <t t-set="total" t-value="sum(l.total for l in docs.line_ids if l.code == 'DEDU')"/>
+                                        <t t-set="total" t-value="sum(l.total for l in doc.line_ids if l.code == 'DEDU')"/>
                                         <t t-esc="'{:,.2f}'.format(total)"/>
                                     </strong>
                                 </div>
@@ -173,7 +174,7 @@
                     <div class="row" style="text-align: center; font-family: Arial; font-size: 18px; line-height: 1.5;">
                         <div class="col-12">
                             <strong><u> Monto Líquido a Recibir:
-                                <t t-set="total" t-value="sum(l.total for l in docs.line_ids if l.code == 'NET')"/>
+                                <t t-set="total" t-value="sum(l.total for l in doc.line_ids if l.code == 'NET')"/>
                                 <t t-esc="'{:,.2f}'.format(total)"/>
                             </u></strong>
                         </div>
@@ -188,6 +189,7 @@
                         </div>
                     </div>
                 </div>
+                </t>
             </t>
         </t>
     </template>

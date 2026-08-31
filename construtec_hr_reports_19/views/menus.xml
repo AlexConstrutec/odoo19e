@@ -22,4 +22,6 @@
               parent="hr_payroll.menu_hr_payroll_report" sequence="10"/>
     <menuitem id="menu_wizard_reporte_detalle_nomina" action="action_wizard_reporte_detalle_nomina"
               parent="hr_payroll.menu_hr_payroll_report" sequence="11"/>
+    <menuitem id="menu_wizard_export_voucher" action="action_wizard_export_voucher"
+              parent="hr_payroll.menu_hr_payroll_report" sequence="12"/>
 </odoo>
