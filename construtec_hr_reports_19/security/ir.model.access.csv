@@ -18,3 +18,5 @@ access_wizard_reporte_detalle_nomina,wizard.reporte.detalle.nomina,model_wizard_
 access_wizard_reporte_detalle_nomina_acc,wizard.reporte.detalle.nomina.acc,model_wizard_reporte_detalle_nomina,account.group_account_manager,1,1,1,1
 access_wizard_reporte_detalle_nomina_line,wizard.reporte.detalle.nomina.line,model_wizard_reporte_detalle_nomina_line,hr.group_hr_manager,1,1,1,1
 access_wizard_reporte_detalle_nomina_line_acc,wizard.reporte.detalle.nomina.line.acc,model_wizard_reporte_detalle_nomina_line,account.group_account_manager,1,1,1,1
+access_wizard_export_voucher,wizard.export.voucher,model_wizard_export_voucher,hr.group_hr_manager,1,1,1,1
+access_wizard_export_voucher_acc,wizard.export.voucher.acc,model_wizard_export_voucher,account.group_account_manager,1,1,1,1
