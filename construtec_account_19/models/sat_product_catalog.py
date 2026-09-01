@@ -120,12 +120,10 @@ class ConstructecSatProductCatalog(models.Model):
         ('pendiente', 'Pendiente'),
         ('sincronizado', 'Sincronizado'),
         ('error', 'Error'),
-        ('no_aplica', 'No Aplica (Es Servicio, no Bien)'),
     ], string='Estado de Sincronización', default='pendiente', copy=False, required=True,
-        help='"No Aplica" significa que `bien_o_servicio` no es "Bien" (es Servicio, o vino '
-             'vacío) - esta entrada nunca se envía al Catálogo de Materiales (ni local en '
-             'Enterprise ni remoto a Community). No requiere ninguna acción manual - es un dato '
-             'que ya viene del propio Documento SAT.')
+        help='Se sincroniza TODA entrada (bien o servicio) hacia el Catálogo de Materiales - '
+             'ver `bien_o_servicio` para el dato que cada consumidor usa para filtrar según lo '
+             'que necesite, no un filtro aquí en el origen.')
     sync_error = fields.Text(string='Detalle del Error', readonly=True, copy=False)
     sync_date = fields.Datetime(string='Última Sincronización Exitosa', readonly=True, copy=False)
 
@@ -228,21 +226,22 @@ class ConstructecSatProductCatalog(models.Model):
             'primera_fecha_compra': self.primera_fecha_compra.isoformat() if self.primera_fecha_compra else False,
             'ultima_fecha_compra': self.ultima_fecha_compra.isoformat() if self.ultima_fecha_compra else False,
             'company_id': self.company_id.id,
+            'bien_o_servicio': self.bien_o_servicio or False,
         }
 
     def _sat_sync_to_community(self):
         """Empuja esta entrada hacia el Catálogo de Materiales (`construtec.materials.catalog.
-        mirror`, módulo construtec_sat_catalog_sync_19) - por dos caminos, ambos gateados por
-        `bien_o_servicio == 'B'` (dato real del propio DTE, ver CLAUDE.md "Catálogo de Productos
-        de Proveedor"): sin eso, ni siquiera se intenta ninguno de los dos - un "Servicio"
-        (contabilidad, luz, etc.) nunca debe llegar al catálogo que ve el jefe de técnicos al
-        pedir materiales. Filtro por línea, no por proveedor - el mismo proveedor puede vender
-        tanto bienes como servicios en facturas distintas.
+        mirror`, módulo construtec_sat_catalog_sync_19) - SIN filtrar por `bien_o_servicio` aquí:
+        se sincroniza TODO (bienes y servicios) por los dos caminos, el campo `bien_o_servicio`
+        viaja en el payload para que cada consumidor filtre según lo que necesite. Decisión
+        explícita del usuario: la Solicitud de Materiales (`construtec_account_payment_order_19`)
+        hoy solo quiere Bienes, pero una futura sección de este proyecto va a necesitar también
+        Servicios del mismo catálogo - el filtro por tipo vive en el consumidor
+        (`account.payment.order.material.line.catalogo_id`, `domain=[('bien_o_servicio','=','B')]`),
+        nunca aquí en el origen.
 
         1. **Copia local** (misma base de datos, Enterprise) - una llamada ORM directa, sin red,
-           siempre se intenta primero cuando la entrada es un Bien, sin importar si Community
-           está configurada/alcanzable. Así Enterprise tiene su propia copia consultable de
-           inmediato.
+           siempre se intenta. Así Enterprise tiene su propia copia consultable de inmediato.
         2. **Copia remota** (Community, vía XML-RPC estándar de Odoo) - igual que antes de este
            cambio, mismo patrón que usa run_sat_upload_to_odoo.py para hablarle a Enterprise. Ver
            CLAUDE.md para el contrato exacto (`sync_from_enterprise(vals)` idempotente por
@@ -254,11 +253,6 @@ class ConstructecSatProductCatalog(models.Model):
         importa contablemente se guarde en Enterprise.
         """
         self.ensure_one()
-        if self.bien_o_servicio != 'B':
-            if self.sync_state != 'no_aplica':
-                self.write({'sync_state': 'no_aplica', 'sync_error': False})
-            return
-
         vals = self._sat_prepare_materials_catalog_vals()
 
         # sudo() deliberado SOLO aquí, en el llamador de confianza (vals ya construido por este
@@ -345,11 +339,8 @@ class ConstructecSatProductCatalog(models.Model):
         """Red de seguridad para cuando el intento inmediato en _sat_register_from_line
         falló (Community caída, red intermitente, etc.) - ver ir_cron en
         data/ir_cron_sat_product_catalog.xml. El intento en tiempo real sigue
-        siendo el camino principal; esto es solo el reintento periódico.
-
-        Excluye `no_aplica` a propósito - una entrada que es Servicio (no Bien) nunca va a dejar
-        de serlo, no tiene sentido reintentarla cada hora para siempre."""
-        pendientes = self.search([('sync_state', 'not in', ('sincronizado', 'no_aplica'))])
+        siendo el camino principal; esto es solo el reintento periódico."""
+        pendientes = self.search([('sync_state', '!=', 'sincronizado')])
         for entry in pendientes:
             entry._sat_sync_to_community()
 
@@ -357,8 +348,8 @@ class ConstructecSatProductCatalog(models.Model):
     def action_retry_pending_sync_notify(self):
         """Igual que _cron_retry_pending_sync() pero con notificación en pantalla -
         para el botón de menú, que a diferencia del cron sí tiene un usuario
-        mirando la pantalla en ese momento. Mismo criterio que el cron: excluye `no_aplica`."""
-        pendientes = self.search([('sync_state', 'not in', ('sincronizado', 'no_aplica'))])
+        mirando la pantalla en ese momento."""
+        pendientes = self.search([('sync_state', '!=', 'sincronizado')])
         total = len(pendientes)
         for entry in pendientes:
             entry._sat_sync_to_community()

@@ -6,10 +6,12 @@ class ConstructecMaterialsCatalogMirror(models.Model):
     _name = 'construtec.materials.catalog.mirror'
     _description = (
         'Catálogo de productos de proveedor derivado de las facturas descargadas de la SAT '
-        '(construtec.sat.product.catalog, módulo construtec_account_19, Enterprise) - solo entra '
-        'aquí lo de un proveedor curado como "materiales" (ver res.partner.materiales_catalogo_'
-        'visible), nunca el catálogo SAT completo. Referencia para autocompletar - nunca crea '
-        'product.product ni ninguna relación viva con Enterprise. Mismo modelo/mismo `_name` '
+        '(construtec.sat.product.catalog, módulo construtec_account_19, Enterprise) - se '
+        'sincroniza TODO (bienes y servicios), sin ningún filtro aquí en el origen; cada '
+        'consumidor filtra por `bien_o_servicio` según lo que necesite (ej. la Solicitud de '
+        'Materiales solo usa "Bien" - ver construtec_account_payment_order_19). Referencia para '
+        'autocompletar - nunca crea product.product ni ninguna relación viva con Enterprise. '
+        'Mismo modelo/mismo `_name` '
         'instalado en Enterprise (poblado localmente, sin red, desde construtec.sat.product.'
         'catalog) y en Community (poblado por sync_from_enterprise() vía XML-RPC) - nombre '
         'técnico ("construtec.materials.catalog.mirror", no "construtec.sat.*") elegido a '
@@ -34,6 +36,12 @@ class ConstructecMaterialsCatalogMirror(models.Model):
              'lado Community - usar `name_search` con `vendor_hint` en el contexto para preferir '
              'coincidencias por este texto, no un Many2one real a res.partner.')
     partner_vat = fields.Char(string='NIT del Proveedor')
+    bien_o_servicio = fields.Selection(
+        [('B', 'Bien'), ('S', 'Servicio')], string='Bien/Servicio',
+        help='Copiado de `construtec.sat.product.catalog.bien_o_servicio` (Enterprise) - dato '
+             'real del propio Documento SAT. No hay ningún filtro por este campo en el modelo '
+             'ni en la sincronización - se sincroniza todo, cada consumidor decide qué mostrar '
+             '(ej. `account.payment.order.material.line.catalogo_id` solo muestra "Bien").')
     uom_name = fields.Char(string='Unidad de Medida')
     currency_name = fields.Char(string='Moneda')
     precio_referencia = fields.Float(string='Precio de Referencia')

@@ -11,9 +11,12 @@ Originally built as Community-only (the receiving side of the catalog Enterprise
 
 Standalone module (`depends: ['base']` only en ambos lados) - deliberadamente **no** depende de `construtec_account_19` ni de `construtec_account_payment_order_19`, para que ninguno de los dos tenga que estar instalado para que este exista - son ellos los que dependen de este módulo, nunca al revés (evita dependencia circular).
 
-## Qué llega aquí - filtro por `bien_o_servicio`, no vive en este módulo
+## Qué llega aquí - se sincroniza TODO, el filtro vive en cada consumidor
 
-Este modelo (`construtec.materials.catalog.mirror`) no filtra nada por sí mismo - recibe lo que le manden. El filtro real contra la basura vive del lado Enterprise, en `construtec_account_19` (`_sat_sync_to_community()`, ver el CLAUDE.md de ese módulo): solo entradas del catálogo SAT cuya línea de origen es `bien_o_servicio == 'B'` (Bien, no Servicio - dato real del propio Documento SAT) se envían aquí, ni siquiera localmente en Enterprise. Se descartó a propósito una primera versión con un campo manual `res.partner.materiales_catalogo_visible` (curar proveedor por proveedor) - innecesaria, ya que el propio DTE distingue bien de servicio sin que nadie tenga que marcar nada a mano.
+Este modelo (`construtec.materials.catalog.mirror`) no filtra nada por sí mismo - recibe TODO lo que Enterprise sincroniza, bienes y servicios por igual, sin ningún gate en el origen (`construtec_account_19`, `_sat_sync_to_community()`). Decisión explícita del usuario, en dos pasadas: primero se descartó una curaduría manual por proveedor (`res.partner.materiales_catalogo_visible`); después, al construirse un filtro automático por `bien_o_servicio` en el origen, también se descartó eso - "se van a sincronizar todos los productos... en un futuro voy a necesitar los productos de tipo servicio también" (una sección futura, todavía no construida, va a consumir este mismo catálogo para Servicios).
+
+- **`bien_o_servicio`** (Selection `B`/`S`, campo nuevo en este modelo) viaja en cada entrada, copiado de `construtec.sat.product.catalog.bien_o_servicio` (Enterprise) - dato real del propio Documento SAT, nunca recalculado aquí.
+- **El filtro real vive en cada consumidor**, vía `domain=` sobre el campo Many2one que apunta a este modelo - hoy solo existe un consumidor: `account.payment.order.material.line.catalogo_id` (`construtec_account_payment_order_19`), con `domain="[('bien_o_servicio', '=', 'B')]"` porque la Solicitud de Materiales solo necesita Bienes. Un futuro consumidor de Servicios haría lo mismo con `'S'`, sin tocar nada de este módulo ni de la sincronización.
 
 ## `name_search()` con preferencia por proveedor, nunca restrictivo
 
@@ -52,6 +55,7 @@ models_proxy.execute_kw(db, uid, api_key, 'construtec.materials.catalog.mirror',
     'primera_fecha_compra': <'YYYY-MM-DD' str or False>,
     'ultima_fecha_compra': <'YYYY-MM-DD' str or False>,
     'company_id': <int, id de compañía - nuevo, ver sección de arriba>,
+    'bien_o_servicio': <'B'/'S' str or False - ver "Qué llega aquí" arriba, nunca filtra el envío>,
 }
 ```
 
@@ -65,10 +69,10 @@ models_proxy.execute_kw(db, uid, api_key, 'construtec.materials.catalog.mirror',
 
 1. In Community: create a dedicated user (e.g. "Integración Catálogo SAT"), add it to **only** `group_sat_catalog_sync_integration`, generate an API Key for it (Ajustes > Mi Perfil > Seguridad de la cuenta > Nueva clave API).
 2. In Enterprise: Ajustes > Técnico > Parámetros del Sistema, set the 4 keys `construtec_account_19.community_url` / `.community_db` / `.community_login` / `.community_api_key` to point at Community and that integration user. **Not set on any environment as of this writing** — until they are, every remote sync attempt fails cleanly (`sync_state='error'`, descriptive `sync_error`, never blocks the SAT document import itself or the local copy).
-3. Trigger a sync from Enterprise (edit any `construtec.sat.product.catalog` entry with `bien_o_servicio='B'`, or run `action_retry_pending_sync_notify` from its menu) and confirm a matching row appears in Community's own "Catálogo de Materiales" menu.
+3. Trigger a sync from Enterprise (edit any `construtec.sat.product.catalog` entry, or run `action_retry_pending_sync_notify` from its menu) and confirm a matching row appears in Community's own "Catálogo de Materiales" menu.
 
 ## Status as of this writing (2026-09-01)
 
-**Verificado con `odoo-bin shell` contra `construtec_test` (Enterprise), incluyendo el navegador real**: el filtro por `bien_o_servicio` (entrada de línea tipo Servicio → `sync_state='no_aplica'`, sin espejo local; entrada tipo Bien → espejo local creado de inmediato), la copia local en Enterprise (sin red, `company_id` incluido), el `name_search` con preferencia por proveedor (preferido primero, el resto sigue visible), y el autocompletado real en la pestaña Materiales de `construtec_account_payment_order_19` (elegir una entrada del catálogo llena Material/Proveedor Sugerido/Precio Estimado y recalcula los totales) — todo funcionando de punta a punta en un solo Odoo (Enterprise).
+**Verificado con `odoo-bin shell` contra `construtec_test` (Enterprise), incluyendo el navegador real**: se sincroniza tanto una entrada tipo Bien como una tipo Servicio (ambas generan espejo local, `bien_o_servicio` viaja correctamente), la copia local en Enterprise (sin red, `company_id` incluido), el `name_search` con preferencia por proveedor (preferido primero, el resto sigue visible), y el autocompletado real en la pestaña Materiales de `construtec_account_payment_order_19` (elegir una entrada del catálogo llena Material/Proveedor Sugerido/Precio Estimado y recalcula los totales, y el picker de esa línea solo ofrece Bienes por su propio `domain=`) — todo funcionando de punta a punta en un solo Odoo (Enterprise).
 
 **Lo que sigue sin poder probarse localmente, sin cambios respecto a antes**: el salto RPC real Enterprise→Community por red - Community y Enterprise comparten el mismo puerto/`data_dir` por defecto localmente y no corren a la vez en este entorno de desarrollo, y los 4 parámetros de sistema en Enterprise siguen sin configurarse en ningún ambiente real. Verificado que el intento de sync remoto falla limpio con el mensaje esperado (`sync_state='error'`, `sync_error` describiendo los parámetros faltantes) cuando no están configurados - comportamiento correcto, no un bug.
