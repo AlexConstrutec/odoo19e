@@ -52,14 +52,14 @@
     <record id="account_payment_order_own_rule" model="ir.rule">
         <field name="name">Orden de Pago: el solicitante ve las propias (solo Anticipo)</field>
         <field name="model_id" ref="model_account_payment_order"/>
-        <field name="domain_force">[('tipo', 'in', ('anticipo', 'anticipo_viaticos')), ('requested_by_id', '=', user.id)]</field>
+        <field name="domain_force">[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')), ('requested_by_id', '=', user.id)]</field>
         <field name="groups" eval="[(4, ref('base.group_user'))]"/>
     </record>
 
     <record id="account_payment_order_approver_rule" model="ir.rule">
         <field name="name">Orden de Pago: el Aprobador ve todos los Anticipo</field>
         <field name="model_id" ref="model_account_payment_order"/>
-        <field name="domain_force">[('tipo', 'in', ('anticipo', 'anticipo_viaticos'))]</field>
+        <field name="domain_force">[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales'))]</field>
         <field name="groups" eval="[(4, ref('group_payment_order_approver')),
                                     (4, ref('group_payment_order_sync_integration'))]"/>
     </record>

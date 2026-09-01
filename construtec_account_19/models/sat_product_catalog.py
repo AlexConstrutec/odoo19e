@@ -111,7 +111,12 @@ class ConstructecSatProductCatalog(models.Model):
         ('pendiente', 'Pendiente'),
         ('sincronizado', 'Sincronizado'),
         ('error', 'Error'),
-    ], string='Estado de Sincronización', default='pendiente', copy=False, required=True)
+        ('no_aplica', 'No Aplica (Proveedor no Curado)'),
+    ], string='Estado de Sincronización', default='pendiente', copy=False, required=True,
+        help='"No Aplica" significa que `partner_id.materiales_catalogo_visible` es falso - esta '
+             'entrada nunca se envía al Catálogo de Materiales (ni local en Enterprise ni remoto '
+             'a Community) hasta que alguien cure ese proveedor (ficha del Contacto). Curar el '
+             'proveedor re-sincroniza automáticamente todo lo que ya existía de él.')
     sync_error = fields.Text(string='Detalle del Error', readonly=True, copy=False)
     sync_date = fields.Datetime(string='Última Sincronización Exitosa', readonly=True, copy=False)
 
@@ -196,20 +201,65 @@ class ConstructecSatProductCatalog(models.Model):
             'api_key': icp.get_param('construtec_account_19.community_api_key'),
         }
 
-    def _sat_sync_to_community(self):
-        """Llama al modelo `construtec.materials.catalog.mirror` (por implementar en
-        Odoo19C/Community, módulo construtec_materials_19) vía XML-RPC estándar de
-        Odoo, mismo patrón que ya usa run_sat_upload_to_odoo.py para hablarle a
-        Enterprise. Ver CLAUDE.md para el contrato exacto que Community debe
-        exponer (`sync_from_enterprise(vals)` idempotente por `origin_id`).
+    def _sat_prepare_materials_catalog_vals(self):
+        """Payload compartido por los dos destinos de sync_from_enterprise() - la copia local
+        (misma base, Enterprise) y la copia remota (Community, vía XML-RPC). Un solo lugar para
+        el contrato, ver CLAUDE.md."""
+        self.ensure_one()
+        return {
+            'origin_id': self.id,
+            'name': self.name,
+            'codigo': self.codigo or False,
+            'partner_name': self.partner_id.display_name,
+            'partner_vat': self.partner_id.vat or False,
+            'uom_name': self.uom_id.display_name if self.uom_id else False,
+            'currency_name': self.currency_id.name,
+            'precio_referencia': self.precio_referencia,
+            'primera_fecha_compra': self.primera_fecha_compra.isoformat() if self.primera_fecha_compra else False,
+            'ultima_fecha_compra': self.ultima_fecha_compra.isoformat() if self.ultima_fecha_compra else False,
+            'company_id': self.company_id.id,
+        }
 
-        Nunca lanza excepción hacia el llamador: un fallo de sincronización
-        (Community caída, credenciales mal puestas, lo que sea) se registra en
-        sync_state/sync_error para revisión y reintento posterior - no debe
-        impedir que el documento SAT/factura que sí importa contablemente se
-        guarde en Enterprise.
+    def _sat_sync_to_community(self):
+        """Empuja esta entrada hacia el Catálogo de Materiales (`construtec.materials.catalog.
+        mirror`, módulo construtec_sat_catalog_sync_19) - por dos caminos, ambos gateados por la
+        misma curaduría por proveedor (`partner_id.materiales_catalogo_visible`, ver CLAUDE.md
+        "Catálogo de Productos de Proveedor"): sin eso, ni siquiera se intenta ninguno de los
+        dos - el catálogo de materiales no debe llenarse con combustible/servicios/lo que sea.
+
+        1. **Copia local** (misma base de datos, Enterprise) - una llamada ORM directa, sin red,
+           siempre se intenta primero cuando el proveedor está curado, sin importar si Community
+           está configurada/alcanzable. Así Enterprise tiene su propia copia consultable de
+           inmediato.
+        2. **Copia remota** (Community, vía XML-RPC estándar de Odoo) - igual que antes de este
+           cambio, mismo patrón que usa run_sat_upload_to_odoo.py para hablarle a Enterprise. Ver
+           CLAUDE.md para el contrato exacto (`sync_from_enterprise(vals)` idempotente por
+           `origin_id`).
+
+        Nunca lanza excepción hacia el llamador: un fallo de cualquiera de los dos (Community
+        caída, credenciales mal puestas, lo que sea) se registra en sync_state/sync_error para
+        revisión y reintento posterior - no debe impedir que el documento SAT/factura que sí
+        importa contablemente se guarde en Enterprise.
         """
         self.ensure_one()
+        if not self.partner_id.materiales_catalogo_visible:
+            if self.sync_state != 'no_aplica':
+                self.write({'sync_state': 'no_aplica', 'sync_error': False})
+            return
+
+        vals = self._sat_prepare_materials_catalog_vals()
+
+        # sudo() deliberado SOLO aquí, en el llamador de confianza (vals ya construido por este
+        # mismo método, no input externo) - sync_from_enterprise() en sí sigue sin sudo() a
+        # propósito, para que la vía RPC (Community) siga dependiendo por completo del ACL del
+        # usuario de integración real. Ver el CLAUDE.md de construtec_sat_catalog_sync_19.
+        try:
+            self.env['construtec.materials.catalog.mirror'].sudo().sync_from_enterprise(vals)
+        except Exception as exc:
+            _logger.warning(
+                'No se pudo actualizar el Catálogo de Materiales local para #%s ("%s"): %s',
+                self.id, self.name, exc)
+
         params = self._sat_get_community_connection_params()
         if not all(params.values()):
             self.write({
@@ -222,18 +272,6 @@ class ConstructecSatProductCatalog(models.Model):
             })
             return
 
-        vals = {
-            'origin_id': self.id,
-            'name': self.name,
-            'codigo': self.codigo or False,
-            'partner_name': self.partner_id.display_name,
-            'partner_vat': self.partner_id.vat or False,
-            'uom_name': self.uom_id.display_name if self.uom_id else False,
-            'currency_name': self.currency_id.name,
-            'precio_referencia': self.precio_referencia,
-            'primera_fecha_compra': self.primera_fecha_compra.isoformat() if self.primera_fecha_compra else False,
-            'ultima_fecha_compra': self.ultima_fecha_compra.isoformat() if self.ultima_fecha_compra else False,
-        }
         try:
             url = params['url'].rstrip('/')
             transport_cls = _TimeoutSafeTransport if url.startswith('https') else _TimeoutTransport
@@ -295,8 +333,12 @@ class ConstructecSatProductCatalog(models.Model):
         """Red de seguridad para cuando el intento inmediato en _sat_register_from_line
         falló (Community caída, red intermitente, etc.) - ver ir_cron en
         data/ir_cron_sat_product_catalog.xml. El intento en tiempo real sigue
-        siendo el camino principal; esto es solo el reintento periódico."""
-        pendientes = self.search([('sync_state', '!=', 'sincronizado')])
+        siendo el camino principal; esto es solo el reintento periódico.
+
+        Excluye `no_aplica` a propósito - un proveedor no curado no debe reintentarse cada hora
+        para siempre, solo cuando alguien lo cure (ver res_partner.py, que ya dispara el re-sync
+        exacto en ese momento)."""
+        pendientes = self.search([('sync_state', 'not in', ('sincronizado', 'no_aplica'))])
         for entry in pendientes:
             entry._sat_sync_to_community()
 
@@ -304,8 +346,8 @@ class ConstructecSatProductCatalog(models.Model):
     def action_retry_pending_sync_notify(self):
         """Igual que _cron_retry_pending_sync() pero con notificación en pantalla -
         para el botón de menú, que a diferencia del cron sí tiene un usuario
-        mirando la pantalla en ese momento."""
-        pendientes = self.search([('sync_state', '!=', 'sincronizado')])
+        mirando la pantalla en ese momento. Mismo criterio que el cron: excluye `no_aplica`."""
+        pendientes = self.search([('sync_state', 'not in', ('sincronizado', 'no_aplica'))])
         total = len(pendientes)
         for entry in pendientes:
             entry._sat_sync_to_community()

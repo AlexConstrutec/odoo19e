@@ -13,6 +13,8 @@ class ResConfigSettings(models.TransientModel):
         related='company_id.payment_order_habilitar_anticipo_viaticos', readonly=False)
     payment_order_habilitar_pago_directo = fields.Boolean(
         related='company_id.payment_order_habilitar_pago_directo', readonly=False)
+    payment_order_habilitar_anticipo_materiales = fields.Boolean(
+        related='company_id.payment_order_habilitar_anticipo_materiales', readonly=False)
     payment_order_approval_threshold = fields.Monetary(
         related='company_id.payment_order_approval_threshold', readonly=False)
     payment_order_sync_enabled = fields.Boolean(

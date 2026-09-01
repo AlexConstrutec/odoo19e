@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_construtec_materials_catalog_mirror_integration,construtec.materials.catalog.mirror.integration,model_construtec_materials_catalog_mirror,group_sat_catalog_sync_integration,1,1,1,0
+access_construtec_materials_catalog_mirror_user,construtec.materials.catalog.mirror.user,model_construtec_materials_catalog_mirror,base.group_user,1,0,0,0
+access_construtec_materials_catalog_mirror_system,construtec.materials.catalog.mirror.system,model_construtec_materials_catalog_mirror,base.group_system,1,1,1,1

@@ -8,11 +8,12 @@ from ..tools.enterprise_sync_api import EnterpriseSyncError, create_sync_record
 APPROVER_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver'
 APPROVER_MEDIO_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver_medio'
 APPROVER_ALTO_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver_alto'
-# Ambos comparten el mismo ciclo enviado/aprobado/rechazado/aplicado (decisión explícita del
-# usuario: "ambos tipos comparten el mismo flujo") - `anticipo_viaticos` es el único que se ve
-# en Community (trae viaticos_line_ids/sync/etc.); `anticipo` a secas sigue existiendo para un
-# anticipo que un contable arma directo en Enterprise, sin relación a viáticos.
-ANTICIPO_TIPOS = ('anticipo', 'anticipo_viaticos')
+# Los tres comparten el mismo ciclo enviado/aprobado/rechazado/aplicado (decisión explícita del
+# usuario: "ambos tipos comparten el mismo flujo", extendida a Materiales por el mismo criterio)
+# - `anticipo_viaticos`/`anticipo_materiales` son los que se ven en Community (traen sus propias
+# líneas de detalle + sync); `anticipo` a secas sigue existiendo para un anticipo que un contable
+# arma directo en Enterprise, sin relación a viáticos ni materiales.
+ANTICIPO_TIPOS = ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')
 
 
 def _resolve_employee_for_partner(partner, company):
@@ -50,6 +51,7 @@ class AccountPaymentOrder(models.Model):
     tipo = fields.Selection([
         ('anticipo', 'Anticipo'),
         ('anticipo_viaticos', 'Anticipo Viáticos'),
+        ('anticipo_materiales', 'Anticipo Materiales'),
         ('pago_directo', 'Pago Directo'),
     ], string='Tipo', required=True,
         default=lambda self: (self.env.company._get_payment_order_allowed_tipos() or ['anticipo'])[0],
@@ -250,6 +252,26 @@ class AccountPaymentOrder(models.Model):
     observaciones = fields.Text(string='Observaciones / Instrucciones')
     viaticos_line_ids = fields.One2many(
         'account.payment.order.viatico.line', 'order_id', string='Líneas de Viáticos')
+    material_line_ids = fields.One2many(
+        'account.payment.order.material.line', 'order_id', string='Líneas de Materiales')
+    pagar_a = fields.Selection([
+        ('jefe_tecnicos', 'Jefe de Técnicos'),
+        ('proveedor_directo', 'Proveedor Directo'),
+    ], string='Pagar a',
+        help='Solo para Anticipo Materiales: a quién se le entrega el dinero al Aplicar - al '
+             'jefe de técnicos (quien luego paga al proveedor) o directo al proveedor. No '
+             'confundir con `proveedor_materiales_id`, que es siempre el proveedor real de los '
+             'materiales sin importar a quién se le paga.')
+    proveedor_materiales_id = fields.Many2one(
+        'res.partner', string='Proveedor de Materiales',
+        help='El proveedor real que surte los materiales de esta Orden - independiente de '
+             '`pagar_a`/`partner_id` (quien recibe el pago puede ser el jefe de técnicos, '
+             'mientras que el proveedor sigue siendo un contacto distinto). Requerido antes de '
+             'generar la Orden de Compra.')
+    purchase_order_ids = fields.One2many(
+        'purchase.order', 'payment_order_id', string='Órdenes de Compra')
+    purchase_order_count = fields.Integer(
+        string='Órdenes de Compra', compute='_compute_purchase_order_count')
     anticipo_previo = fields.Float(string='Anticipo')
     subtotal = fields.Float(string='Subtotal', compute='_compute_totales', store=True)
     total_acreditar = fields.Float(string='Total a Acreditar', compute='_compute_totales', store=True)
@@ -385,12 +407,18 @@ class AccountPaymentOrder(models.Model):
             if rec.analytic_account_id:
                 rec.proyecto = rec.analytic_account_id.name
 
-    @api.depends('viaticos_line_ids.total', 'anticipo_previo')
+    @api.depends('viaticos_line_ids.total', 'material_line_ids.subtotal', 'anticipo_previo')
     def _compute_totales(self):
         for rec in self:
-            subtotal = sum(rec.viaticos_line_ids.mapped('total'))
+            subtotal = (sum(rec.viaticos_line_ids.mapped('total'))
+                        + sum(rec.material_line_ids.mapped('subtotal')))
             rec.subtotal = subtotal
             rec.total_acreditar = subtotal - rec.anticipo_previo
+
+    @api.depends('purchase_order_ids')
+    def _compute_purchase_order_count(self):
+        for rec in self:
+            rec.purchase_order_count = len(rec.purchase_order_ids)
 
     @api.depends('factura_ids.amount_total', 'factura_ids.state', 'pago_ids.amount', 'pago_ids.state')
     def _compute_diferencia_conciliacion(self):
@@ -409,25 +437,39 @@ class AccountPaymentOrder(models.Model):
                 or (rec.tipo == 'pago_directo' and rec.state == 'borrador')
             )
 
-    @api.onchange('viaticos_line_ids.total', 'anticipo_previo')
+    @api.onchange('viaticos_line_ids.total', 'material_line_ids.subtotal', 'anticipo_previo')
     def _onchange_sync_monto(self):
         self._sync_monto_desde_total_acreditar()
 
     def _sync_monto_desde_total_acreditar(self):
-        """Para Anticipo Viáticos, `monto` no se captura a mano - hereda la suma de las
-        pestañas de detalle (`total_acreditar`, hoy solo Viáticos vía `_compute_totales()`; si
-        en el futuro se agrega otra pestaña - ej. Materiales - bastaría con sumarla también ahí,
-        sin tocar nada de esto). Se llama desde el onchange (formulario web) y desde
+        """Para Anticipo Viáticos/Anticipo Materiales, `monto` no se captura a mano - hereda la
+        suma de las pestañas de detalle (`total_acreditar`, vía `_compute_totales()`, que ya
+        suma Viáticos + Materiales). Se llama desde el onchange (formulario web) y desde
         create()/write() (altas/ediciones por API o script, donde el onchange no corre)."""
         for rec in self:
-            if rec.tipo == 'anticipo_viaticos' and rec.monto != rec.total_acreditar:
+            if rec.tipo in ('anticipo_viaticos', 'anticipo_materiales') \
+                    and rec.monto != rec.total_acreditar:
                 rec.monto = rec.total_acreditar
+
+    @api.onchange('pagar_a')
+    def _onchange_pagar_a(self):
+        """Solo Anticipo Materiales: 'jefe_tecnicos' sugiere/mantiene el contacto del jefe (mismo
+        criterio ya usado por Anticipo Viáticos); 'proveedor_directo' limpia `partner_id` para
+        que el contable elija a mano el contacto real del proveedor, sin domain de empleado."""
+        if self.tipo != 'anticipo_materiales':
+            return
+        if self.pagar_a == 'jefe_tecnicos':
+            if not self.partner_id or not self.partner_id.employee:
+                self.partner_id = self.env['hr.employee'].search(
+                    [('user_id', '=', self.env.user.id)], limit=1).work_contact_id
+        elif self.pagar_a == 'proveedor_directo' and self.partner_id and self.partner_id.employee:
+            self.partner_id = False
 
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
             if vals.get('tipo', 'anticipo') in (
-                    'anticipo', 'anticipo_viaticos', 'pago_directo') \
+                    'anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') \
                     and not vals.get('name'):
                 vals['name'] = self.env['ir.sequence'].next_by_code(
                     'account.payment.order.sequence') or '/'
@@ -543,7 +585,7 @@ class AccountPaymentOrder(models.Model):
                         'No se puede cambiar el empleado de una Orden de Pago ya creada '
                         '- cree una nueva en su lugar.'))
         res = super().write(vals)
-        if any(k in vals for k in ('viaticos_line_ids', 'anticipo_previo', 'tipo')):
+        if any(k in vals for k in ('viaticos_line_ids', 'material_line_ids', 'anticipo_previo', 'tipo')):
             self._sync_monto_desde_total_acreditar()
         return res
 
@@ -589,6 +631,9 @@ class AccountPaymentOrder(models.Model):
                 raise UserError(self.env._(
                     'Todas las líneas de viáticos deben tener un empleado seleccionado antes '
                     'de enviar la orden.'))
+            if rec.tipo == 'anticipo_materiales' and not rec.material_line_ids:
+                raise UserError(self.env._(
+                    'Agregue al menos una línea de materiales antes de enviar la orden.'))
             if rec.tipo == 'anticipo_viaticos' and not (
                     rec.cuenta_acreditar and rec.tipo_cuenta and rec.banco
                     and rec.periodo_del and rec.periodo_al):
@@ -698,7 +743,7 @@ class AccountPaymentOrder(models.Model):
         id local de esta base (que no significaría nada allá)."""
         self.ensure_one()
         return {
-            'tipo': 'anticipo_viaticos',
+            'tipo': self.tipo,
             'external_ref': self.name,
             'origin': 'synced',
             # Ids "de vuelta" hacia esta base - deliberadamente SÍ son ids (a diferencia de
@@ -741,6 +786,17 @@ class AccountPaymentOrder(models.Model):
                     'costo_individual': line.costo_individual,
                 })
                 for line in self.viaticos_line_ids
+            ],
+            'material_line_ids': [
+                (0, 0, {
+                    'product_name': line.product_name or '',
+                    'description': line.description or '',
+                    'uom_name': line.uom_name or '',
+                    'qty': line.qty,
+                    'estimated_price': line.estimated_price,
+                    'vendor_name': line.vendor_name or '',
+                })
+                for line in self.material_line_ids
             ],
         }
 
@@ -1019,6 +1075,10 @@ class AccountPaymentOrder(models.Model):
             raise UserError(self.env._('Define el Monto del anticipo.'))
         if not self.cuenta_anticipo_id:
             raise UserError(self.env._('Define la Cuenta de Anticipos por Liquidar.'))
+        if self.tipo == 'anticipo_materiales' and not self.pagar_a:
+            raise UserError(self.env._(
+                'Define a quién se le paga (Jefe de Técnicos o Proveedor Directo) antes de '
+                'aplicar.'))
 
         payment_vals = {
             'payment_type': 'outbound',
@@ -1069,6 +1129,79 @@ class AccountPaymentOrder(models.Model):
             aviso_pendientes['params']['next'] = aviso_pago_directo
             return aviso_pendientes
         return aviso_pendientes or aviso_pago_directo or True
+
+    def action_generar_orden_compra(self):
+        """Genera UNA Orden de Compra (RFQ, en `draft`) con las líneas de `material_line_ids`
+        que ya tienen un `product_id` resuelto en Enterprise y todavía no generaron una línea de
+        compra - las que no tienen producto se omiten en silencio (esa ausencia ES la señal de
+        "ya hay existencia propia, no comprar" - ver el modelo de línea), nunca se bloquea por
+        ellas. Confirmar/enviar la Orden de Compra es el flujo nativo de la app Compras, no se
+        reimplementa aquí."""
+        self.ensure_one()
+        if self.tipo != 'anticipo_materiales':
+            raise UserError(self.env._(
+                'Generar Orden de Compra solo aplica a órdenes de tipo Anticipo Materiales.'))
+        if self.state != 'aplicado':
+            raise UserError(self.env._(
+                'Solo se puede generar la Orden de Compra de una Orden ya Aplicada.'))
+        self._check_es_administrador_contable()
+        if not self.proveedor_materiales_id:
+            raise UserError(self.env._('Define el Proveedor de Materiales antes de generar la Orden de Compra.'))
+        lineas = self.material_line_ids.filtered(
+            lambda l: l.product_id and not l.purchase_order_line_id)
+        if not lineas:
+            raise UserError(self.env._(
+                'No hay líneas de materiales con Producto asignado pendientes de comprar - '
+                'asigna un Producto (Enterprise) a las líneas que hay que comprar, o revisa si '
+                'ya se generó la Orden de Compra para todas.'))
+        analytic_distribution = (
+            {str(self.analytic_account_id.id): 100.0} if self.analytic_account_id else False)
+        purchase_order = self.env['purchase.order'].create({
+            'partner_id': self.proveedor_materiales_id.id,
+            'company_id': self.company_id.id,
+            'origin': self.name,
+            'payment_order_id': self.id,
+            'order_line': [
+                (0, 0, {
+                    'product_id': linea.product_id.id,
+                    'name': linea.description or linea.product_name,
+                    'product_qty': linea.qty,
+                    'product_uom_id': linea.product_id.uom_id.id,
+                    'price_unit': linea.estimated_price,
+                    'analytic_distribution': analytic_distribution,
+                })
+                for linea in lineas
+            ],
+        })
+        for linea, po_line in zip(lineas, purchase_order.order_line):
+            linea.purchase_order_line_id = po_line.id
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'purchase.order',
+            'res_id': purchase_order.id,
+            'view_mode': 'form',
+            'target': 'current',
+        }
+
+    def action_view_purchase_orders(self):
+        """Botón inteligente 'Órdenes de Compra' - abre el form directo si solo hay una (caso
+        normal, ya que `action_generar_orden_compra()` agrupa todo en una sola OC por Orden de
+        Pago), o una lista si por algún motivo hay más de una (ej. se generó en más de una
+        pasada porque algunas líneas no tenían Producto todavía la primera vez)."""
+        self.ensure_one()
+        action = {
+            'type': 'ir.actions.act_window',
+            'res_model': 'purchase.order',
+            'name': self.env._('Órdenes de Compra'),
+        }
+        if len(self.purchase_order_ids) == 1:
+            action.update({'view_mode': 'form', 'res_id': self.purchase_order_ids.id})
+        else:
+            action.update({
+                'view_mode': 'list,form',
+                'domain': [('id', 'in', self.purchase_order_ids.ids)],
+            })
+        return action
 
     @api.model
     def _find_anticipos_sin_liquidar(self, partner, exclude=None):

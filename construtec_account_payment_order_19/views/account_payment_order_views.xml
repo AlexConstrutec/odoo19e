@@ -7,56 +7,71 @@
             <form string="Orden de Pago">
                 <header>
                     <button name="action_submit" string="Enviar" type="object" class="oe_highlight"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'borrador'"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'borrador'"/>
                     <button name="action_approve" string="Aprobar" type="object" class="oe_highlight"
                             groups="construtec_account_payment_order_19.group_payment_order_approver"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'enviado' or not es_procesador"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'enviado' or not es_procesador"/>
                     <button name="action_reject" string="Rechazar" type="object"
                             groups="construtec_account_payment_order_19.group_payment_order_approver"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'enviado' or not es_procesador"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'enviado' or not es_procesador"/>
                     <button name="action_reset_to_draft" string="Volver a Borrador" type="object"
                             groups="construtec_account_payment_order_19.group_payment_order_approver"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'enviado' or not es_procesador"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'enviado' or not es_procesador"/>
                     <button name="action_reset_to_draft" string="Volver a Borrador" type="object"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'rechazado'"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'rechazado'"/>
                     <button name="action_cancel" string="Cancelar" type="object"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state in ('cancelado', 'rechazado', 'aplicado', 'liquidado')"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state in ('cancelado', 'rechazado', 'aplicado', 'liquidado')"/>
                     <button name="action_aplicar" string="Aplicar" type="object" class="oe_highlight"
                             groups="account.group_account_manager"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'aprobado' or not es_procesador"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'aprobado' or not es_procesador"/>
                     <button name="action_cancelar_anticipo_aplicado" string="Cancelar" type="object"
                             groups="account.group_account_manager"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos') or state != 'aplicado' or not es_procesador"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'aplicado' or not es_procesador"/>
+                    <button name="action_generar_orden_compra" string="Generar Orden de Compra" type="object"
+                            groups="account.group_account_manager"
+                            invisible="tipo != 'anticipo_materiales' or state != 'aplicado' or not es_procesador"/>
                     <button name="action_conciliar" string="Liquidar" type="object" class="oe_highlight"
                             groups="account.group_account_manager"
                             invisible="not puede_conciliar or not es_procesador"/>
                     <button name="action_cancelar" string="Cancelar" type="object"
                             groups="account.group_account_manager"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'pago_directo') or state != 'liquidado' or not es_procesador"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') or state != 'liquidado' or not es_procesador"/>
                     <field name="es_procesador" invisible="1"/>
                     <field name="puede_conciliar" invisible="1"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="borrador,enviado,aprobado,aplicado,liquidado"
-                           invisible="tipo not in ('anticipo', 'anticipo_viaticos')"/>
+                           invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')"/>
                     <field name="state" widget="statusbar" statusbar_visible="borrador,liquidado"
                            invisible="tipo != 'pago_directo'"/>
                 </header>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_purchase_orders" type="object" class="oe_stat_button"
+                                icon="fa-shopping-cart"
+                                invisible="tipo != 'anticipo_materiales' or not purchase_order_count">
+                            <field name="purchase_order_count" widget="statinfo" string="Órdenes de Compra"/>
+                        </button>
+                    </div>
                     <div class="oe_title">
                         <h1><field name="name" readonly="1"/></h1>
                     </div>
                     <group>
                         <group>
                             <field name="tipo"/>
-                            <field name="analytic_account_id" invisible="tipo != 'anticipo_viaticos'"/>
+                            <field name="analytic_account_id"
+                                   invisible="tipo not in ('anticipo_viaticos', 'anticipo_materiales')"/>
                             <field name="proyecto" invisible="1"/>
                             <field name="journal_id" invisible="not es_procesador"
-                                   domain="[('type', '=', 'bank')] if tipo == 'anticipo_viaticos' else []"/>
+                                   domain="[('type', '=', 'bank')] if tipo in ('anticipo_viaticos', 'anticipo_materiales') else []"/>
                             <field name="available_payment_method_line_ids" invisible="1"/>
                             <field name="payment_method_line_id" invisible="not es_procesador"
                                    readonly="state not in ('borrador', 'aprobado')"/>
-                            <field name="partner_id" readonly="tipo == 'anticipo_viaticos'"
-                                   domain="[('employee', '=', True)] if tipo == 'anticipo_viaticos' else []"/>
+                            <field name="pagar_a" invisible="tipo != 'anticipo_materiales' or not es_procesador"/>
+                            <field name="proveedor_materiales_id"
+                                   invisible="tipo != 'anticipo_materiales' or not es_procesador"/>
+                            <field name="partner_id"
+                                   readonly="tipo == 'anticipo_viaticos' or (tipo == 'anticipo_materiales' and pagar_a != 'proveedor_directo')"
+                                   domain="[('employee', '=', True)] if tipo == 'anticipo_viaticos' or (tipo == 'anticipo_materiales' and pagar_a != 'proveedor_directo') else []"/>
                         </group>
                         <group>
                             <field name="fecha"/>
@@ -69,16 +84,16 @@
                         </group>
                     </group>
 
-                    <group invisible="tipo not in ('anticipo', 'anticipo_viaticos')">
+                    <group invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')">
                         <group>
                             <field name="monto"
-                                   readonly="tipo == 'anticipo_viaticos' or state not in ('borrador', 'aprobado')"/>
+                                   readonly="tipo in ('anticipo_viaticos', 'anticipo_materiales') or state not in ('borrador', 'aprobado')"/>
                             <field name="cuenta_anticipo_id" invisible="not es_procesador"
                                    readonly="state not in ('borrador', 'aprobado')"/>
                         </group>
                     </group>
 
-                    <notebook invisible="tipo not in ('anticipo', 'anticipo_viaticos')">
+                    <notebook invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')">
                         <page string="Viáticos" invisible="tipo != 'anticipo_viaticos'">
                             <field name="viaticos_line_ids" readonly="state != 'borrador'">
                                 <list editable="bottom">
@@ -90,6 +105,30 @@
                                     <field name="total" sum="Total"/>
                                     <field name="viaticos_sin_liquidar_count" string="Sin Liquidar"
                                            decoration-warning="viaticos_sin_liquidar_count &gt; 0"/>
+                                </list>
+                            </field>
+                            <group class="oe_subtotal_footer oe_right">
+                                <field name="subtotal"/>
+                                <field name="anticipo_previo" readonly="state != 'borrador'"/>
+                                <field name="total_acreditar" class="oe_subtotal_footer_separator"/>
+                            </group>
+                        </page>
+                        <page string="Materiales" invisible="tipo != 'anticipo_materiales'">
+                            <field name="material_line_ids"
+                                   readonly="state not in ('borrador', 'aplicado')">
+                                <list editable="bottom">
+                                    <field name="catalogo_id" optional="show" string="Catálogo SAT"
+                                           context="{'vendor_hint': vendor_name}"
+                                           readonly="parent.state != 'borrador'"/>
+                                    <field name="product_name" required="1" readonly="parent.state != 'borrador'"/>
+                                    <field name="description" optional="show" readonly="parent.state != 'borrador'"/>
+                                    <field name="uom_name" optional="show" readonly="parent.state != 'borrador'"/>
+                                    <field name="qty" readonly="parent.state != 'borrador'"/>
+                                    <field name="estimated_price" readonly="parent.state != 'borrador'"/>
+                                    <field name="subtotal" sum="Total"/>
+                                    <field name="vendor_name" optional="show" readonly="parent.state != 'borrador'"/>
+                                    <field name="product_id" optional="show"
+                                           help="Se resuelve aquí en Enterprise, una vez Aplicada la Orden - antes de Generar Orden de Compra. Dejar vacío si el material ya está en bodega propia (no se compra)."/>
                                 </list>
                             </field>
                             <group class="oe_subtotal_footer oe_right">
@@ -132,14 +171,14 @@
                             </group>
                         </page>
                     </notebook>
-                    <group invisible="tipo not in ('anticipo', 'anticipo_viaticos')">
+                    <group invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')">
                         <field name="observaciones"/>
                     </group>
 
                     <div class="oe_title" invisible="not es_procesador">
                         <h2>Facturas</h2>
                     </div>
-                    <p class="text-muted" invisible="tipo not in ('anticipo', 'anticipo_viaticos') or not es_procesador">
+                    <p class="text-muted" invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or not es_procesador">
                         Opcional en un Anticipo: si adjuntas una factura que el monto cubre al 100%,
                         el sistema te avisará al Aplicar que probablemente corresponde usar "Pago
                         Directo" en vez de un Anticipo pendiente de liquidar.
@@ -241,15 +280,15 @@
                 <field name="name"/>
                 <field name="partner_id"/>
                 <filter string="Mis Órdenes" name="my_orders"
-                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos')), ('requested_by_id', '=', uid)]"/>
+                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')), ('requested_by_id', '=', uid)]"/>
                 <filter string="Pendientes de Aprobar" name="pendientes"
-                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos')), ('state', '=', 'enviado')]"/>
+                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')), ('state', '=', 'enviado')]"/>
                 <filter string="Aprobadas" name="aprobadas"
-                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos')), ('state', '=', 'aprobado')]"/>
+                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')), ('state', '=', 'aprobado')]"/>
                 <filter string="Anticipos Liquidados" name="anticipos_liquidados"
-                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos')), ('state', '=', 'liquidado')]"/>
+                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')), ('state', '=', 'liquidado')]"/>
                 <filter string="Anticipos sin Liquidar" name="anticipos_sin_liquidar"
-                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos')), ('state', '=', 'aplicado')]"/>
+                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')), ('state', '=', 'aplicado')]"/>
                 <separator/>
                 <filter string="Tipo" name="group_tipo" context="{'group_by': 'tipo'}"/>
                 <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>

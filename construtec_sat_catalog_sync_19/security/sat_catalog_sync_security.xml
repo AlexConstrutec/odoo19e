@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="group_sat_catalog_sync_integration" model="res.groups">
+        <field name="name">Catálogo SAT: Integración (sincronización desde Enterprise)</field>
+        <field name="comment">Grupo para el usuario técnico de integración que recibe el catálogo
+            de productos SAT desde Enterprise (construtec_account_19) vía XML-RPC. Solo aplica del
+            lado Community - en Enterprise, donde este mismo módulo también se instala, el
+            registro se llena por una llamada ORM local, no por RPC, así que este grupo no
+            participa ahí. A diferencia del mirror de solicitudes de materiales (create-only), este
+            SÍ necesita lectura además de crear y escribir - sync_from_enterprise() debe poder
+            buscar un registro existente por origin_id antes de decidir si crea o actualiza. Nunca
+            debe poder eliminar - una API Key filtrada de este usuario solo permite
+            insertar/actualizar entradas de catálogo, nunca borrar historial.</field>
+    </record>
+</odoo>

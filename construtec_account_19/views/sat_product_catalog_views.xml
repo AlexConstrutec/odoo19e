@@ -7,7 +7,8 @@
             <form string="Catálogo de Productos de Proveedor">
                 <header>
                     <button name="action_retry_sync" string="Reintentar Sincronización" type="object"
-                            class="oe_highlight" invisible="sync_state == 'sincronizado'"/>
+                            class="oe_highlight"
+                            invisible="sync_state in ('sincronizado', 'no_aplica')"/>
                     <field name="sync_state" widget="statusbar" statusbar_visible="pendiente,sincronizado"/>
                 </header>
                 <sheet>
@@ -52,7 +53,8 @@
                 <field name="sync_state" widget="badge"
                        decoration-success="sync_state == 'sincronizado'"
                        decoration-warning="sync_state == 'pendiente'"
-                       decoration-danger="sync_state == 'error'"/>
+                       decoration-danger="sync_state == 'error'"
+                       decoration-muted="sync_state == 'no_aplica'"/>
             </list>
         </field>
     </record>

@@ -13,6 +13,7 @@
         'account_debit_note',
         'purchase_stock',
         'sale',
+        'construtec_sat_catalog_sync_19',
     ],
     'data': [
         'security/ir.model.access.csv',

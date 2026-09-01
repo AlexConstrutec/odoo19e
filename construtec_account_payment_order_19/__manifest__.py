@@ -11,6 +11,8 @@
         'account',
         'mail',
         'hr',
+        'purchase',
+        'construtec_sat_catalog_sync_19',
     ],
     'data': [
         'security/payment_order_request_security.xml',

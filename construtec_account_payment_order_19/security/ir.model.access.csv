@@ -2,6 +2,7 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_account_payment_order_user,account.payment.order.user,model_account_payment_order,account.group_account_invoice,1,1,1,1
 access_account_payment_order_base_user,account.payment.order.base.user,model_account_payment_order,base.group_user,1,1,1,1
 access_account_payment_order_viatico_line_user,account.payment.order.viatico.line.user,model_account_payment_order_viatico_line,base.group_user,1,1,1,1
+access_account_payment_order_material_line_user,account.payment.order.material.line.user,model_account_payment_order_material_line,base.group_user,1,1,1,1
 access_account_payment_order_sync,account.payment.order.sync,model_account_payment_order,group_payment_order_sync_integration,1,0,1,0
 access_account_payment_order_sync_log_user,account.payment.order.sync.log.user,model_account_payment_order_sync_log,base.group_user,1,0,0,0
 access_account_payment_order_sync_log_manager,account.payment.order.sync.log.manager,model_account_payment_order_sync_log,account.group_account_invoice,1,1,1,0
