@@ -24,6 +24,8 @@ Pedido explícito del usuario: al elegir un producto del catálogo desde una lí
 
 Verificado con `odoo-bin shell`: dos entradas de catálogo de proveedores distintos, `name_search` con `vendor_hint` del primero devuelve ambas, con la del proveedor preferido primero; sin `vendor_hint`, orden normal.
 
+**Bug real encontrado en producción (Community, `erp.construtecasesores.com`, 2026-09-01)**: el override llamaba a `super().name_search(name=name, args=args, ...)` - Odoo 19 renombró ese parámetro de `args` a **`domain`** (`BaseModel.name_search()`, `..\odoo\orm\models.py`), así que la llamada tronaba con `TypeError: BaseModel.name_search() got an unexpected keyword argument 'args'` en cuanto el picker de `catalogo_id` se abría **sin** `vendor_hint` en el contexto (la rama que llama a `super()`). No se detectó localmente porque las pruebas por `odoo-bin shell` de este mismo archivo probaron ambos casos, pero aparentemente ninguna pasada real ejercitó la rama sin `vendor_hint` contra el `super()` real de un servidor vivo. **Fix**: el parámetro propio del método y la llamada a `super()` ahora usan `domain=`, no `args=`.
+
 ## `company_id` nuevo en el modelo
 
 No existía cuando el modelo solo vivía en la Community de una sola compañía. Ahora que también vive en Enterprise (multi-compañía real), hace falta - se agregó al modelo y al payload de `sync_from_enterprise()`. Evolución seria del contrato porque ambos lados (emisor en Enterprise, receptor en ambas ediciones) se desplegaron juntos en la misma pasada - si no llega en `vals` (por ejemplo, una llamada RPC vieja sin el campo), cae en `self.env.company.id` como respaldo, nunca falla por su ausencia.
