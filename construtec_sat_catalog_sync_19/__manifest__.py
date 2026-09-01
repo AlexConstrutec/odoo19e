@@ -12,7 +12,6 @@
         'security/sat_catalog_sync_security.xml',
         'security/ir.model.access.csv',
         'views/sat_product_catalog_mirror_views.xml',
-        'views/res_partner_views.xml',
     ],
     'installable': True,
     'application': False,

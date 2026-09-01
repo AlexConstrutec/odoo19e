@@ -4,6 +4,8 @@ import xmlrpc.client
 
 from odoo import api, fields, models
 
+from .sat_document import BIEN_O_SERVICIO_SELECTION
+
 _logger = logging.getLogger(__name__)
 
 # Extracción del "código de producto" a partir del nombre/descripción del DTE -
@@ -92,6 +94,13 @@ class ConstructecSatProductCatalog(models.Model):
         help='Nombre en mayúsculas/sin espacios sobrantes, usado solo para detectar duplicados '
              'al reimportar (no se muestra al usuario).')
     partner_id = fields.Many2one('res.partner', string='Proveedor', required=True)
+    bien_o_servicio = fields.Selection(
+        BIEN_O_SERVICIO_SELECTION, string='Bien/Servicio',
+        help='Copiado de `construtec.sat.document.line.bien_o_servicio` (dato real del propio '
+             'DTE) al crearse la entrada - nunca recalculado después. Es el filtro real de qué '
+             'entra al Catálogo de Materiales: solo "Bien" se sincroniza (ver '
+             '`_sat_sync_to_community()`) - un "Servicio" (contabilidad, luz, etc.) nunca llega '
+             'ahí, sin necesidad de curar proveedores a mano.')
     uom_id = fields.Many2one(
         'uom.uom', string='Unidad de Medida',
         help='La SAT no envía unidad de medida en el DTE - este campo queda vacío al crearse '
@@ -111,12 +120,12 @@ class ConstructecSatProductCatalog(models.Model):
         ('pendiente', 'Pendiente'),
         ('sincronizado', 'Sincronizado'),
         ('error', 'Error'),
-        ('no_aplica', 'No Aplica (Proveedor no Curado)'),
+        ('no_aplica', 'No Aplica (Es Servicio, no Bien)'),
     ], string='Estado de Sincronización', default='pendiente', copy=False, required=True,
-        help='"No Aplica" significa que `partner_id.materiales_catalogo_visible` es falso - esta '
-             'entrada nunca se envía al Catálogo de Materiales (ni local en Enterprise ni remoto '
-             'a Community) hasta que alguien cure ese proveedor (ficha del Contacto). Curar el '
-             'proveedor re-sincroniza automáticamente todo lo que ya existía de él.')
+        help='"No Aplica" significa que `bien_o_servicio` no es "Bien" (es Servicio, o vino '
+             'vacío) - esta entrada nunca se envía al Catálogo de Materiales (ni local en '
+             'Enterprise ni remoto a Community). No requiere ninguna acción manual - es un dato '
+             'que ya viene del propio Documento SAT.')
     sync_error = fields.Text(string='Detalle del Error', readonly=True, copy=False)
     sync_date = fields.Datetime(string='Última Sincronización Exitosa', readonly=True, copy=False)
 
@@ -175,6 +184,7 @@ class ConstructecSatProductCatalog(models.Model):
                 'precio_referencia': line.precio_unitario,
                 'primera_fecha_compra': fecha,
                 'ultima_fecha_compra': fecha,
+                'bien_o_servicio': line.bien_o_servicio or False,
             })
             cambio = True
         elif fecha:
@@ -222,13 +232,15 @@ class ConstructecSatProductCatalog(models.Model):
 
     def _sat_sync_to_community(self):
         """Empuja esta entrada hacia el Catálogo de Materiales (`construtec.materials.catalog.
-        mirror`, módulo construtec_sat_catalog_sync_19) - por dos caminos, ambos gateados por la
-        misma curaduría por proveedor (`partner_id.materiales_catalogo_visible`, ver CLAUDE.md
-        "Catálogo de Productos de Proveedor"): sin eso, ni siquiera se intenta ninguno de los
-        dos - el catálogo de materiales no debe llenarse con combustible/servicios/lo que sea.
+        mirror`, módulo construtec_sat_catalog_sync_19) - por dos caminos, ambos gateados por
+        `bien_o_servicio == 'B'` (dato real del propio DTE, ver CLAUDE.md "Catálogo de Productos
+        de Proveedor"): sin eso, ni siquiera se intenta ninguno de los dos - un "Servicio"
+        (contabilidad, luz, etc.) nunca debe llegar al catálogo que ve el jefe de técnicos al
+        pedir materiales. Filtro por línea, no por proveedor - el mismo proveedor puede vender
+        tanto bienes como servicios en facturas distintas.
 
         1. **Copia local** (misma base de datos, Enterprise) - una llamada ORM directa, sin red,
-           siempre se intenta primero cuando el proveedor está curado, sin importar si Community
+           siempre se intenta primero cuando la entrada es un Bien, sin importar si Community
            está configurada/alcanzable. Así Enterprise tiene su propia copia consultable de
            inmediato.
         2. **Copia remota** (Community, vía XML-RPC estándar de Odoo) - igual que antes de este
@@ -242,7 +254,7 @@ class ConstructecSatProductCatalog(models.Model):
         importa contablemente se guarde en Enterprise.
         """
         self.ensure_one()
-        if not self.partner_id.materiales_catalogo_visible:
+        if self.bien_o_servicio != 'B':
             if self.sync_state != 'no_aplica':
                 self.write({'sync_state': 'no_aplica', 'sync_error': False})
             return
@@ -335,9 +347,8 @@ class ConstructecSatProductCatalog(models.Model):
         data/ir_cron_sat_product_catalog.xml. El intento en tiempo real sigue
         siendo el camino principal; esto es solo el reintento periódico.
 
-        Excluye `no_aplica` a propósito - un proveedor no curado no debe reintentarse cada hora
-        para siempre, solo cuando alguien lo cure (ver res_partner.py, que ya dispara el re-sync
-        exacto en ese momento)."""
+        Excluye `no_aplica` a propósito - una entrada que es Servicio (no Bien) nunca va a dejar
+        de serlo, no tiene sentido reintentarla cada hora para siempre."""
         pendientes = self.search([('sync_state', 'not in', ('sincronizado', 'no_aplica'))])
         for entry in pendientes:
             entry._sat_sync_to_community()

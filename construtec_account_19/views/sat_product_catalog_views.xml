@@ -21,6 +21,7 @@
                     <group>
                         <group>
                             <field name="codigo"/>
+                            <field name="bien_o_servicio"/>
                             <field name="partner_id"/>
                             <field name="uom_id"/>
                             <field name="company_id" groups="base.group_multi_company"/>
@@ -45,6 +46,7 @@
             <list string="Catálogo de Productos de Proveedor" decoration-danger="sync_state == 'error'">
                 <field name="codigo"/>
                 <field name="name"/>
+                <field name="bien_o_servicio" optional="show"/>
                 <field name="partner_id"/>
                 <field name="uom_id" optional="hide"/>
                 <field name="precio_referencia"/>
@@ -69,8 +71,11 @@
                 <field name="partner_id"/>
                 <filter string="Con Error de Sincronización" name="con_error" domain="[('sync_state', '=', 'error')]"/>
                 <filter string="Pendientes" name="pendientes" domain="[('sync_state', '=', 'pendiente')]"/>
+                <filter string="Bienes" name="bienes" domain="[('bien_o_servicio', '=', 'B')]"/>
+                <filter string="Servicios" name="servicios" domain="[('bien_o_servicio', '=', 'S')]"/>
                 <group>
                     <filter string="Proveedor" name="group_partner" context="{'group_by': 'partner_id'}"/>
+                    <filter string="Bien/Servicio" name="group_bien_servicio" context="{'group_by': 'bien_o_servicio'}"/>
                     <filter string="Estado de Sincronización" name="group_sync_state" context="{'group_by': 'sync_state'}"/>
                 </group>
             </search>

@@ -7,6 +7,5 @@ from . import sat_document_import
 from . import sat_categorization_rule
 from . import sat_import_log
 from . import sat_product_catalog
-from . import res_partner
 from . import sat_retention
 from . import sat_retention_import
