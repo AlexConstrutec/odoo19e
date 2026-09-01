@@ -97,24 +97,28 @@ class ConstructecMaterialsCatalogMirror(models.Model):
         return entry.id
 
     @api.model
-    def name_search(self, name='', args=None, operator='ilike', limit=100):
+    def name_search(self, name='', domain=None, operator='ilike', limit=100):
         """Preferencia por proveedor, sin restringir - si el widget que llama trae `vendor_hint`
         en el contexto (ver `account.payment.order.material.line.catalogo_id` en
         construtec_account_payment_order_19), las entradas cuyo `partner_name` coincide con ese
         texto aparecen primero, pero el resto del catálogo sigue siendo buscable normalmente -
         deliberadamente NUNCA un `domain=` que oculte nada (pedido explícito del usuario: "no es
         como que restringido... sino que pueda meter más productos"). Sin `vendor_hint`, se
-        comporta exactamente como el name_search nativo."""
-        args = list(args or [])
+        comporta exactamente como el name_search nativo.
+
+        Nota Odoo 19: el parámetro del `name_search()` nativo se llama `domain` (no `args`, como
+        en versiones anteriores) - `BaseModel.name_search()` de este árbol ya lo declara así
+        (`..\\odoo\\orm\\models.py`)."""
+        domain = list(domain or [])
         vendor_hint = (self.env.context.get('vendor_hint') or '').strip()
         if not vendor_hint:
-            return super().name_search(name=name, args=args, operator=operator, limit=limit)
+            return super().name_search(name=name, domain=domain, operator=operator, limit=limit)
 
         if name:
-            domain = args + ['|', ('name', operator, name), ('codigo', operator, name)]
+            search_domain = domain + ['|', ('name', operator, name), ('codigo', operator, name)]
         else:
-            domain = args
-        records = self.search(domain, limit=2000)
+            search_domain = domain
+        records = self.search(search_domain, limit=2000)
         hint = vendor_hint.lower()
         preferidos = records.filtered(lambda r: hint in (r.partner_name or '').lower())
         ordenados = preferidos + (records - preferidos)
