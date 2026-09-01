@@ -271,7 +271,7 @@ class AccountPaymentOrder(models.Model):
     purchase_order_ids = fields.One2many(
         'purchase.order', 'payment_order_id', string='Órdenes de Compra')
     purchase_order_count = fields.Integer(
-        string='Órdenes de Compra', compute='_compute_purchase_order_count')
+        string='Cantidad de Órdenes de Compra', compute='_compute_purchase_order_count')
     anticipo_previo = fields.Float(string='Anticipo')
     subtotal = fields.Float(string='Subtotal', compute='_compute_totales', store=True)
     total_acreditar = fields.Float(string='Total a Acreditar', compute='_compute_totales', store=True)
