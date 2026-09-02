@@ -676,6 +676,16 @@ Dos pedidos del usuario en el mismo mensaje:
 
 Verificado con `odoo-bin shell` en `construtec_test` (ambos, Odoo19E y Odoo19C), con la extracción de IA mockeada: dos cotizaciones aplicadas en secuencia sobre la MISMA Orden (2 líneas de un proveedor, luego 1 línea de otro proveedor distinto) - tras la segunda, la Orden queda con exactamente 1 línea (la nueva, no 3), y `proveedor_materiales_name`/`proveedor_materiales_catalogo_id` apuntan al segundo proveedor, no al primero. `-u` limpio en ambos, sin `ERROR`/`CRITICAL` nuevos.
 
+### Bug real: "Proveedor Sugerido" y "Producto (Enterprise)" (columnas del DETALLE) seguían apareciendo en Community (2026-09-02)
+
+Pedido del usuario: quitar esas dos columnas de la lista `material_line_ids` (pestaña Materiales) **en Community, no del encabezado** - ya se había ocultado `product_id` en Community con `invisible="not parent.es_procesador"` (ver "Ajustes de UX en la pestaña Materiales", 2026-09-02 más arriba), pero el usuario seguía viéndola.
+
+**Causa real, confirmada leyendo el código fuente del cliente web de Odoo** (`..\odoo\addons\web\static\src\views\fields\field.js` y `list_renderer.js`): dentro de una lista (`<list>`), `invisible=` y `column_invisible=` son atributos **completamente independientes** que el parser lee por separado (`field.js`, línea ~249) - `invisible=` solo oculta el CONTENIDO de la celda fila por fila (`evalInvisible()`, evaluado por registro), mientras que **solo `column_invisible=`** decide si la COLUMNA ENTERA (encabezado incluido) se renderiza (`evalColumnInvisible()`, usado en `getActiveColumns()`). Poner `invisible="not parent.es_procesador"` en `product_id` ocultaba el valor de cada celda en Community, pero dejaba la COLUMNA (con el encabezado "Producto (Enterprise)") visible y vacía - nunca removida. `vendor_name` ("Proveedor Sugerido") no tenía ninguna restricción, en ningún lado.
+
+**Fix**: ambos campos (`vendor_name`, `product_id`) pasan a usar `column_invisible="not parent.es_procesador"` (en vez de `invisible=` para `product_id`, agregado de cero para `vendor_name`) - mismo patrón que ya usaba `made_sequence_gap` en la lista de sincronización de este mismo archivo (`column_invisible="1"`), solo que aquí con una expresión dinámica en vez de un literal. Ambas columnas quedan completamente removidas en Community (`es_procesador=False`) y siguen apareciendo en Enterprise, sin cambios ahí - "Proveedor Sugerido" por línea sigue siendo útil en Enterprise para resolver `product_id` antes de Generar Orden de Compra.
+
+Verificado con `odoo-bin shell` en `construtec_test` (Odoo19E y Odoo19C): `get_view()` sobre la vista de formulario confirma que ambos nodos `<field>` ahora llevan `column_invisible="not parent.es_procesador"` en el arch procesado (no solo `invisible=`). `-u` limpio en ambos, sin `ERROR`/`CRITICAL` nuevos. **No se puede confirmar visualmente la desaparición real de la columna con `odoo-bin shell`** (la evaluación de `column_invisible` ocurre en el cliente JS, no en el servidor) - la lectura directa del código fuente del framework es la evidencia usada aquí en su lugar.
+
 ## Common commands
 
 ```

@@ -135,9 +135,11 @@
                                     <field name="qty" readonly="parent.state != 'borrador'"/>
                                     <field name="estimated_price" readonly="parent.state != 'borrador'"/>
                                     <field name="subtotal" sum="Total"/>
-                                    <field name="vendor_name" optional="show" readonly="parent.state != 'borrador'"/>
+                                    <field name="vendor_name" optional="show"
+                                           column_invisible="not parent.es_procesador"
+                                           readonly="parent.state != 'borrador'"/>
                                     <field name="product_id" optional="show"
-                                           invisible="not parent.es_procesador"
+                                           column_invisible="not parent.es_procesador"
                                            help="Se resuelve aquí en Enterprise, una vez Aplicada la Orden - antes de Generar Orden de Compra. Dejar vacío si el material ya está en bodega propia (no se compra)."/>
                                 </list>
                             </field>
