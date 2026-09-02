@@ -280,10 +280,9 @@ class AccountPaymentOrder(models.Model):
         help='Derivado de `proveedor_materiales_catalogo_id` (ver '
              '`_sync_proveedor_materiales_name()`) - viaja por sincronización igual que '
              '`vendor_name` de cada línea, nunca se trata como relación (Community/Enterprise '
-             'son bases distintas). Oculto de la vista en Enterprise desde 2026-09-02 (pedido '
-             'explícito del usuario, "que sea solo un campo") - se usa únicamente para '
-             '`_autosugerir_proveedor_materiales_id()`; el único campo de proveedor visible ahí '
-             'es `proveedor_materiales_id`.')
+             'son bases distintas). Visible también en Enterprise (de solo lectura) - pedido '
+             'explícito del usuario, quiere ver el nombre tal como llegó de Community, además '
+             'del contacto real ya resuelto en `proveedor_materiales_id`.')
     proveedor_materiales_id = fields.Many2one(
         'res.partner', string='Proveedor de Materiales',
         help='El proveedor real que surte los materiales de esta Orden - independiente de '
@@ -507,56 +506,37 @@ class AccountPaymentOrder(models.Model):
                 rec.proveedor_materiales_name = rec.proveedor_materiales_catalogo_id.name
 
     def _autosugerir_proveedor_materiales_id(self):
-        """Enterprise, Anticipo Materiales: si `proveedor_materiales_id` (el contacto real,
-        único campo de proveedor visible ahí desde 2026-09-02 - antes convivía con
-        `proveedor_materiales_name` como texto de solo lectura, decisión explícita del usuario
-        de consolidarlos en uno) está vacío y ya llegó un `proveedor_materiales_name` (texto,
+        """Enterprise, Anticipo Materiales: si `proveedor_materiales_id` (el contacto real, a
+        quien se le va a pagar) está vacío y ya llegó un `proveedor_materiales_name` (texto,
         sincronizado desde Community o capturado a mano), intenta resolverlo contra un contacto
-        YA EXISTENTE con ese nombre exacto (`=ilike`, insensible a mayúsculas) - a diferencia
-        del Catálogo de Proveedores en Community, aquí NUNCA se crea un contacto nuevo (un
-        `res.partner` mal creado sí tendría consecuencias reales de compras/facturación) - si no
-        hay ningún candidato, queda vacío igual que antes, para que el contable lo resuelva a
-        mano. Solo rellena si está vacío - nunca pisa una elección ya hecha."""
+        YA EXISTENTE - primero por nombre EXACTO (`=ilike`, insensible a mayúsculas); si no hay
+        ninguno exacto, intenta uno "parecido" (`ilike`, substring) pero **solo si resulta en un
+        único candidato** - nunca adivina entre varios resultados ambiguos, en cuyo caso queda
+        vacío para que el contable lo resuelva a mano (mismo criterio: nunca crea un contacto
+        nuevo, a diferencia del Catálogo de Proveedores en Community - un `res.partner` mal
+        creado en Enterprise sí tiene consecuencias reales de compras/facturación).
+
+        Se llama automáticamente al llegar/cambiar `proveedor_materiales_name` (create()/write() -
+        ver más abajo, dispara justo cuando Community envía/sincroniza la Orden) y de nuevo como
+        respaldo dentro de `action_approve()`/`action_aplicar()`/`action_crear_pago()` (self-heal
+        para Órdenes ya existentes antes de que este código corriera la primera vez). Solo
+        rellena si está vacío - nunca pisa una elección ya hecha a mano."""
+        Partner = self.env['res.partner']
         for rec in self:
             if not rec.es_procesador or rec.tipo != 'anticipo_materiales' \
                     or rec.proveedor_materiales_id or not rec.proveedor_materiales_name:
                 continue
-            candidato = self.env['res.partner'].search([
-                ('name', '=ilike', rec.proveedor_materiales_name.strip()),
-                ('company_id', 'in', [rec.company_id.id, False]),
-            ], limit=1)
-            if candidato:
-                rec.proveedor_materiales_id = candidato.id
-
-    def action_autosugerir_proveedor_materiales(self):
-        """Botón manual (encabezado, solo Enterprise) - `_autosugerir_proveedor_materiales_id()`
-        hoy solo se dispara solo dentro de Aprobar/Aplicar/Crear Pago (ver ahí "self-heal") - un
-        contable que quiere CONFIRMAR si el proveedor va a resolver ANTES de llegar a Aplicar
-        (que ya mueve dinero real) no tenía ninguna forma segura de probarlo sin ejecutar una de
-        esas acciones. Este botón corre exactamente el mismo resolutor, sin ningún otro efecto
-        de negocio, y avisa el resultado (encontrado o no) en una notificación."""
-        self.ensure_one()
-        self._autosugerir_proveedor_materiales_id()
-        if self.proveedor_materiales_id:
-            message = self.env._(
-                'Proveedor resuelto: %(name)s.', name=self.proveedor_materiales_id.name)
-            notif_type = 'success'
-        else:
-            message = self.env._(
-                'No se encontró ningún contacto llamado exactamente "%(name)s" en Enterprise - '
-                'créalo o elígelo a mano en "Proveedor de Materiales".',
-                name=self.proveedor_materiales_name or '(sin proveedor sugerido)')
-            notif_type = 'warning'
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': self.env._('Buscar Proveedor'),
-                'message': message,
-                'type': notif_type,
-                'sticky': notif_type == 'warning',
-            },
-        }
+            nombre = rec.proveedor_materiales_name.strip()
+            domain_empresa = [('company_id', 'in', [rec.company_id.id, False])]
+            exactos = Partner.search([('name', '=ilike', nombre)] + domain_empresa, limit=2)
+            if len(exactos) == 1:
+                rec.proveedor_materiales_id = exactos.id
+                continue
+            if exactos:
+                continue  # exacto ambiguo (2+ contactos con el mismo nombre) - no adivina
+            parecidos = Partner.search([('name', 'ilike', nombre)] + domain_empresa, limit=2)
+            if len(parecidos) == 1:
+                rec.proveedor_materiales_id = parecidos.id
 
     def _resolve_beneficiario_pago(self):
         """A quién se le paga de verdad al Aplicar/Crear Pago - normalmente `partner_id` (el
