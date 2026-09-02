@@ -462,6 +462,19 @@ class ResCompany(models.Model):
             self._sync_materials_catalog_credentials()
         return res
 
+    def action_sync_materials_catalog_now(self):
+        """Antes de sincronizar, refresca `materials_catalog_sync_*` desde `payment_order_sync_*`
+        - necesario para una compañía cuyas credenciales de Solicitudes de Pago ya estaban
+        guardadas ANTES de que existiera este espejo (`write()` solo lo dispara cuando esos 4
+        campos cambian de valor, así que una compañía ya configurada nunca lo disparó por sí
+        sola). Bug real reportado en producción: el botón fallaba con "falta URL, base de
+        datos, usuario o API Key" pese a que Solicitudes de Pago ya tenía las 4 credenciales
+        correctas - este refresco explícito lo resuelve sin depender de un script de
+        migración."""
+        self.ensure_one()
+        self._sync_materials_catalog_credentials()
+        return super().action_sync_materials_catalog_now()
+
     @api.model
     def _cron_sync_employees_from_enterprise(self):
         companies = self.search([
@@ -469,6 +482,7 @@ class ResCompany(models.Model):
             ('payment_order_sync_enabled', '=', True),
         ])
         for company in companies:
+            company._sync_materials_catalog_credentials()
             ok, message = company._sync_employees_from_enterprise()
             company._payment_order_sync_log(ok, message)
             ok, message = company._sync_analytic_accounts_from_enterprise()
