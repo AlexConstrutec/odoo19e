@@ -245,7 +245,12 @@ class AccountPaymentOrder(models.Model):
     tipo_cuenta = fields.Selection([
         ('monetaria', 'Monetaria'),
         ('ahorro', 'Ahorro'),
-    ], string='Tipo de Cuenta')
+    ], string='Tipo de Cuenta', readonly=True,
+        help='Se autocompleta desde la cuenta bancaria del empleado solicitante en Enterprise '
+             '(mismo criterio que `cuenta_acreditar`/`banco`) - no editable a mano, para reducir '
+             'campos que el jefe de técnicos/solicitante tendría que digitar cada vez. Si el '
+             'empleado no tiene un Tipo de Cuenta configurado en su cuenta bancaria, queda vacío '
+             'y bloquea Enviar (Anticipo Viáticos) hasta que RR.HH. lo complete ahí.')
     banco = fields.Char(string='Banco', readonly=True)
     periodo_del = fields.Date(string='Del')
     periodo_al = fields.Date(string='Al')
@@ -388,6 +393,7 @@ class AccountPaymentOrder(models.Model):
                 # cuando employee_id es el empleado vinculado al usuario actual - hr_employee.py.
                 rec.cuenta_acreditar = rec.employee_id.cuenta_bancaria or rec.cuenta_acreditar
                 rec.banco = rec.employee_id.banco_nombre or rec.banco
+                rec.tipo_cuenta = rec.employee_id.tipo_cuenta or rec.tipo_cuenta
                 # Teléfono: trabajo (work_phone) -> celular de trabajo (mobile_phone) ->
                 # personal (private_phone), campos nativos de hr.employee. sudo() porque
                 # private_phone requiere hr.group_hr_user para leerse directo.
@@ -672,6 +678,7 @@ class AccountPaymentOrder(models.Model):
             return
         vals.setdefault('cuenta_acreditar', employee.cuenta_bancaria or False)
         vals.setdefault('banco', employee.banco_nombre or False)
+        vals.setdefault('tipo_cuenta', employee.tipo_cuenta or False)
         vals.setdefault('telefono', employee.sudo().work_phone or employee.sudo().mobile_phone
                         or employee.sudo().private_phone or False)
         vals.setdefault('correo', employee.sudo().work_email or employee.sudo().private_email or False)

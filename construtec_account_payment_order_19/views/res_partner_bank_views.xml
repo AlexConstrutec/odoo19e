@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_bank_form_inherit_tipo_cuenta" model="ir.ui.view">
+        <field name="name">res.partner.bank.form.inherit.tipo_cuenta</field>
+        <field name="model">res.partner.bank</field>
+        <field name="inherit_id" ref="base.view_partner_bank_form"/>
+        <field name="arch" type="xml">
+            <field name="acc_number" position="after">
+                <field name="tipo_cuenta"/>
+            </field>
+        </field>
+    </record>
+</odoo>

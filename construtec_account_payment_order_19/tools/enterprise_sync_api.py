@@ -88,7 +88,8 @@ def create_sync_record(url, db, login, api_key, vals):
 
 def fetch_employees(url, db, login, api_key):
     """Read-only pull of the Enterprise employee directory: name/department/job plus each
-    employee's own primary bank account (number + bank name).
+    employee's own primary bank account (number + bank name + tipo_cuenta, Ahorro/Monetaria,
+    see res_partner_bank.py).
 
     Uses the same admin-level credentials already configured for pushing Solicitudes de
     Pago - by explicit decision, no dedicated read-only user/model was added on the
@@ -123,7 +124,7 @@ def fetch_employees(url, db, login, api_key):
         bank_records = _jsonrpc(
             url, 'object', 'execute_kw',
             [db, uid, api_key, 'res.partner.bank', 'read',
-             [bank_ids], {'fields': ['acc_number', 'bank_id']}])
+             [bank_ids], {'fields': ['acc_number', 'bank_id', 'tipo_cuenta']}])
         banks_by_id = {b['id']: b for b in bank_records}
 
     for emp in employees:
@@ -131,6 +132,7 @@ def fetch_employees(url, db, login, api_key):
         bank = banks_by_id.get(primary_bank_id) or {}
         emp['acc_number'] = bank.get('acc_number') or False
         emp['bank_name'] = bank.get('bank_id') and bank['bank_id'][1] or False
+        emp['tipo_cuenta'] = bank.get('tipo_cuenta') or False
     return employees
 
 

@@ -18,6 +18,12 @@ class HrEmployee(models.Model):
              'uso normal en Solicitudes de Pago.')
     banco_nombre_raw = fields.Char(
         string='Banco (todos, interno)', groups='hr.group_hr_manager', copy=False)
+    tipo_cuenta_raw = fields.Selection(
+        [('monetaria', 'Monetaria'), ('ahorro', 'Ahorro')],
+        string='Tipo de Cuenta (todos, interno)', groups='hr.group_hr_manager', copy=False,
+        help='Sincronizado desde Enterprise (`res.partner.bank.tipo_cuenta` de la cuenta '
+             'bancaria principal del empleado, ver res_partner_bank.py) - mismo criterio y '
+             'mismas restricciones que `cuenta_bancaria_raw`/`banco_nombre_raw`.')
 
     cuenta_bancaria = fields.Char(
         string='Cuenta Bancaria', compute='_compute_mi_info_bancaria', compute_sudo=True,
@@ -26,17 +32,22 @@ class HrEmployee(models.Model):
              'los permisos que tenga el usuario. Ver cuenta_bancaria_raw para el dato real.')
     banco_nombre = fields.Char(
         string='Banco', compute='_compute_mi_info_bancaria', compute_sudo=True)
+    tipo_cuenta = fields.Selection(
+        [('monetaria', 'Monetaria'), ('ahorro', 'Ahorro')],
+        string='Tipo de Cuenta', compute='_compute_mi_info_bancaria', compute_sudo=True)
 
-    @api.depends('user_id', 'cuenta_bancaria_raw', 'banco_nombre_raw')
+    @api.depends('user_id', 'cuenta_bancaria_raw', 'banco_nombre_raw', 'tipo_cuenta_raw')
     @api.depends_context('uid')
     def _compute_mi_info_bancaria(self):
         for employee in self:
             if employee.user_id and employee.user_id == self.env.user:
                 employee.cuenta_bancaria = employee.sudo().cuenta_bancaria_raw
                 employee.banco_nombre = employee.sudo().banco_nombre_raw
+                employee.tipo_cuenta = employee.sudo().tipo_cuenta_raw
             else:
                 employee.cuenta_bancaria = False
                 employee.banco_nombre = False
+                employee.tipo_cuenta = False
 
     _WORK_CONTACT_FIELDS = ('work_phone', 'mobile_phone', 'work_email')
 

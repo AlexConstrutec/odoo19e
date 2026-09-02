@@ -11,6 +11,7 @@
                     <field name="cuenta_bancaria"
                            help="Solo visible para el propio empleado vinculado a este usuario."/>
                     <field name="banco_nombre"/>
+                    <field name="tipo_cuenta"/>
                 </group>
             </xpath>
         </field>

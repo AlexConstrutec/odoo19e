@@ -88,7 +88,6 @@
                         </group>
                         <group>
                             <field name="fecha"/>
-                            <field name="tipo_cuenta" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="periodo_del" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="periodo_al" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="user_id" invisible="tipo == 'anticipo_viaticos'"/>
@@ -167,6 +166,9 @@
                         </page>
                         <page string="Información"
                               invisible="tipo not in ('anticipo_viaticos', 'anticipo_materiales')">
+                            <group>
+                                <field name="tipo_cuenta"/>
+                            </group>
                             <group invisible="tipo != 'anticipo_viaticos'">
                                 <group>
                                     <field name="departamento"/>
