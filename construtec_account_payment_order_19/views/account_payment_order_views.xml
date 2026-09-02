@@ -73,13 +73,13 @@
                             <field name="pagar_a" invisible="tipo != 'anticipo_materiales' or not es_procesador"/>
                             <field name="proveedor_materiales_catalogo_id" string="Proveedor Sugerido"
                                    invisible="tipo != 'anticipo_materiales' or es_procesador"/>
-                            <field name="proveedor_materiales_name" string="Proveedor Sugerido"
-                                   invisible="tipo != 'anticipo_materiales' or not es_procesador"/>
+                            <field name="proveedor_materiales_name" invisible="1"/>
                             <field name="proveedor_materiales_id"
-                                   invisible="tipo != 'anticipo_materiales' or not es_procesador"/>
+                                   invisible="tipo != 'anticipo_materiales' or not es_procesador"
+                                   help="Se autosugiere buscando un contacto existente con el mismo nombre que 'Proveedor Sugerido' (capturado en Community) - corrígelo si no es el correcto. Requerido antes de Generar Orden de Compra, y también antes de Aplicar si 'Pagar a' está en Proveedor Directo (el pago se le hace directo a él)."/>
                             <field name="partner_id"
-                                   readonly="tipo == 'anticipo_viaticos' or (tipo == 'anticipo_materiales' and pagar_a != 'proveedor_directo')"
-                                   domain="[('employee', '=', True)] if tipo == 'anticipo_viaticos' or (tipo == 'anticipo_materiales' and pagar_a != 'proveedor_directo') else []"/>
+                                   readonly="tipo in ('anticipo_viaticos', 'anticipo_materiales')"
+                                   domain="[('employee', '=', True)] if tipo in ('anticipo_viaticos', 'anticipo_materiales') else []"/>
                         </group>
                         <group>
                             <field name="fecha"/>

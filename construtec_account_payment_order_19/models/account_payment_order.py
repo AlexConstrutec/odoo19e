@@ -259,9 +259,10 @@ class AccountPaymentOrder(models.Model):
         ('proveedor_directo', 'Proveedor Directo'),
     ], string='Pagar a',
         help='Solo para Anticipo Materiales: a quién se le entrega el dinero al Aplicar - al '
-             'jefe de técnicos (quien luego paga al proveedor) o directo al proveedor. No '
-             'confundir con `proveedor_materiales_id`, que es siempre el proveedor real de los '
-             'materiales sin importar a quién se le paga.')
+             'jefe de técnicos (`partner_id`, "Contacto", quien luego paga al proveedor) o '
+             'directo al proveedor (`proveedor_materiales_id`, "Proveedor de Materiales" - ver '
+             '`_resolve_beneficiario_pago()`). `partner_id` nunca se limpia por elegir aquí - '
+             'siempre identifica a quien sube la Orden, sin importar a quién se le paga.')
     proveedor_materiales_catalogo_id = fields.Many2one(
         'construtec.materials.vendor.mirror', string='Proveedor Sugerido (Catálogo)',
         help='Elegido por el jefe de técnicos (o resuelto/creado automáticamente por "Cargar '
@@ -274,15 +275,20 @@ class AccountPaymentOrder(models.Model):
         help='Derivado de `proveedor_materiales_catalogo_id` (ver '
              '`_sync_proveedor_materiales_name()`) - viaja por sincronización igual que '
              '`vendor_name` de cada línea, nunca se trata como relación (Community/Enterprise '
-             'son bases distintas). El proveedor real de la Orden de Compra sigue siendo '
-             '`proveedor_materiales_id`, elegido a mano en Enterprise - esto solo le ahorra al '
-             'contable tener que preguntarle al jefe qué proveedor tenía en mente.')
+             'son bases distintas). Oculto de la vista en Enterprise desde 2026-09-02 (pedido '
+             'explícito del usuario, "que sea solo un campo") - se usa únicamente para '
+             '`_autosugerir_proveedor_materiales_id()`; el único campo de proveedor visible ahí '
+             'es `proveedor_materiales_id`.')
     proveedor_materiales_id = fields.Many2one(
         'res.partner', string='Proveedor de Materiales',
         help='El proveedor real que surte los materiales de esta Orden - independiente de '
              '`pagar_a`/`partner_id` (quien recibe el pago puede ser el jefe de técnicos, '
              'mientras que el proveedor sigue siendo un contacto distinto). Requerido antes de '
-             'generar la Orden de Compra.')
+             'generar la Orden de Compra, y también antes de Aplicar si `pagar_a == '
+             '\'proveedor_directo\'` (ver `_resolve_beneficiario_pago()`). Se autosugiere '
+             '(`_autosugerir_proveedor_materiales_id()`) buscando un contacto existente con el '
+             'mismo nombre que `proveedor_materiales_name` - nunca crea uno nuevo, y nunca pisa '
+             'una elección ya hecha a mano.')
     purchase_order_ids = fields.One2many(
         'purchase.order', 'payment_order_id', string='Órdenes de Compra')
     purchase_order_count = fields.Integer(
@@ -494,19 +500,56 @@ class AccountPaymentOrder(models.Model):
                     and rec.proveedor_materiales_name != rec.proveedor_materiales_catalogo_id.name:
                 rec.proveedor_materiales_name = rec.proveedor_materiales_catalogo_id.name
 
+    def _autosugerir_proveedor_materiales_id(self):
+        """Enterprise, Anticipo Materiales: si `proveedor_materiales_id` (el contacto real,
+        único campo de proveedor visible ahí desde 2026-09-02 - antes convivía con
+        `proveedor_materiales_name` como texto de solo lectura, decisión explícita del usuario
+        de consolidarlos en uno) está vacío y ya llegó un `proveedor_materiales_name` (texto,
+        sincronizado desde Community o capturado a mano), intenta resolverlo contra un contacto
+        YA EXISTENTE con ese nombre exacto (`=ilike`, insensible a mayúsculas) - a diferencia
+        del Catálogo de Proveedores en Community, aquí NUNCA se crea un contacto nuevo (un
+        `res.partner` mal creado sí tendría consecuencias reales de compras/facturación) - si no
+        hay ningún candidato, queda vacío igual que antes, para que el contable lo resuelva a
+        mano. Solo rellena si está vacío - nunca pisa una elección ya hecha."""
+        for rec in self:
+            if not rec.es_procesador or rec.tipo != 'anticipo_materiales' \
+                    or rec.proveedor_materiales_id or not rec.proveedor_materiales_name:
+                continue
+            candidato = self.env['res.partner'].search([
+                ('name', '=ilike', rec.proveedor_materiales_name.strip()),
+                ('company_id', 'in', [rec.company_id.id, False]),
+            ], limit=1)
+            if candidato:
+                rec.proveedor_materiales_id = candidato.id
+
+    def _resolve_beneficiario_pago(self):
+        """A quién se le paga de verdad al Aplicar/Crear Pago - normalmente `partner_id` (el
+        Contacto, que para Anticipo Materiales siempre identifica a quien sube la Orden, nunca
+        al proveedor - ver `_onchange_pagar_a()`). Única excepción: Anticipo Materiales con
+        `pagar_a == 'proveedor_directo'` - ahí el dinero va directo a `proveedor_materiales_id`
+        (el proveedor real), no a quien subió la solicitud."""
+        self.ensure_one()
+        if self.tipo == 'anticipo_materiales' and self.pagar_a == 'proveedor_directo':
+            return self.proveedor_materiales_id
+        return self.partner_id
+
     @api.onchange('pagar_a')
     def _onchange_pagar_a(self):
-        """Solo Anticipo Materiales: 'jefe_tecnicos' sugiere/mantiene el contacto del jefe (mismo
-        criterio ya usado por Anticipo Viáticos); 'proveedor_directo' limpia `partner_id` para
-        que el contable elija a mano el contacto real del proveedor, sin domain de empleado."""
+        """Solo Anticipo Materiales: sugiere/mantiene el contacto del jefe de técnicos (mismo
+        criterio ya usado por Anticipo Viáticos) sin importar el valor de `pagar_a` - `partner_id`
+        (el "Contacto") siempre identifica a quien sube/solicita la Orden, nunca al proveedor.
+
+        Antes, 'proveedor_directo' limpiaba `partner_id` para forzar a elegir ahí el contacto
+        real del proveedor - decisión revertida (2026-09-02, pedido explícito del usuario): un
+        técnico siempre es quien sube esta información, así que el Contacto no debía borrarse
+        por elegir a quién se le paga. El proveedor real que recibe el pago cuando `pagar_a ==
+        'proveedor_directo'` es `proveedor_materiales_id` - ver `_resolve_beneficiario_pago()`,
+        usado en `action_aplicar()`/`action_crear_pago()`."""
         if self.tipo != 'anticipo_materiales':
             return
-        if self.pagar_a == 'jefe_tecnicos':
-            if not self.partner_id or not self.partner_id.employee:
-                self.partner_id = self.env['hr.employee'].search(
-                    [('user_id', '=', self.env.user.id)], limit=1).work_contact_id
-        elif self.pagar_a == 'proveedor_directo' and self.partner_id and self.partner_id.employee:
-            self.partner_id = False
+        if not self.partner_id or not self.partner_id.employee:
+            self.partner_id = self.env['hr.employee'].search(
+                [('user_id', '=', self.env.user.id)], limit=1).work_contact_id
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -524,6 +567,7 @@ class AccountPaymentOrder(models.Model):
         records = super().create(vals_list)
         records._sync_monto_desde_total_acreditar()
         records._sync_proveedor_materiales_name()
+        records._autosugerir_proveedor_materiales_id()
         return records
 
     def _resolve_employee_enterprise_ref(self, vals):
@@ -612,11 +656,13 @@ class AccountPaymentOrder(models.Model):
     def write(self, vals):
         if not self.env.user.has_group(APPROVER_GROUP_XMLID):
             for rec in self:
-                # Anti-suplantación, solo para Anticipo Viáticos - partner_id de un Pago
-                # Directo/Anticipo normal debe seguir siendo libremente editable (nunca tuvo
-                # esta restricción). employee_id (calculado) se revisa también por defensa en
-                # profundidad.
-                if rec.tipo != 'anticipo_viaticos':
+                # Anti-suplantación, para Anticipo Viáticos y Anticipo Materiales - en ambos
+                # `partner_id` siempre identifica a quien sube/solicita la Orden (nunca al
+                # proveedor, ver `_onchange_pagar_a()`), así que aplica el mismo criterio en los
+                # dos. partner_id de un Pago Directo/Anticipo normal debe seguir siendo
+                # libremente editable (nunca tuvo esta restricción). employee_id (calculado) se
+                # revisa también por defensa en profundidad.
+                if rec.tipo not in ('anticipo_viaticos', 'anticipo_materiales'):
                     continue
                 if ('partner_id' in vals and rec.partner_id
                         and vals['partner_id'] != rec.partner_id.id):
@@ -633,6 +679,8 @@ class AccountPaymentOrder(models.Model):
             self._sync_monto_desde_total_acreditar()
         if 'proveedor_materiales_catalogo_id' in vals:
             self._sync_proveedor_materiales_name()
+        if 'proveedor_materiales_name' in vals:
+            self._autosugerir_proveedor_materiales_id()
         return res
 
     def unlink(self):
@@ -1070,7 +1118,12 @@ class AccountPaymentOrder(models.Model):
         self._check_es_administrador_contable()
         if not self.journal_id:
             raise UserError(self.env._('Define el Diario antes de crear un pago.'))
-        if not self.partner_id:
+        beneficiario = self._resolve_beneficiario_pago()
+        if not beneficiario:
+            if self.tipo == 'anticipo_materiales' and self.pagar_a == 'proveedor_directo':
+                raise UserError(self.env._(
+                    'Define el Proveedor de Materiales antes de crear un pago - con "Pagar a: '
+                    'Proveedor Directo" el pago se le hace directo a él.'))
             raise UserError(self.env._('Define el Contacto antes de crear un pago.'))
 
         total_facturas = sum(self.factura_ids.filtered(
@@ -1090,7 +1143,7 @@ class AccountPaymentOrder(models.Model):
         payment_vals = {
             'payment_type': 'outbound',
             'partner_type': 'supplier',
-            'partner_id': self.partner_id.id,
+            'partner_id': beneficiario.id,
             'amount': faltante,
             'currency_id': self.currency_id.id,
             'journal_id': self.journal_id.id,
@@ -1116,21 +1169,26 @@ class AccountPaymentOrder(models.Model):
         self._check_es_administrador_contable()
         if not self.journal_id:
             raise UserError(self.env._('Define el Diario antes de aplicar.'))
-        if not self.partner_id:
+        if self.tipo == 'anticipo_materiales' and not self.pagar_a:
+            raise UserError(self.env._(
+                'Define a quién se le paga (Jefe de Técnicos o Proveedor Directo) antes de '
+                'aplicar.'))
+        beneficiario = self._resolve_beneficiario_pago()
+        if not beneficiario:
+            if self.tipo == 'anticipo_materiales' and self.pagar_a == 'proveedor_directo':
+                raise UserError(self.env._(
+                    'Define el Proveedor de Materiales antes de aplicar - con "Pagar a: '
+                    'Proveedor Directo" el pago se le hace directo a él.'))
             raise UserError(self.env._('Define el Contacto que recibirá el anticipo.'))
         if not self.monto:
             raise UserError(self.env._('Define el Monto del anticipo.'))
         if not self.cuenta_anticipo_id:
             raise UserError(self.env._('Define la Cuenta de Anticipos por Liquidar.'))
-        if self.tipo == 'anticipo_materiales' and not self.pagar_a:
-            raise UserError(self.env._(
-                'Define a quién se le paga (Jefe de Técnicos o Proveedor Directo) antes de '
-                'aplicar.'))
 
         payment_vals = {
             'payment_type': 'outbound',
             'partner_type': 'supplier',
-            'partner_id': self.partner_id.id,
+            'partner_id': beneficiario.id,
             'amount': self.monto,
             'currency_id': self.currency_id.id,
             'journal_id': self.journal_id.id,
