@@ -751,6 +751,12 @@ class AccountPaymentOrder(models.Model):
                 'approved_by_id': self.env.user.id,
                 'approve_date': fields.Datetime.now(),
             })
+            # Auto-heal: registros sincronizados ANTES de que existiera
+            # `_autosugerir_proveedor_materiales_id()` (2026-09-02) nunca recibieron su intento
+            # de resolución (solo corre en create()/write() de `proveedor_materiales_name`) - se
+            # reintenta aquí, mismo criterio ya usado para las credenciales del Catálogo de
+            # Materiales (self-healing en el punto de uso, no una migración aparte).
+            rec._autosugerir_proveedor_materiales_id()
 
     def action_reject(self):
         self._check_is_approver()
@@ -1118,6 +1124,7 @@ class AccountPaymentOrder(models.Model):
         self._check_es_administrador_contable()
         if not self.journal_id:
             raise UserError(self.env._('Define el Diario antes de crear un pago.'))
+        self._autosugerir_proveedor_materiales_id()  # ver nota en action_approve()
         beneficiario = self._resolve_beneficiario_pago()
         if not beneficiario:
             if self.tipo == 'anticipo_materiales' and self.pagar_a == 'proveedor_directo':
@@ -1173,6 +1180,7 @@ class AccountPaymentOrder(models.Model):
             raise UserError(self.env._(
                 'Define a quién se le paga (Jefe de Técnicos o Proveedor Directo) antes de '
                 'aplicar.'))
+        self._autosugerir_proveedor_materiales_id()  # ver nota en action_approve()
         beneficiario = self._resolve_beneficiario_pago()
         if not beneficiario:
             if self.tipo == 'anticipo_materiales' and self.pagar_a == 'proveedor_directo':
