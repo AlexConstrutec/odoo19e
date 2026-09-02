@@ -80,6 +80,13 @@ class ResCompany(models.Model):
         inverse_name='company_id',
         string='Registro de Sincronización de Solicitudes de Pago')
 
+    anthropic_api_key = fields.Char(
+        string='Anthropic API Key',
+        help='Se usa para extraer datos de cotizaciones de proveedor subidas en la pestaña '
+             'Materiales ("Cargar Cotización") - cada extracción tiene un costo real por '
+             'llamada. Genere una clave en console.anthropic.com. Solo se usa desde Community '
+             '(el botón no aparece en Enterprise).')
+
     payment_order_default_company_id = fields.Many2one(
         'account.payment.order.enterprise.company', string='Compañía por defecto en Enterprise',
         help='Compañía de la instalación Procesadora a la que caen las Solicitudes de Pago '

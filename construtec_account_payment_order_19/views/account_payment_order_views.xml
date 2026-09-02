@@ -117,6 +117,11 @@
                             </group>
                         </page>
                         <page string="Materiales" invisible="tipo != 'anticipo_materiales'">
+                            <button name="%(action_account_payment_order_quote_import_wizard)d"
+                                    type="action" string="Cargar Cotización" icon="fa-magic"
+                                    context="{'default_order_id': id}"
+                                    groups="account.group_account_invoice"
+                                    invisible="state != 'borrador' or not id or es_procesador"/>
                             <field name="material_line_ids"
                                    readonly="state not in ('borrador', 'aplicado')">
                                 <list editable="bottom">

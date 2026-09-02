@@ -43,6 +43,7 @@ class ResConfigSettings(models.TransientModel):
         related='company_id.materials_catalog_sync_interval_number', readonly=False)
     materials_catalog_sync_interval_type = fields.Selection(
         related='company_id.materials_catalog_sync_interval_type', readonly=False)
+    anthropic_api_key = fields.Char(related='company_id.anthropic_api_key', readonly=False)
 
     def action_sync_employees_now(self):
         self.ensure_one()

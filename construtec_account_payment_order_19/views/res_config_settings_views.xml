@@ -142,6 +142,16 @@
                                 string="Sincronizar ahora" class="btn btn-secondary mt8" icon="fa-refresh"/>
                     </setting>
                 </block>
+                <block title="IA para Cotizaciones (Anthropic)" name="quote_import_ai_settings"
+                       invisible="payment_order_role != 'solicitante'">
+                    <setting id="anthropic_api_key" string="Anthropic API Key"
+                             help="Se usa para transcribir cotizaciones de proveedor subidas en la
+                                   pestaña Materiales ('Cargar Cotización'). Cada extracción tiene
+                                   un costo real por llamada - no comparta esta clave. Genere una
+                                   en console.anthropic.com.">
+                        <field name="anthropic_api_key" password="True"/>
+                    </setting>
+                </block>
             </xpath>
         </field>
     </record>

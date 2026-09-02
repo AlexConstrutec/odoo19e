@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_payment_order_quote_import_wizard_form" model="ir.ui.view">
+        <field name="name">account.payment.order.quote.import.wizard.form</field>
+        <field name="model">account.payment.order.quote.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Cargar Cotización de Proveedor con IA">
+                <field name="order_id" invisible="1"/>
+                <field name="state" invisible="1"/>
+                <group invisible="state != 'upload'">
+                    <p class="text-muted">
+                        Sube un PDF, una imagen (foto/captura de pantalla) o un Word con la
+                        cotización del proveedor - la IA la va a transcribir a líneas de
+                        materiales, que podrás revisar y editar antes de aplicarlas.
+                    </p>
+                    <field name="quote_filename" invisible="1"/>
+                    <field name="quote_file" filename="quote_filename" required="1"/>
+                </group>
+                <group invisible="state != 'review'">
+                    <field name="proveedor_extraido"/>
+                    <p class="text-muted">
+                        Revisa cada línea antes de aplicar - desmarca "Incluir" en lo que no
+                        aplique, corrige lo que haga falta. La IA puede cometer errores.
+                    </p>
+                    <field name="line_ids" nolabel="1">
+                        <list editable="bottom">
+                            <field name="incluir"/>
+                            <field name="description"/>
+                            <field name="qty"/>
+                            <field name="uom_name"/>
+                            <field name="estimated_price"/>
+                            <field name="subtotal" sum="Total"/>
+                        </list>
+                    </field>
+                </group>
+                <footer>
+                    <button name="action_extraer" type="object" string="Transcribir con IA"
+                            class="btn-primary" invisible="state != 'upload'"/>
+                    <button name="action_aplicar" type="object" string="Aplicar a la Orden"
+                            class="btn-primary" invisible="state != 'review'"/>
+                    <button name="action_volver" type="object" string="Cargar Otro Archivo"
+                            invisible="state != 'review'"/>
+                    <button string="Cancelar" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_account_payment_order_quote_import_wizard" model="ir.actions.act_window">
+        <field name="name">Cargar Cotización</field>
+        <field name="res_model">account.payment.order.quote.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>
