@@ -39,14 +39,6 @@ class ResConfigSettings(models.TransientModel):
         related='company_id.payment_order_default_company_id', readonly=False)
     materials_catalog_sync_enabled = fields.Boolean(
         related='company_id.materials_catalog_sync_enabled', readonly=False)
-    materials_catalog_sync_url = fields.Char(
-        related='company_id.materials_catalog_sync_url', readonly=False)
-    materials_catalog_sync_db = fields.Char(
-        related='company_id.materials_catalog_sync_db', readonly=False)
-    materials_catalog_sync_login = fields.Char(
-        related='company_id.materials_catalog_sync_login', readonly=False)
-    materials_catalog_sync_api_key = fields.Char(
-        related='company_id.materials_catalog_sync_api_key', readonly=False)
     materials_catalog_sync_interval_number = fields.Integer(
         related='company_id.materials_catalog_sync_interval_number', readonly=False)
     materials_catalog_sync_interval_type = fields.Selection(

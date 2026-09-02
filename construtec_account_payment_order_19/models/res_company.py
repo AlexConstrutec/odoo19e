@@ -421,11 +421,34 @@ class ResCompany(models.Model):
             created=created, updated=updated)
         return True, message
 
+    _MATERIALS_CATALOG_SYNC_CREDENTIAL_FIELDS = (
+        'payment_order_sync_url', 'payment_order_sync_db',
+        'payment_order_sync_login', 'payment_order_sync_api_key')
+
+    def _sync_materials_catalog_credentials(self):
+        """Reutiliza tal cual las credenciales de Enterprise ya configuradas para Solicitudes
+        de Pago (`payment_order_sync_*`) como las de `construtec_sat_catalog_sync_19`
+        (`materials_catalog_sync_*`) - pedido explícito del usuario: "utiliza las mismas
+        credenciales que ya están para sincronizar solicitudes de pago, es al mismo Odoo".
+        Ambos pulls (empleados/cuentas analíticas/estado de Órdenes de Pago, y el Catálogo de
+        Materiales) hablan con la MISMA instalación Enterprise - no hay ninguna razón real para
+        pedirle al usuario la misma URL/base de datos/usuario/API Key dos veces. `write()` en
+        `super()` para no volver a disparar este mismo método en cascada."""
+        for company in self:
+            super(ResCompany, company).write({
+                'materials_catalog_sync_url': company.payment_order_sync_url,
+                'materials_catalog_sync_db': company.payment_order_sync_db,
+                'materials_catalog_sync_login': company.payment_order_sync_login,
+                'materials_catalog_sync_api_key': company.payment_order_sync_api_key,
+            })
+
     @api.model_create_multi
     def create(self, vals_list):
         companies = super().create(vals_list)
         companies._apply_employee_sync_interval_to_cron()
         companies._apply_payment_order_status_sync_interval_to_cron()
+        if any(f in vals for vals in vals_list for f in self._MATERIALS_CATALOG_SYNC_CREDENTIAL_FIELDS):
+            companies._sync_materials_catalog_credentials()
         return companies
 
     def write(self, vals):
@@ -435,6 +458,8 @@ class ResCompany(models.Model):
         if ('payment_order_status_sync_interval_number' in vals
                 or 'payment_order_status_sync_interval_type' in vals):
             self._apply_payment_order_status_sync_interval_to_cron()
+        if any(f in vals for f in self._MATERIALS_CATALOG_SYNC_CREDENTIAL_FIELDS):
+            self._sync_materials_catalog_credentials()
         return res
 
     @api.model
