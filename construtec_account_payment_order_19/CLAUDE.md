@@ -667,6 +667,15 @@ Se quitó `not id` de la condición `invisible=` - ahora el botón aparece tan p
 
 Verificado con `odoo-bin shell` en `construtec_test` (Odoo19E y Odoo19C): la condición `invisible=` del botón ya no contiene `not id`, y sigue conteniendo `tipo != 'anticipo_materiales'`/`state != 'borrador'`/`es_procesador` sin cambios. `-u` limpio en ambos, sin `ERROR`/`CRITICAL` nuevos. **No se puede probar el guardado automático del framework web con `odoo-bin shell`** (es un comportamiento del cliente JS, no del ORM) - queda pendiente la confirmación visual del propio usuario en un navegador real tras desplegar.
 
+### Cargar una segunda cotización reemplaza toda la anterior; el botón ya desaparece al Enviar (2026-09-02)
+
+Dos pedidos del usuario en el mismo mensaje:
+
+- **"Si se carga otra cotización en la Orden de Pago, que reemplace toda la información que estaba ya colocada"**: antes, `action_aplicar()` solo AGREGABA líneas nuevas (dejando las de una corrida anterior intactas) y llenaba `proveedor_materiales_catalogo_id` únicamente si estaba vacío. Ahora, cada vez que se aplica una cotización, primero se **borran TODAS** las `material_line_ids` que ya existían en la Orden (`self.order_id.material_line_ids.unlink()`) antes de crear las nuevas, y `proveedor_materiales_catalogo_id` se **sobreescribe siempre** (ya no "solo si está vacío") con lo que esta corrida resolvió - incluso a `False` si esta cotización no trajo proveedor detectado. Pensado para el caso real: el jefe de técnicos subió el archivo equivocado, o llegó una versión corregida de la misma cotización - la corrida anterior nunca debe quedar mezclada con la nueva. Seguro porque `action_aplicar()` ya exige `order_id.state == 'borrador'` desde antes - en ese estado nunca existe todavía ninguna Orden de Compra/conciliación que dependa de esas líneas (`purchase.order`/`account.move` no tienen ninguna referencia a `account.payment.order.material.line`, solo a la Orden completa). El chatter distingue el caso (menciona cuántas líneas anteriores se reemplazaron) para que quede trazable en el historial de la Orden.
+- **"El botón de cotización se debe de quitar cuando la cotización ha sido enviada"**: ya estaba resuelto desde que se movió el botón al encabezado - `invisible="... or state != 'borrador' or ..."` ya lo oculta en cuanto la Orden deja de estar en Borrador (incluido justo después de `action_submit()`, que exige al menos una línea de materiales antes de permitir enviar). No se necesitó ningún cambio de código para este punto - se confirmó releyendo la condición ya existente.
+
+Verificado con `odoo-bin shell` en `construtec_test` (ambos, Odoo19E y Odoo19C), con la extracción de IA mockeada: dos cotizaciones aplicadas en secuencia sobre la MISMA Orden (2 líneas de un proveedor, luego 1 línea de otro proveedor distinto) - tras la segunda, la Orden queda con exactamente 1 línea (la nueva, no 3), y `proveedor_materiales_name`/`proveedor_materiales_catalogo_id` apuntan al segundo proveedor, no al primero. `-u` limpio en ambos, sin `ERROR`/`CRITICAL` nuevos.
+
 ## Common commands
 
 ```

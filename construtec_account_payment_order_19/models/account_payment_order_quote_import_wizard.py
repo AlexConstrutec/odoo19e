@@ -217,6 +217,15 @@ class AccountPaymentOrderQuoteImportWizard(models.TransientModel):
         return self._reload_action()
 
     def action_aplicar(self):
+        """Reemplaza TODA la información de materiales/proveedor ya cargada en la Orden -
+        decisión explícita del usuario ("si se carga otra cotización... que reemplace toda la
+        información que estaba ya colocada"): si el jefe de técnicos vuelve a usar "Cargar
+        Cotización" sobre la misma Orden (ej. subió el archivo equivocado, o llegó una versión
+        corregida de la cotización), la corrida anterior no debe quedar mezclada con la nueva -
+        se borran todas las líneas de materiales existentes antes de crear las nuevas, y el
+        proveedor sugerido se sobreescribe siempre (ya no "solo si está vacío"). Seguro porque
+        esto solo corre con `order_id.state == 'borrador'` (verificado abajo) - antes de ese
+        punto no existe ninguna Orden de Compra/conciliación que dependa de estas líneas."""
         self.ensure_one()
         if self.order_id.state != 'borrador':
             raise UserError(self.env._(
@@ -224,6 +233,9 @@ class AccountPaymentOrderQuoteImportWizard(models.TransientModel):
         seleccionadas = self.line_ids.filtered(lambda line: line.incluir and line.description)
         if not seleccionadas:
             raise UserError(self.env._('Selecciona al menos una línea para aplicar.'))
+
+        lineas_previas = len(self.order_id.material_line_ids)
+        self.order_id.material_line_ids.unlink()
 
         Line = self.env['account.payment.order.material.line']
         for line in seleccionadas:
@@ -236,15 +248,20 @@ class AccountPaymentOrderQuoteImportWizard(models.TransientModel):
                 'vendor_name': self.proveedor_extraido or False,
                 'catalogo_id': line.catalogo_id.id if line.catalogo_id else False,
             })
-        if self.proveedor_catalogo_id and not self.order_id.proveedor_materiales_catalogo_id:
-            # `proveedor_materiales_name` (el texto que viaja a Enterprise) se deriva solo -
-            # ver `account.payment.order._sync_proveedor_materiales_name()`, disparada por este
-            # mismo write() al traer `proveedor_materiales_catalogo_id` en vals.
-            self.order_id.proveedor_materiales_catalogo_id = self.proveedor_catalogo_id.id
+        # `proveedor_materiales_name` (el texto que viaja a Enterprise) se deriva solo - ver
+        # `account.payment.order._sync_proveedor_materiales_name()`, disparada por este mismo
+        # write() al traer `proveedor_materiales_catalogo_id` en vals.
+        self.order_id.proveedor_materiales_catalogo_id = self.proveedor_catalogo_id.id
 
-        self.order_id.message_post(body=self.env._(
-            '%(count)s línea(s) de materiales aplicada(s) desde una cotización cargada con IA.',
-            count=len(seleccionadas)))
+        if lineas_previas:
+            self.order_id.message_post(body=self.env._(
+                '%(count)s línea(s) de materiales aplicada(s) desde una nueva cotización '
+                'cargada con IA - se reemplazaron %(previas)s línea(s) que ya existían.',
+                count=len(seleccionadas), previas=lineas_previas))
+        else:
+            self.order_id.message_post(body=self.env._(
+                '%(count)s línea(s) de materiales aplicada(s) desde una cotización cargada '
+                'con IA.', count=len(seleccionadas)))
         return {'type': 'ir.actions.act_window_close'}
 
     def _reload_action(self):
