@@ -33,7 +33,7 @@
                     <button name="%(action_account_payment_order_quote_import_wizard)d"
                             type="action" string="Cargar Cotización" icon="fa-magic"
                             context="{'default_order_id': id}"
-                            invisible="tipo != 'anticipo_materiales' or state != 'borrador' or not id or es_procesador"/>
+                            invisible="tipo != 'anticipo_materiales' or state != 'borrador' or es_procesador"/>
                     <button name="action_conciliar" string="Liquidar" type="object" class="oe_highlight"
                             groups="account.group_account_manager"
                             invisible="not puede_conciliar or not es_procesador"/>
