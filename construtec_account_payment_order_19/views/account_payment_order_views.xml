@@ -117,7 +117,7 @@
                             <field name="material_line_ids"
                                    readonly="state not in ('borrador', 'aplicado')">
                                 <list editable="bottom">
-                                    <field name="catalogo_id" optional="show" string="Catálogo SAT"
+                                    <field name="catalogo_id" optional="show" string="Producto SAT"
                                            context="{'vendor_hint': vendor_name}"
                                            readonly="parent.state != 'borrador'"/>
                                     <field name="product_name" required="1" readonly="parent.state != 'borrador'"/>

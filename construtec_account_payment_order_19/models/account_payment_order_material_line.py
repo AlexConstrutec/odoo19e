@@ -24,11 +24,12 @@ class AccountPaymentOrderMaterialLine(models.Model):
              '`product_name` - nunca se trata como relación. El proveedor real de la Orden de '
              'Compra es `order_id.proveedor_materiales_id`, elegido a mano en Enterprise.')
     catalogo_id = fields.Many2one(
-        'construtec.materials.catalog.mirror', string='Catálogo SAT',
+        'construtec.materials.catalog.mirror', string='Producto SAT',
         domain="[('bien_o_servicio', '=', 'B')]",
         help='Ayuda opcional, nunca obligatoria - elegir una entrada aquí autocompleta Material/'
-             'Proveedor Sugerido/Precio Estimado desde el Catálogo de Materiales (derivado de los '
-             'Documentos SAT). Filtrado a solo "Bien" - el catálogo sincroniza también Servicios, '
+             'Proveedor Sugerido/Precio Estimado/Unidad de Medida desde el Catálogo de Materiales '
+             '(derivado de los Documentos SAT). Filtrado a solo "Bien" - el catálogo sincroniza '
+             'también Servicios, '
              'pero una Solicitud de Materiales no los necesita (otra sección futura del proyecto '
              'sí los usará, desde el mismo catálogo). El buscador prefiere lo del proveedor ya '
              'escrito en esta línea (`vendor_name`) dentro de ese filtro, sin restringir más allá '
@@ -58,3 +59,4 @@ class AccountPaymentOrderMaterialLine(models.Model):
                 line.product_name = line.catalogo_id.name
                 line.vendor_name = line.catalogo_id.partner_name or line.vendor_name
                 line.estimated_price = line.catalogo_id.precio_referencia or line.estimated_price
+                line.uom_name = line.catalogo_id.uom_name or line.uom_name
