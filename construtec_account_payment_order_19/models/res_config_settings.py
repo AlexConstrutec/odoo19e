@@ -37,10 +37,28 @@ class ResConfigSettings(models.TransientModel):
         related='company_id.payment_order_status_sync_interval_type', readonly=False)
     payment_order_default_company_id = fields.Many2one(
         related='company_id.payment_order_default_company_id', readonly=False)
+    materials_catalog_sync_enabled = fields.Boolean(
+        related='company_id.materials_catalog_sync_enabled', readonly=False)
+    materials_catalog_sync_url = fields.Char(
+        related='company_id.materials_catalog_sync_url', readonly=False)
+    materials_catalog_sync_db = fields.Char(
+        related='company_id.materials_catalog_sync_db', readonly=False)
+    materials_catalog_sync_login = fields.Char(
+        related='company_id.materials_catalog_sync_login', readonly=False)
+    materials_catalog_sync_api_key = fields.Char(
+        related='company_id.materials_catalog_sync_api_key', readonly=False)
+    materials_catalog_sync_interval_number = fields.Integer(
+        related='company_id.materials_catalog_sync_interval_number', readonly=False)
+    materials_catalog_sync_interval_type = fields.Selection(
+        related='company_id.materials_catalog_sync_interval_type', readonly=False)
 
     def action_sync_employees_now(self):
         self.ensure_one()
         return self.company_id.action_sync_employees_now()
+
+    def action_sync_materials_catalog_now(self):
+        self.ensure_one()
+        return self.company_id.action_sync_materials_catalog_now()
 
     def action_pull_payment_order_status_now(self):
         self.ensure_one()

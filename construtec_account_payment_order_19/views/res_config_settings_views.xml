@@ -123,6 +123,52 @@
                                placeholder="Sincronice para ver la lista de compañías"/>
                     </setting>
                 </block>
+                <block title="Catálogo de Materiales" name="materials_catalog_sync_settings"
+                       invisible="payment_order_role != 'solicitante'">
+                    <setting id="materials_catalog_sync_enabled" string="Sincronización Habilitada"
+                             help="Jala periódicamente (y bajo demanda) la copia local de Enterprise del
+                                   Catálogo de Materiales (derivado de los Documentos SAT) - campos y
+                                   credenciales propios de construtec_sat_catalog_sync_19, independientes de
+                                   los de Solicitudes de Pago de arriba (aunque en la práctica apunten al
+                                   mismo servidor Enterprise).">
+                        <field name="materials_catalog_sync_enabled"/>
+                    </setting>
+                    <setting string="Credenciales de Enterprise"
+                             invisible="not materials_catalog_sync_enabled">
+                        <div class="content-group">
+                            <div class="row mt16">
+                                <label for="materials_catalog_sync_url" class="col-lg-3 o_light_label"/>
+                                <field name="materials_catalog_sync_url" placeholder="https://enterprise.miempresa.com"/>
+                            </div>
+                            <div class="row mt8">
+                                <label for="materials_catalog_sync_db" class="col-lg-3 o_light_label"/>
+                                <field name="materials_catalog_sync_db"/>
+                            </div>
+                            <div class="row mt8">
+                                <label for="materials_catalog_sync_login" class="col-lg-3 o_light_label"/>
+                                <field name="materials_catalog_sync_login"/>
+                            </div>
+                            <div class="row mt8">
+                                <label for="materials_catalog_sync_api_key" class="col-lg-3 o_light_label"/>
+                                <field name="materials_catalog_sync_api_key" password="True"/>
+                            </div>
+                            <div class="text-muted mt8">
+                                Genere la API Key en Enterprise desde Ajustes &gt; Mi Perfil &gt; Seguridad
+                                de la cuenta &gt; Nueva clave API - cualquier usuario autenticado alcanza,
+                                no hace falta uno de integración dedicado para esto.
+                            </div>
+                        </div>
+                    </setting>
+                    <setting id="materials_catalog_sync_interval" string="Sincronizar Catálogo de Materiales cada"
+                             invisible="not materials_catalog_sync_enabled">
+                        <div class="d-flex">
+                            <field name="materials_catalog_sync_interval_number" class="me-2" style="width: 80px"/>
+                            <field name="materials_catalog_sync_interval_type"/>
+                        </div>
+                        <button name="action_sync_materials_catalog_now" type="object"
+                                string="Sincronizar ahora" class="btn btn-secondary mt8" icon="fa-refresh"/>
+                    </setting>
+                </block>
             </xpath>
         </field>
     </record>

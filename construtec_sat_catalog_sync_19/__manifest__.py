@@ -13,7 +13,6 @@
         'security/ir.model.access.csv',
         'data/ir_cron_materials_catalog_sync.xml',
         'views/sat_product_catalog_mirror_views.xml',
-        'views/res_company_views.xml',
     ],
     'installable': True,
     'application': False,
