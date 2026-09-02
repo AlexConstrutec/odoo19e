@@ -56,9 +56,10 @@ class ResCompany(models.Model):
         help='Igual que Anticipo, para "Pago Directo". Fase 1: deshabilitado en Community, '
              'habilitado en Enterprise.')
     payment_order_habilitar_anticipo_materiales = fields.Boolean(
-        string='Permitir crear: Anticipo Materiales', default=True,
-        help='Igual que Anticipo Viáticos, para "Anticipo Materiales" - el otro tipo que '
-             'Community sí debe ver habilitado (junto con Anticipo Viáticos).')
+        string='Permitir crear: Solicitud de Materiales', default=True,
+        help='Igual que Anticipo Viáticos, para "Solicitud de Materiales" (tipo técnico '
+             '`anticipo_materiales`, sin cambios) - el otro tipo que Community sí debe ver '
+             'habilitado (junto con Anticipo Viáticos).')
 
     payment_order_sync_enabled = fields.Boolean(string='Sincronización de Solicitudes de Pago Habilitada')
     payment_order_sync_url = fields.Char(

@@ -1,5 +1,5 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 class ConstructecMaterialsVendorMirror(models.Model):
@@ -39,3 +39,13 @@ class ConstructecMaterialsVendorMirror(models.Model):
         'unique(origin_id)',
         'Ya existe una entrada de proveedor para ese id de origen en Enterprise.',
     )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        """Cualquier creación que no traiga `origin_id` (sin respaldo en un Documento SAT real -
+        sea desde "Cargar Cotización" o desde un "Crear" a mano en el desplegable de la Orden de
+        Pago) queda marcada `pendiente_verificar` por defecto, salvo que el propio llamador ya
+        haya decidido el valor explícitamente."""
+        for vals in vals_list:
+            vals.setdefault('pendiente_verificar', not vals.get('origin_id'))
+        return super().create(vals_list)

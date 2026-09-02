@@ -51,7 +51,7 @@ class AccountPaymentOrder(models.Model):
     tipo = fields.Selection([
         ('anticipo', 'Anticipo'),
         ('anticipo_viaticos', 'Anticipo Viáticos'),
-        ('anticipo_materiales', 'Anticipo Materiales'),
+        ('anticipo_materiales', 'Solicitud de Materiales'),
         ('pago_directo', 'Pago Directo'),
     ], string='Tipo', required=True,
         default=lambda self: (self.env.company._get_payment_order_allowed_tipos() or ['anticipo'])[0],
@@ -262,20 +262,21 @@ class AccountPaymentOrder(models.Model):
              'jefe de técnicos (quien luego paga al proveedor) o directo al proveedor. No '
              'confundir con `proveedor_materiales_id`, que es siempre el proveedor real de los '
              'materiales sin importar a quién se le paga.')
+    proveedor_materiales_catalogo_id = fields.Many2one(
+        'construtec.materials.vendor.mirror', string='Proveedor Sugerido (Catálogo)',
+        help='Elegido por el jefe de técnicos (o resuelto/creado automáticamente por "Cargar '
+             'Cotización") contra el Catálogo de Proveedores (construtec_sat_catalog_sync_19), '
+             'ya no como texto libre. Es un id local de Community - nunca viaja tal cual hacia '
+             'Enterprise (otra base de datos); `proveedor_materiales_name` (ver abajo) se deriva '
+             'de aquí y es lo que realmente viaja por sincronización.')
     proveedor_materiales_name = fields.Char(
-        string='Proveedor Sugerido',
-        help='Sugerencia en texto del jefe de técnicos - viaja por sincronización igual que '
+        string='Proveedor Sugerido', readonly=True,
+        help='Derivado de `proveedor_materiales_catalogo_id` (ver '
+             '`_sync_proveedor_materiales_name()`) - viaja por sincronización igual que '
              '`vendor_name` de cada línea, nunca se trata como relación (Community/Enterprise '
              'son bases distintas). El proveedor real de la Orden de Compra sigue siendo '
              '`proveedor_materiales_id`, elegido a mano en Enterprise - esto solo le ahorra al '
              'contable tener que preguntarle al jefe qué proveedor tenía en mente.')
-    proveedor_materiales_catalogo_id = fields.Many2one(
-        'construtec.materials.vendor.mirror', string='Proveedor (Catálogo)', readonly=True,
-        help='Vínculo informativo hacia el Catálogo de Proveedores (construtec_sat_catalog_sync_19) '
-             '- se llena solo cuando "Cargar Cotización" resuelve o crea un proveedor conocido. '
-             'No reemplaza `proveedor_materiales_name` (que sigue siendo lo que viaja hacia '
-             'Enterprise por sincronización) - es puramente una referencia local hacia el '
-             'catálogo, para saber de dónde salió la sugerencia.')
     proveedor_materiales_id = fields.Many2one(
         'res.partner', string='Proveedor de Materiales',
         help='El proveedor real que surte los materiales de esta Orden - independiente de '
@@ -465,6 +466,22 @@ class AccountPaymentOrder(models.Model):
                     and rec.monto != rec.total_acreditar:
                 rec.monto = rec.total_acreditar
 
+    @api.onchange('proveedor_materiales_catalogo_id')
+    def _onchange_proveedor_materiales_catalogo_id(self):
+        self._sync_proveedor_materiales_name()
+
+    def _sync_proveedor_materiales_name(self):
+        """`proveedor_materiales_name` (el texto que viaja a Enterprise vía
+        `_prepare_sync_vals()`) ya no se captura a mano - se deriva del proveedor elegido en
+        `proveedor_materiales_catalogo_id` (Many2one al Catálogo de Proveedores,
+        construtec_sat_catalog_sync_19), un id local de Community sin significado en Enterprise.
+        Se llama desde el onchange (formulario web) y desde create()/write() (altas/ediciones por
+        API o script, donde el onchange no corre)."""
+        for rec in self:
+            name = rec.proveedor_materiales_catalogo_id.name or ''
+            if rec.proveedor_materiales_name != name:
+                rec.proveedor_materiales_name = name
+
     @api.onchange('pagar_a')
     def _onchange_pagar_a(self):
         """Solo Anticipo Materiales: 'jefe_tecnicos' sugiere/mantiene el contacto del jefe (mismo
@@ -494,6 +511,7 @@ class AccountPaymentOrder(models.Model):
             self._fill_derived_vals_from_analytic_account(vals)
         records = super().create(vals_list)
         records._sync_monto_desde_total_acreditar()
+        records._sync_proveedor_materiales_name()
         return records
 
     def _resolve_employee_enterprise_ref(self, vals):
@@ -601,6 +619,8 @@ class AccountPaymentOrder(models.Model):
         res = super().write(vals)
         if any(k in vals for k in ('viaticos_line_ids', 'material_line_ids', 'anticipo_previo', 'tipo')):
             self._sync_monto_desde_total_acreditar()
+        if 'proveedor_materiales_catalogo_id' in vals:
+            self._sync_proveedor_materiales_name()
         return res
 
     def unlink(self):
@@ -1155,7 +1175,7 @@ class AccountPaymentOrder(models.Model):
         self.ensure_one()
         if self.tipo != 'anticipo_materiales':
             raise UserError(self.env._(
-                'Generar Orden de Compra solo aplica a órdenes de tipo Anticipo Materiales.'))
+                'Generar Orden de Compra solo aplica a órdenes de tipo Solicitud de Materiales.'))
         if self.state != 'aplicado':
             raise UserError(self.env._(
                 'Solo se puede generar la Orden de Compra de una Orden ya Aplicada.'))

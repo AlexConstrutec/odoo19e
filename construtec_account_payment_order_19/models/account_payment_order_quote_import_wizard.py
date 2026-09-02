@@ -236,9 +236,10 @@ class AccountPaymentOrderQuoteImportWizard(models.TransientModel):
                 'vendor_name': self.proveedor_extraido or False,
                 'catalogo_id': line.catalogo_id.id if line.catalogo_id else False,
             })
-        if self.proveedor_extraido and not self.order_id.proveedor_materiales_name:
-            self.order_id.proveedor_materiales_name = self.proveedor_extraido
         if self.proveedor_catalogo_id and not self.order_id.proveedor_materiales_catalogo_id:
+            # `proveedor_materiales_name` (el texto que viaja a Enterprise) se deriva solo -
+            # ver `account.payment.order._sync_proveedor_materiales_name()`, disparada por este
+            # mismo write() al traer `proveedor_materiales_catalogo_id` en vals.
             self.order_id.proveedor_materiales_catalogo_id = self.proveedor_catalogo_id.id
 
         self.order_id.message_post(body=self.env._(

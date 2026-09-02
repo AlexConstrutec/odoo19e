@@ -30,6 +30,11 @@
                     <button name="action_generar_orden_compra" string="Generar Orden de Compra" type="object"
                             groups="account.group_account_manager"
                             invisible="tipo != 'anticipo_materiales' or state != 'aplicado' or not es_procesador"/>
+                    <button name="%(action_account_payment_order_quote_import_wizard)d"
+                            type="action" string="Cargar Cotización" icon="fa-magic"
+                            context="{'default_order_id': id}"
+                            groups="account.group_account_invoice"
+                            invisible="tipo != 'anticipo_materiales' or state != 'borrador' or not id or es_procesador"/>
                     <button name="action_conciliar" string="Liquidar" type="object" class="oe_highlight"
                             groups="account.group_account_manager"
                             invisible="not puede_conciliar or not es_procesador"/>
@@ -67,11 +72,10 @@
                             <field name="payment_method_line_id" invisible="not es_procesador"
                                    readonly="state not in ('borrador', 'aprobado')"/>
                             <field name="pagar_a" invisible="tipo != 'anticipo_materiales' or not es_procesador"/>
+                            <field name="proveedor_materiales_catalogo_id" string="Proveedor Sugerido"
+                                   invisible="tipo != 'anticipo_materiales' or es_procesador"/>
                             <field name="proveedor_materiales_name" string="Proveedor Sugerido"
-                                   invisible="tipo != 'anticipo_materiales'"
-                                   readonly="es_procesador"/>
-                            <field name="proveedor_materiales_catalogo_id"
-                                   invisible="tipo != 'anticipo_materiales' or not proveedor_materiales_catalogo_id"/>
+                                   invisible="tipo != 'anticipo_materiales' or not es_procesador"/>
                             <field name="proveedor_materiales_id"
                                    invisible="tipo != 'anticipo_materiales' or not es_procesador"/>
                             <field name="partner_id"
@@ -119,11 +123,6 @@
                             </group>
                         </page>
                         <page string="Materiales" invisible="tipo != 'anticipo_materiales'">
-                            <button name="%(action_account_payment_order_quote_import_wizard)d"
-                                    type="action" string="Cargar Cotización" icon="fa-magic"
-                                    context="{'default_order_id': id}"
-                                    groups="account.group_account_invoice"
-                                    invisible="state != 'borrador' or not id or es_procesador"/>
                             <field name="material_line_ids"
                                    readonly="state not in ('borrador', 'aplicado')">
                                 <list editable="bottom">

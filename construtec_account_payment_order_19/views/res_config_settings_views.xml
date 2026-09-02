@@ -23,7 +23,7 @@
                     <setting id="payment_order_habilitar_pago_directo" string="Pago Directo">
                         <field name="payment_order_habilitar_pago_directo"/>
                     </setting>
-                    <setting id="payment_order_habilitar_anticipo_materiales" string="Anticipo Materiales">
+                    <setting id="payment_order_habilitar_anticipo_materiales" string="Solicitud de Materiales">
                         <field name="payment_order_habilitar_anticipo_materiales"/>
                     </setting>
                 </block>
