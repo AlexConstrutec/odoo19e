@@ -722,6 +722,14 @@ Pedido del usuario, tras ver el ícono "Catálogo de Mat..." en el dashboard pri
 
 Verificado con `odoo-bin shell` en `construtec_test` (Odoo19E y Odoo19C): `env.ref('construtec_sat_catalog_sync_19.menu_construtec_sat_catalog_sync_root').parent_id` ya es `account.menu_finance_payables` en ambas ediciones - el menú deja de ser raíz, ya no debería aparecer como ícono en el dashboard. `-u` limpio en ambos, sin `ERROR`/`CRITICAL` nuevos. **No se puede confirmar visualmente la desaparición del ícono del dashboard con `odoo-bin shell`** (es resultado de la jerarquía de menús, renderizada por el cliente web) - la comprobación del `parent_id` es la evidencia server-side equivalente.
 
+### Botón manual "Buscar Proveedor" - probar la autosugerencia sin ejecutar una acción real (2026-09-02)
+
+El usuario reportó que "Proveedor de Materiales" seguía sin llegar en una Orden ya Aprobada, pidiendo confirmar que ese campo es el que de verdad alimenta la Orden de Compra (sí - `action_generar_orden_compra()` usa `proveedor_materiales_id` directo, sin cambios). Causa de fondo: `_autosugerir_proveedor_materiales_id()` (self-heal) **solo se dispara dentro de Aprobar/Aplicar/Crear Pago** - un contable que solo quiere ABRIR la Orden y mirar si el proveedor ya se resolvió, sin llegar todavía a Aplicar (que mueve dinero real) o a Crear Pago, no tenía ninguna forma de disparar ese intento - y no debería tener que ejecutar una acción real solo para "probar" si el campo se llena.
+
+**Fix**: nuevo botón "Buscar Proveedor" (`action_autosugerir_proveedor_materiales()`, encabezado, junto al campo `proveedor_materiales_id`, solo Enterprise, solo visible mientras el campo está vacío - desaparece solo en cuanto se resuelve) - corre exactamente el mismo resolutor (`_autosugerir_proveedor_materiales_id()`, sin ningún otro efecto de negocio) y avisa el resultado con una notificación: "Proveedor resuelto: X" (éxito) o "No se encontró ningún contacto llamado exactamente 'X'..." (advertencia, sticky) - así el contable puede confirmar ANTES de Aplicar, sin arriesgar nada.
+
+Verificado con `odoo-bin shell` en `construtec_test` (Odoo19E y Odoo19C): con un contacto existente que calza -> resuelve y notifica éxito; sin ningún contacto que calce -> queda vacío, notifica advertencia, no crea nada. `-u` limpio en ambos, sin `ERROR`/`CRITICAL` nuevos.
+
 ## Common commands
 
 ```

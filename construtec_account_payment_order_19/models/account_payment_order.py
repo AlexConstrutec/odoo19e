@@ -522,6 +522,36 @@ class AccountPaymentOrder(models.Model):
             if candidato:
                 rec.proveedor_materiales_id = candidato.id
 
+    def action_autosugerir_proveedor_materiales(self):
+        """Botón manual (encabezado, solo Enterprise) - `_autosugerir_proveedor_materiales_id()`
+        hoy solo se dispara solo dentro de Aprobar/Aplicar/Crear Pago (ver ahí "self-heal") - un
+        contable que quiere CONFIRMAR si el proveedor va a resolver ANTES de llegar a Aplicar
+        (que ya mueve dinero real) no tenía ninguna forma segura de probarlo sin ejecutar una de
+        esas acciones. Este botón corre exactamente el mismo resolutor, sin ningún otro efecto
+        de negocio, y avisa el resultado (encontrado o no) en una notificación."""
+        self.ensure_one()
+        self._autosugerir_proveedor_materiales_id()
+        if self.proveedor_materiales_id:
+            message = self.env._(
+                'Proveedor resuelto: %(name)s.', name=self.proveedor_materiales_id.name)
+            notif_type = 'success'
+        else:
+            message = self.env._(
+                'No se encontró ningún contacto llamado exactamente "%(name)s" en Enterprise - '
+                'créalo o elígelo a mano en "Proveedor de Materiales".',
+                name=self.proveedor_materiales_name or '(sin proveedor sugerido)')
+            notif_type = 'warning'
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': self.env._('Buscar Proveedor'),
+                'message': message,
+                'type': notif_type,
+                'sticky': notif_type == 'warning',
+            },
+        }
+
     def _resolve_beneficiario_pago(self):
         """A quién se le paga de verdad al Aplicar/Crear Pago - normalmente `partner_id` (el
         Contacto, que para Anticipo Materiales siempre identifica a quien sube la Orden, nunca
