@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- construtec_sat_catalog_sync_19 es deliberadamente `depends: ['base']` solamente (evita
+    una dependencia circular con este módulo, que ya depende de él) - su menú raíz nace sin
+    `parent`, lo que lo muestra como una app de nivel superior en el dashboard (Ajustes >
+    Aplicaciones), aunque es puro dato de referencia (sincronizado solo, casi nunca navegado a
+    mano salvo para revisar "Pendiente de Verificar"). Mismo criterio ya usado para el bloque de
+    Ajustes de ese módulo ("la UI de configuración vive en construtec_account_payment_order_19,
+    no aquí"): este módulo SÍ depende de `account` y de `construtec_sat_catalog_sync_19`, así
+    que puede reasignar el `parent_id` de ese menú ya existente, sin tocar el módulo base. -->
+    <record id="construtec_sat_catalog_sync_19.menu_construtec_sat_catalog_sync_root" model="ir.ui.menu">
+        <field name="parent_id" ref="account.menu_finance_payables"/>
+        <field name="sequence">22</field>
+    </record>
+</odoo>
