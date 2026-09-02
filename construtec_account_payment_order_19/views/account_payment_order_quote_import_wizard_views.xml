@@ -18,6 +18,7 @@
                 </group>
                 <group invisible="state != 'review'">
                     <field name="proveedor_extraido"/>
+                    <field name="fecha_extraida"/>
                     <p class="text-muted">
                         Revisa cada línea antes de aplicar - desmarca "Incluir" en lo que no
                         aplique, corrige lo que haga falta. La IA puede cometer errores.

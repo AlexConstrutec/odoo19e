@@ -9,6 +9,7 @@ su propio cliente HTTP pequeño, sin librerías compartidas entre integraciones.
 import base64
 import io
 import logging
+import re
 
 import requests
 
@@ -31,6 +32,10 @@ _TOOL_SCHEMA = {
                 'type': 'string',
                 'description': 'Nombre del proveedor que emitió la cotización. Cadena vacía si no se puede determinar.',
             },
+            'fecha': {
+                'type': 'string',
+                'description': 'Fecha de la cotización, en formato AAAA-MM-DD. Cadena vacía si no aparece en el documento.',
+            },
             'lineas': {
                 'type': 'array',
                 'items': {
@@ -51,9 +56,10 @@ _TOOL_SCHEMA = {
 
 _INSTRUCCIONES = (
     'Eres un asistente que extrae cotizaciones de proveedores de materiales de construcción '
-    'en Guatemala. Extrae el nombre del proveedor y cada línea de materiales/precios que '
-    'encuentres, usando la herramienta registrar_cotizacion. Si un dato no aparece en el '
-    'documento, omítelo o usa una cadena vacía - nunca inventes cifras que no estén ahí.'
+    'en Guatemala. Extrae el nombre del proveedor, la fecha de la cotización y cada línea de '
+    'materiales/precios que encuentres, usando la herramienta registrar_cotizacion. Si un dato '
+    'no aparece en el documento, omítelo o usa una cadena vacía - nunca inventes cifras que no '
+    'estén ahí.'
 )
 
 
@@ -105,6 +111,9 @@ def _call_messages_api(api_key, content_blocks):
     return _validar_resultado(tool_blocks[0].get('input') or {})
 
 
+_FECHA_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+
+
 def _validar_resultado(result):
     limpias = []
     for linea in result.get('lineas') or []:
@@ -117,7 +126,20 @@ def _validar_resultado(result):
             })
         except (TypeError, ValueError):
             _logger.warning('Línea de cotización descartada por datos no numéricos: %r', linea)
-    return {'proveedor': (result.get('proveedor') or '').strip() or False, 'lineas': limpias}
+
+    fecha = str(result.get('fecha') or '').strip()
+    if not _FECHA_RE.match(fecha):
+        # No inventamos ni intentamos "arreglar" un formato raro - si la IA no devolvió
+        # AAAA-MM-DD exacto, se deja vacío y el jefe de técnicos lo llena a mano si hace falta.
+        if fecha:
+            _logger.warning('Fecha de cotización descartada por formato inesperado: %r', fecha)
+        fecha = False
+
+    return {
+        'proveedor': (result.get('proveedor') or '').strip() or False,
+        'fecha': fecha,
+        'lineas': limpias,
+    }
 
 
 def _resize_image_if_needed(image_bytes):

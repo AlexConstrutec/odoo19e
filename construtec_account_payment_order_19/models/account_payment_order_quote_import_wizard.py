@@ -52,6 +52,10 @@ class AccountPaymentOrderQuoteImportWizard(models.TransientModel):
     quote_file = fields.Binary(string='Archivo de Cotización')
     quote_filename = fields.Char(string='Nombre de Archivo')
     proveedor_extraido = fields.Char(string='Proveedor Sugerido (IA)', readonly=True)
+    fecha_extraida = fields.Date(
+        string='Fecha de la Cotización (IA)', readonly=True,
+        help='Solo informativa - no reemplaza la Fecha de la Orden (que ya tiene su propio '
+             'valor por defecto). Cópiala a mano en el encabezado si aplica.')
     line_ids = fields.One2many(
         'account.payment.order.quote.import.wizard.line', 'wizard_id', string='Líneas Extraídas')
 
@@ -93,9 +97,10 @@ class AccountPaymentOrderQuoteImportWizard(models.TransientModel):
 
         self.order_id.message_post(body=self.env._(
             'Cotización procesada por IA (%(filename)s): %(count)s línea(s) detectada(s), '
-            'proveedor sugerido: %(proveedor)s.',
+            'proveedor sugerido: %(proveedor)s, fecha: %(fecha)s.',
             filename=self.quote_filename, count=len(result['lineas']),
-            proveedor=result['proveedor'] or '(no detectado)'))
+            proveedor=result['proveedor'] or '(no detectado)',
+            fecha=result['fecha'] or '(no detectada)'))
         self.env['ir.attachment'].create({
             'name': self.quote_filename,
             'datas': self.quote_file,
@@ -103,6 +108,7 @@ class AccountPaymentOrderQuoteImportWizard(models.TransientModel):
             'res_id': self.order_id.id,
         })
         self.proveedor_extraido = result['proveedor']
+        self.fecha_extraida = result['fecha']
         self.line_ids = [(5, 0, 0)] + [
             (0, 0, {
                 'description': linea['descripcion'],
@@ -119,6 +125,7 @@ class AccountPaymentOrderQuoteImportWizard(models.TransientModel):
         self.ensure_one()
         self.line_ids = [(5, 0, 0)]
         self.proveedor_extraido = False
+        self.fecha_extraida = False
         self.state = 'upload'
         return self._reload_action()
 
