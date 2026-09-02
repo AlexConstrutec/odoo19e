@@ -262,6 +262,13 @@ class AccountPaymentOrder(models.Model):
              'jefe de técnicos (quien luego paga al proveedor) o directo al proveedor. No '
              'confundir con `proveedor_materiales_id`, que es siempre el proveedor real de los '
              'materiales sin importar a quién se le paga.')
+    proveedor_materiales_name = fields.Char(
+        string='Proveedor Sugerido',
+        help='Sugerencia en texto del jefe de técnicos - viaja por sincronización igual que '
+             '`vendor_name` de cada línea, nunca se trata como relación (Community/Enterprise '
+             'son bases distintas). El proveedor real de la Orden de Compra sigue siendo '
+             '`proveedor_materiales_id`, elegido a mano en Enterprise - esto solo le ahorra al '
+             'contable tener que preguntarle al jefe qué proveedor tenía en mente.')
     proveedor_materiales_id = fields.Many2one(
         'res.partner', string='Proveedor de Materiales',
         help='El proveedor real que surte los materiales de esta Orden - independiente de '
@@ -771,6 +778,7 @@ class AccountPaymentOrder(models.Model):
             'periodo_al': self.periodo_al and self.periodo_al.isoformat() or False,
             'observaciones': self.observaciones or '',
             'anticipo_previo': self.anticipo_previo,
+            'proveedor_materiales_name': self.proveedor_materiales_name or '',
             # 'enviado', no 'aprobado': la aprobación ocurre en la instalación Procesadora
             # (Enterprise), donde están los usuarios Nivel Medio/Alto reales - ver
             # action_submit()/action_approve() más arriba.

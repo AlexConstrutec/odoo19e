@@ -12,7 +12,10 @@ class AccountPaymentOrderMaterialLine(models.Model):
                                      'texto libre, no una relación. El jefe solo pide materiales, '
                                      'sin decidir si ya hay existencia propia o hay que comprarlo '
                                      '- esa determinación es de Enterprise/procurement, ver '
-                                     '`product_id`.')
+                                     '`product_id`. Columna oculta por defecto en la vista '
+                                     '(`optional="hide"`) - se sigue llenando solo, desde '
+                                     '`catalogo_id` o desde `description`, ver los onchange/'
+                                     '`create()` de este modelo.')
     description = fields.Char(string='Descripción')
     uom_name = fields.Char(string='Unidad de Medida')
     qty = fields.Float(string='Cantidad', default=1)
@@ -51,6 +54,26 @@ class AccountPaymentOrderMaterialLine(models.Model):
     def _compute_subtotal(self):
         for line in self:
             line.subtotal = line.qty * line.estimated_price
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        """`product_name` sigue siendo required=True (lo necesitan la sincronización y la
+        generación de la Orden de Compra) pero la columna está oculta por defecto en la vista
+        (`optional="hide"`) - si nadie la vuelve a mostrar ni elige un `catalogo_id`, se rellena
+        aquí desde `description` (el texto que en la práctica ya es el principal - ver
+        `action_generar_orden_compra()`, que ya prefiere `description` sobre `product_name` al
+        armar la línea de compra) para que una línea nunca falle al guardar por un campo que el
+        jefe de técnicos ni siquiera está viendo."""
+        for vals in vals_list:
+            if not vals.get('product_name') and vals.get('description'):
+                vals['product_name'] = vals['description']
+        return super().create(vals_list)
+
+    @api.onchange('description')
+    def _onchange_description_fill_product_name(self):
+        for line in self:
+            if not line.product_name and line.description:
+                line.product_name = line.description
 
     @api.onchange('catalogo_id')
     def _onchange_catalogo_id(self):

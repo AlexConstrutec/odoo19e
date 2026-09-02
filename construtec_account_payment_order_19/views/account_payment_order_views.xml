@@ -67,6 +67,9 @@
                             <field name="payment_method_line_id" invisible="not es_procesador"
                                    readonly="state not in ('borrador', 'aprobado')"/>
                             <field name="pagar_a" invisible="tipo != 'anticipo_materiales' or not es_procesador"/>
+                            <field name="proveedor_materiales_name" string="Proveedor Sugerido"
+                                   invisible="tipo != 'anticipo_materiales'"
+                                   readonly="es_procesador"/>
                             <field name="proveedor_materiales_id"
                                    invisible="tipo != 'anticipo_materiales' or not es_procesador"/>
                             <field name="partner_id"
@@ -120,7 +123,8 @@
                                     <field name="catalogo_id" optional="show" string="Producto SAT"
                                            context="{'vendor_hint': vendor_name}"
                                            readonly="parent.state != 'borrador'"/>
-                                    <field name="product_name" required="1" readonly="parent.state != 'borrador'"/>
+                                    <field name="product_name" required="1" optional="hide"
+                                           readonly="parent.state != 'borrador'"/>
                                     <field name="description" optional="show" readonly="parent.state != 'borrador'"/>
                                     <field name="uom_name" optional="show" readonly="parent.state != 'borrador'"/>
                                     <field name="qty" readonly="parent.state != 'borrador'"/>
@@ -128,6 +132,7 @@
                                     <field name="subtotal" sum="Total"/>
                                     <field name="vendor_name" optional="show" readonly="parent.state != 'borrador'"/>
                                     <field name="product_id" optional="show"
+                                           invisible="not parent.es_procesador"
                                            help="Se resuelve aquí en Enterprise, una vez Aplicada la Orden - antes de Generar Orden de Compra. Dejar vacío si el material ya está en bodega propia (no se compra)."/>
                                 </list>
                             </field>
