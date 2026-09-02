@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <record id="ir_cron_sat_product_catalog_retry_sync" model="ir.cron">
-        <field name="name">Catálogo de Productos SAT: reintentar sincronización con Community</field>
+        <field name="name">Catálogo de Productos SAT: reintentar copia local en el Catálogo de Materiales</field>
         <field name="model_id" ref="model_construtec_sat_product_catalog"/>
         <field name="state">code</field>
         <field name="code">model._cron_retry_pending_sync()</field>

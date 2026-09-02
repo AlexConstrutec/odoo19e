@@ -6,10 +6,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Originally built as Community-only (the receiving side of the catalog Enterprise builds from imported SAT invoices). Since the "Anticipo Materiales" catalog integration (`construtec_account_payment_order_19`, sección "Catálogo SAT en la Solicitud de Materiales"), this exact module/model also lives in Enterprise (this copy), and in Community (`Odoo19C\server\odoo19c\construtec_sat_catalog_sync_19`, same folder copied verbatim, kept in sync manually) — **same `_name`, same fields, same file layout on both sides**, per explicit user request ("que sea el mismo nombre de modelo... reflejarse en ambos Odoo"). Whatever consumes this catalog (`construtec_account_payment_order_19`'s Materiales tab, or anything else) depends on this module directly, on either edition.
 
-- **En Community**: sigue siendo receptor puro - `construtec.materials.catalog.mirror` se llena SOLO por `sync_from_enterprise()` llamado vía XML-RPC desde Enterprise (`construtec_account_19`). Nada local lo alimenta aquí.
-- **En Enterprise (este árbol)**: `sync_from_enterprise()` se llama **localmente, sin red** (misma base de datos), desde `construtec_account_19.sat_product_catalog.py::_sat_sync_to_community()` - ver el CLAUDE.md de ese módulo, sección "Catálogo de Productos de Proveedor". Enterprise nunca depende de Community para tener su propia copia consultable.
+- **En Community**: sigue siendo receptor puro - `construtec.materials.catalog.mirror` se llena vía `sync_from_enterprise()`, ahora llamado **localmente en Community** (no por RPC entrante) desde su propio pull (`res_company.py::_sync_materials_catalog_from_enterprise()`, ver más abajo).
+- **En Enterprise (este árbol)**: `sync_from_enterprise()` se llama **localmente, sin red** (misma base de datos), desde `construtec_account_19.sat_product_catalog.py::_sat_sync_local_mirror()` - ver el CLAUDE.md de ese módulo, sección "Catálogo de Productos de Proveedor". Enterprise nunca depende de Community para tener su propia copia consultable.
 
 Standalone module (`depends: ['base']` only en ambos lados) - deliberadamente **no** depende de `construtec_account_19` ni de `construtec_account_payment_order_19`, para que ninguno de los dos tenga que estar instalado para que este exista - son ellos los que dependen de este módulo, nunca al revés (evita dependencia circular).
+
+## Sincronización Community↔Enterprise: PULL, no push (cambio de diseño, 2026-09-01)
+
+**Reemplaza el diseño original de esta sección** (Enterprise empujando por XML-RPC hacia Community en cada cambio del catálogo). Pedido explícito del usuario, comparando contra el patrón ya usado en `construtec_account_payment_order_19` para empleados/cuentas analíticas: *"¿no sería mejor que Community jale la información de Enterprise? Así lo hace con contactos."* Correcto y más consistente - empleados, cuentas analíticas y el estado de las Órdenes de Pago ya se jalan desde Community; el catálogo era la única pieza que empujaba en sentido contrario.
+
+- **`tools/enterprise_sync_api.py`** (nuevo, en ambas copias) - copia deliberada del mismo patrón JSON-RPC ya usado en `construtec_account_payment_order_19/tools/enterprise_sync_api.py` (no una dependencia compartida - mismo criterio de "cada integración con sus propias credenciales", ver el CLAUDE.md de ese módulo). `fetch_materials_catalog()` hace `search_read` directo sobre la copia LOCAL de Enterprise de este mismo modelo (`construtec.materials.catalog.mirror`) - no sobre `construtec.sat.product.catalog` (el modelo de origen real, con campos relacionales) - porque Enterprise YA mantiene su propio espejo plano (mismo `_name`, mismos campos texto) vía `_sat_sync_local_mirror()`; leerlo directamente evita cualquier conversión de campos relacionales (`partner_id`→texto, etc.) del lado Community, que ya viene resuelta.
+- **`res.company` (nuevo `models/res_company.py`, este módulo)**: 4 campos de conexión (`materials_catalog_sync_url`/`_db`/`_login`/`_api_key`) + `materials_catalog_sync_enabled` + intervalo configurable, **independientes** de los campos homónimos de `construtec_account_payment_order_19` (`payment_order_sync_*`) - aunque en la práctica apunten al mismo servidor Enterprise, son credenciales/configuración separadas a propósito: este módulo es deliberadamente standalone (`depends: ['base']`) y no puede depender de ese otro módulo sin crear una dependencia circular (ese módulo YA depende de este). Quien configure esto tendrá que capturar la misma URL/usuario/API Key una segunda vez, en una sección de Ajustes distinta - trade-off aceptado a cambio de no acoplar los dos módulos.
+- **No hay una pantalla de Ajustes/Configuración dedicada** (como sí tiene `construtec_account_payment_order_19`, que cuelga de Ajustes > Facturación porque depende de `account`) - los 4 campos de conexión + intervalo + botón "Sincronizar Ahora" viven directo en la ficha de la Compañía (`base.view_company_form`, pestaña nueva "Catálogo de Materiales (Sync)") vía `views/res_company_views.xml` - el único lugar disponible sin agregar una dependencia nueva solo para tener una pantalla de Ajustes.
+- **`_sync_materials_catalog_from_enterprise()`**: pull + upsert reutilizando el `sync_from_enterprise()` YA existente en este mismo modelo - antes ese método solo se llamaba desde una llamada RPC ENTRANTE (Enterprise empujando); ahora se llama LOCALMENTE en Community, con lo que se acaba de traer del `search_read`. Upsert por `origin_id` (el id de la entrada en `construtec.sat.product.catalog`, Enterprise) - mismo contrato de siempre, `sync_from_enterprise()` no cambió. Deliberadamente **no se reenvía `company_id`** de Enterprise (un id de compañía de otra base no significa nada aquí) - `sync_from_enterprise()` ya cae en `self.env.company.id` cuando falta, verificado que resuelve a la compañía activa de Community, no a ningún id cruzado.
+- **Cron nuevo** (`data/ir_cron_materials_catalog_sync.xml`, cada 1 hora por defecto, mismo patrón/limitación de "un cron global, no por compañía" que el resto de los cron de sincronización de este proyecto) + botón manual "Sincronizar Ahora" en la ficha de Compañía.
+- **`construtec_account_19` (Enterprise) simplificado**: `_sat_sync_to_community()` se renombró a `_sat_sync_local_mirror()` y perdió por completo el bloque XML-RPC saliente (los 4 Parámetros del Sistema `construtec_account_19.community_*`, las clases `_TimeoutTransport`/`_TimeoutSafeTransport`, el `xmlrpc.client.ServerProxy`) - ahora solo hace el upsert local (siempre lo hizo, sin cambios ahí). `sync_state`/`sync_error`/`sync_date` en `construtec.sat.product.catalog` (Enterprise) ahora reflejan solo esa copia local - ver el CLAUDE.md de ese módulo.
+- **Verificado con `odoo-bin shell` en `construtec_test`** (2026-09-01): `-u` limpio de los 3 módulos (tras limpiar una vista huérfana preexistente, no relacionada con este cambio); sincronización deshabilitada por defecto (no-op limpio); habilitada sin credenciales falla limpio (`EnterpriseSyncError` capturado); la copia local de Enterprise (`_sat_sync_local_mirror()`) sigue funcionando igual que siempre; un pull simulado (mock de `fetch_materials_catalog()`) con una entrada Bien y una Servicio crea ambos espejos correctamente en Community, con `company_id` resolviendo a la compañía activa de Community (no a ningún id de Enterprise), y una segunda corrida con los mismos datos actualiza en vez de duplicar (upsert real, no create ciego).
 
 ## Qué llega aquí - se sincroniza TODO, el filtro vive en cada consumidor
 
@@ -36,14 +48,12 @@ The model here is named `construtec.materials.catalog.mirror` (Python file is st
 
 ## The contract (as documented in `construtec_account_19`'s CLAUDE.md)
 
-Enterprise calls this in two ways now, same `vals` shape either way (see `_sat_prepare_materials_catalog_vals()` in `construtec_account_19`, the single place that builds it):
+`sync_from_enterprise()` se llama **localmente en ambos lados** (nunca por RPC entrante desde ahora - ver "Sincronización Community↔Enterprise: PULL, no push" arriba):
 
-- **Local (Enterprise), no red**: `self.env['construtec.materials.catalog.mirror'].sudo().sync_from_enterprise(vals)` - llamada ORM directa, misma base de datos.
-- **Remoto (Community)**, XML-RPC estándar de Odoo:
-```python
-models_proxy.execute_kw(db, uid, api_key, 'construtec.materials.catalog.mirror', 'sync_from_enterprise', [vals])
-```
-`vals`:
+- **Enterprise**: `self.env['construtec.materials.catalog.mirror'].sudo().sync_from_enterprise(vals)` - llamada ORM directa, misma base de datos, con `vals` armado por `_sat_prepare_materials_catalog_vals()` (`construtec_account_19`).
+- **Community**: también una llamada ORM directa, local - pero el `vals` para cada entrada viene de un `search_read` remoto propio (`tools/enterprise_sync_api.fetch_materials_catalog()`) sobre la copia local de Enterprise de este mismo modelo, no de una llamada que Enterprise inicia.
+
+`vals` (mismo shape en ambos lados):
 ```python
 {
     'origin_id': <int, the record's own id in Enterprise - the upsert key>,
@@ -65,13 +75,15 @@ models_proxy.execute_kw(db, uid, api_key, 'construtec.materials.catalog.mirror',
 
 ## Security
 
-`group_sat_catalog_sync_integration` gets **read+write+create** (not unlink) on this one model only — read is required here (unlike the materials-requisition mirror's create-only pattern) because `sync_from_enterprise()` must search for an existing `origin_id` before deciding to create vs. update. `base.group_user` gets read-only (so any user can see what's in the catalog, on either edition). Only `base.group_system` can delete, for manual cleanup. This group only matters for the RPC path (Community) - the Enterprise-local caller uses `sudo()` instead, see above.
+`group_sat_catalog_sync_integration` gets **read+write+create** (not unlink) on this one model only — read is required here (unlike the materials-requisition mirror's create-only pattern) because `sync_from_enterprise()` must search for an existing `origin_id` before deciding to create vs. update. `base.group_user` gets read-only (so any user can see what's in the catalog, on either edition). Only `base.group_system` can delete, for manual cleanup.
 
-## Setting this up (once code is deployed on both sides)
+**Nota tras el cambio a pull (2026-09-01)**: este grupo quedó sin uso real en la práctica - ambos lados ahora llaman `sync_from_enterprise()` localmente con `sudo()` (Enterprise desde `_sat_sync_local_mirror()`, Community desde `res_company.py::_sync_materials_catalog_from_enterprise()`), nunca vía una llamada RPC entrante que dependa de este grupo. Se deja el grupo/permiso tal cual (no se eliminó) - sigue siendo el camino correcto si en el futuro alguien más necesita escribir en este modelo vía RPC con un usuario de permisos acotados.
 
-1. In Community: create a dedicated user (e.g. "Integración Catálogo SAT"), add it to **only** `group_sat_catalog_sync_integration`, generate an API Key for it (Ajustes > Mi Perfil > Seguridad de la cuenta > Nueva clave API).
-2. In Enterprise: Ajustes > Técnico > Parámetros del Sistema, set the 4 keys `construtec_account_19.community_url` / `.community_db` / `.community_login` / `.community_api_key` to point at Community and that integration user. **Not set on any environment as of this writing** — until they are, every remote sync attempt fails cleanly (`sync_state='error'`, descriptive `sync_error`, never blocks the SAT document import itself or the local copy).
-3. Trigger a sync from Enterprise (edit any `construtec.sat.product.catalog` entry, or run `action_retry_pending_sync_notify` from its menu) and confirm a matching row appears in Community's own "Catálogo de Materiales" menu.
+## Setting this up (once code is deployed on both sides) — PULL, no push (ver sección de arriba)
+
+1. En Enterprise: generar una API Key para cualquier usuario autenticado (Ajustes > Mi Perfil > Seguridad de la cuenta > Nueva clave API) - `base.group_user` ya tiene lectura sobre `construtec.materials.catalog.mirror` (security/ir.model.access.csv, este módulo), no hace falta ningún grupo/usuario de integración dedicado del lado Enterprise para esto.
+2. En Community: Ajustes > Compañías > [tu compañía] > pestaña **"Catálogo de Materiales (Sync)"** - marcar "Sincronización... Habilitada" y capturar la URL/base de datos/usuario/API Key de Enterprise (paso 1). **No configurado en ningún ambiente real todavía** - hasta que se configure, cada intento falla limpio (`EnterpriseSyncError` capturado, notificación de error, nunca bloquea nada más).
+3. Disparar la sincronización con el botón **"Sincronizar Ahora"** en esa misma pestaña, o esperar el cron horario (`ir_cron_materials_catalog_sync`) - confirmar que aparecen entradas en el propio menú "Catálogo de Materiales" de Community.
 
 ## Status as of this writing (2026-09-01)
 
