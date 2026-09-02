@@ -269,6 +269,13 @@ class AccountPaymentOrder(models.Model):
              'son bases distintas). El proveedor real de la Orden de Compra sigue siendo '
              '`proveedor_materiales_id`, elegido a mano en Enterprise - esto solo le ahorra al '
              'contable tener que preguntarle al jefe qué proveedor tenía en mente.')
+    proveedor_materiales_catalogo_id = fields.Many2one(
+        'construtec.materials.vendor.mirror', string='Proveedor (Catálogo)', readonly=True,
+        help='Vínculo informativo hacia el Catálogo de Proveedores (construtec_sat_catalog_sync_19) '
+             '- se llena solo cuando "Cargar Cotización" resuelve o crea un proveedor conocido. '
+             'No reemplaza `proveedor_materiales_name` (que sigue siendo lo que viaja hacia '
+             'Enterprise por sincronización) - es puramente una referencia local hacia el '
+             'catálogo, para saber de dónde salió la sugerencia.')
     proveedor_materiales_id = fields.Many2one(
         'res.partner', string='Proveedor de Materiales',
         help='El proveedor real que surte los materiales de esta Orden - independiente de '

@@ -70,6 +70,8 @@
                             <field name="proveedor_materiales_name" string="Proveedor Sugerido"
                                    invisible="tipo != 'anticipo_materiales'"
                                    readonly="es_procesador"/>
+                            <field name="proveedor_materiales_catalogo_id"
+                                   invisible="tipo != 'anticipo_materiales' or not proveedor_materiales_catalogo_id"/>
                             <field name="proveedor_materiales_id"
                                    invisible="tipo != 'anticipo_materiales' or not es_procesador"/>
                             <field name="partner_id"

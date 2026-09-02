@@ -18,6 +18,8 @@ _logger = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT = 10
 SYNC_MODEL = 'construtec.materials.catalog.mirror'
+DOCUMENT_MODEL = 'construtec.sat.document'
+PARTNER_MODEL = 'res.partner'
 
 
 class EnterpriseSyncError(Exception):
@@ -100,3 +102,39 @@ def fetch_materials_catalog(url, db, login, api_key):
          {'fields': ['origin_id', 'name', 'codigo', 'partner_name', 'partner_vat', 'uom_name',
                      'currency_name', 'precio_referencia', 'primera_fecha_compra',
                      'ultima_fecha_compra', 'bien_o_servicio']}])
+
+
+def fetch_vendor_catalog(url, db, login, api_key):
+    """Read-only pull de los proveedores conocidos en Enterprise - derivados de TODOS los
+    Documentos SAT recibidos (`construtec.sat.document`, `direction='recibida'`), no solo los
+    que ya tienen materiales catalogados (lista deliberadamente más amplia, ver CLAUDE.md).
+
+    No existe ningún modelo/copia local en Enterprise para esto (a diferencia del Catálogo de
+    Materiales) - `construtec.sat.document.partner_id` ya es la fuente real, resuelta. Dos
+    llamadas, mismo patrón que `fetch_employees()` en `construtec_account_payment_order_19`
+    para la cuenta bancaria: (1) `search_read` sobre los documentos para obtener los
+    `partner_id` distintos, (2) `read` sobre esos `res.partner` para `name`/`vat`.
+
+    **Requiere que el usuario de integración tenga acceso a `construtec.sat.document`**
+    (`account.group_account_invoice` en Enterprise, no `base.group_user`) - a diferencia de
+    `fetch_materials_catalog()`, que solo necesita leer un mirror abierto a cualquier usuario.
+    Reutiliza las mismas credenciales `materials_catalog_sync_*` (ver res_company.py) - si esas
+    credenciales apuntan a un usuario sin ese grupo en Enterprise, esta llamada fallará con un
+    error de permisos aunque `fetch_materials_catalog()` siga funcionando con las mismas
+    credenciales."""
+    if not (url and db and login and api_key):
+        raise EnterpriseSyncError(
+            'Sincronización de Proveedores incompleta (falta URL, base de datos, usuario o '
+            'API Key).')
+    uid = authenticate(url, db, login, api_key)
+    documentos = _jsonrpc(
+        url, 'object', 'execute_kw',
+        [db, uid, api_key, DOCUMENT_MODEL, 'search_read',
+         [[('direction', '=', 'recibida')]], {'fields': ['partner_id']}])
+    partner_ids = sorted({d['partner_id'][0] for d in documentos if d.get('partner_id')})
+    if not partner_ids:
+        return []
+    partners = _jsonrpc(
+        url, 'object', 'execute_kw',
+        [db, uid, api_key, PARTNER_MODEL, 'read', [partner_ids], {'fields': ['name', 'vat']}])
+    return [{'origin_id': p['id'], 'name': p['name'], 'nit': p.get('vat') or False} for p in partners]

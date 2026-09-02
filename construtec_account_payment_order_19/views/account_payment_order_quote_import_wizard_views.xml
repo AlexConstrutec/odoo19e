@@ -18,10 +18,14 @@
                 </group>
                 <group invisible="state != 'review'">
                     <field name="proveedor_extraido"/>
+                    <field name="proveedor_catalogo_id"/>
                     <field name="fecha_extraida"/>
                     <p class="text-muted">
                         Revisa cada línea antes de aplicar - desmarca "Incluir" en lo que no
                         aplique, corrige lo que haga falta. La IA puede cometer errores.
+                        Proveedor y Producto SAT ya se resolvieron contra el catálogo conocido -
+                        lo nuevo queda marcado "Pendiente de Verificar" ahí (Ajustes >
+                        Facturación > menú Catálogo de Materiales / Proveedores de Materiales).
                     </p>
                     <field name="line_ids" nolabel="1">
                         <list editable="bottom">
@@ -31,6 +35,7 @@
                             <field name="uom_name"/>
                             <field name="estimated_price"/>
                             <field name="subtotal" sum="Total"/>
+                            <field name="catalogo_id" optional="show"/>
                         </list>
                     </field>
                 </group>

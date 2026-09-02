@@ -4,12 +4,13 @@
         <field name="name">construtec.materials.catalog.mirror.list</field>
         <field name="model">construtec.materials.catalog.mirror</field>
         <field name="arch" type="xml">
-            <list create="0" edit="0" delete="0">
+            <list create="0" edit="0" delete="0" decoration-warning="pendiente_verificar">
                 <field name="name"/>
                 <field name="codigo"/>
                 <field name="partner_name"/>
                 <field name="precio_referencia"/>
                 <field name="ultima_fecha_compra"/>
+                <field name="pendiente_verificar"/>
                 <field name="received_date"/>
             </list>
         </field>
@@ -23,6 +24,8 @@
                 <field name="name"/>
                 <field name="codigo"/>
                 <field name="partner_name"/>
+                <filter string="Pendientes de Verificar" name="pendientes_verificar"
+                        domain="[('pendiente_verificar', '=', True)]"/>
             </search>
         </field>
     </record>

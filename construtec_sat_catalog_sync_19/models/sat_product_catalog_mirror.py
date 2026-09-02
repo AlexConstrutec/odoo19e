@@ -21,11 +21,20 @@ class ConstructecMaterialsCatalogMirror(models.Model):
     _order = 'ultima_fecha_compra desc'
 
     origin_id = fields.Integer(
-        string='ID en Enterprise', required=True, index=True,
+        string='ID en Enterprise', index=True,
         help='El id real de la entrada de origen en construtec.sat.product.catalog (Enterprise) - '
              'clave de actualización (upsert) usada por sync_from_enterprise(), sea que se llame '
              'localmente (Enterprise, misma base) o vía XML-RPC (Community). NUNCA un id local de '
-             'este registro en Community - no confundir con el id propio de este registro.')
+             'este registro en Community - no confundir con el id propio de este registro. Vacío '
+             '(no `required`) en entradas creadas localmente desde una cotización con IA - ver '
+             '`pendiente_verificar` - nunca tuvieron un Documento SAT real de origen.')
+    pendiente_verificar = fields.Boolean(
+        string='Pendiente de Verificar', default=False,
+        help='Marcado en entradas creadas automáticamente desde una cotización cargada con IA '
+             '(construtec_account_payment_order_19, "Cargar Cotización") que NO calzaron con '
+             'ningún material ya conocido - no vienen de ningún Documento SAT real todavía. '
+             'Revisar/fusionar a mano si corresponde con un producto que sí está en el catálogo '
+             'real, o dejar así si de verdad es un material nuevo.')
     name = fields.Char(string='Producto', required=True)
     codigo = fields.Char(string='Código de Producto')
     partner_name = fields.Char(

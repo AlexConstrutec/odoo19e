@@ -2,7 +2,7 @@ import logging
 
 from odoo import api, fields, models
 
-from ..tools.enterprise_sync_api import EnterpriseSyncError, fetch_materials_catalog
+from ..tools.enterprise_sync_api import EnterpriseSyncError, fetch_materials_catalog, fetch_vendor_catalog
 
 _logger = logging.getLogger(__name__)
 
@@ -74,9 +74,50 @@ class ResCompany(models.Model):
         message = self.env._('%(count)s entradas procesadas.', count=len(entries))
         return True, message
 
+    def _sync_vendor_catalog_from_enterprise(self):
+        """Pull de los proveedores conocidos (derivados de TODOS los Documentos SAT recibidos
+        en Enterprise) - se cuelga del MISMO toggle/intervalo/cron/botón que ya existe para el
+        Catálogo de Materiales (`materials_catalog_sync_enabled`), no de uno nuevo: es el mismo
+        concern ("mantener fresca mi copia de referencia SAT"), no vale la pena un segundo
+        bloque de Ajustes para esto. Upsert directo por `origin_id` (el id del `res.partner` en
+        Enterprise) - a diferencia del Catálogo de Materiales, no hay ningún `sync_from_enterprise()`
+        que reutilizar aquí (este modelo nunca recibe una llamada RPC entrante, solo pull), así
+        que el upsert se hace directo con search+write/create."""
+        self.ensure_one()
+        if not self.materials_catalog_sync_enabled:
+            return True, self.env._('Sincronización de Proveedores no habilitada.')
+        try:
+            proveedores = fetch_vendor_catalog(
+                self.materials_catalog_sync_url, self.materials_catalog_sync_db,
+                self.materials_catalog_sync_login, self.materials_catalog_sync_api_key)
+        except EnterpriseSyncError as exc:
+            _logger.warning('Sincronización de Proveedores falló para %s: %s', self.name, exc)
+            return False, str(exc)
+
+        Vendor = self.env['construtec.materials.vendor.mirror'].sudo()
+        for proveedor in proveedores:
+            existente = Vendor.search([('origin_id', '=', proveedor['origin_id'])], limit=1)
+            vals = {
+                'origin_id': proveedor['origin_id'],
+                'name': proveedor['name'],
+                'nit': proveedor['nit'],
+                'received_date': fields.Datetime.now(),
+            }
+            if existente:
+                existente.write(vals)
+            else:
+                Vendor.create(vals)
+        message = self.env._('%(count)s proveedores procesados.', count=len(proveedores))
+        return True, message
+
     def action_sync_materials_catalog_now(self):
         self.ensure_one()
-        ok, message = self._sync_materials_catalog_from_enterprise()
+        ok_materiales, message_materiales = self._sync_materials_catalog_from_enterprise()
+        ok_proveedores, message_proveedores = self._sync_vendor_catalog_from_enterprise()
+        ok = ok_materiales and ok_proveedores
+        message = self.env._(
+            'Catálogo de Materiales: %(message_materiales)s\nProveedores: %(message_proveedores)s',
+            message_materiales=message_materiales, message_proveedores=message_proveedores)
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
@@ -92,6 +133,7 @@ class ResCompany(models.Model):
     def _cron_sync_materials_catalog_from_enterprise(self):
         for company in self.search([('materials_catalog_sync_enabled', '=', True)]):
             company._sync_materials_catalog_from_enterprise()
+            company._sync_vendor_catalog_from_enterprise()
 
     @api.model_create_multi
     def create(self, vals_list):
