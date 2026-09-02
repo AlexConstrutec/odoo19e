@@ -472,15 +472,27 @@ class AccountPaymentOrder(models.Model):
 
     def _sync_proveedor_materiales_name(self):
         """`proveedor_materiales_name` (el texto que viaja a Enterprise vía
-        `_prepare_sync_vals()`) ya no se captura a mano - se deriva del proveedor elegido en
+        `_prepare_sync_vals()`) se deriva del proveedor elegido en Community en
         `proveedor_materiales_catalogo_id` (Many2one al Catálogo de Proveedores,
         construtec_sat_catalog_sync_19), un id local de Community sin significado en Enterprise.
         Se llama desde el onchange (formulario web) y desde create()/write() (altas/ediciones por
-        API o script, donde el onchange no corre)."""
+        API o script, donde el onchange no corre).
+
+        Solo ESCRIBE cuando `proveedor_materiales_catalogo_id` sí tiene un valor - nunca lo
+        limpia a vacío cuando no lo tiene. Bug real corregido (2026-09-02): la versión anterior
+        también limpiaba `proveedor_materiales_name` a `''` cuando `proveedor_materiales_catalogo_id`
+        estaba vacío, sin importar el motivo - y en Enterprise, `proveedor_materiales_catalogo_id`
+        SIEMPRE está vacío (ese campo nunca viaja por sincronización, es puramente local a
+        Community), así que esta misma llamada, disparada por CUALQUIER create()/write() del
+        registro sincronizado en Enterprise, borraba en el acto el texto real que acababa de
+        llegar por `_prepare_sync_vals()`. `proveedor_materiales_name` queda con lo que ya tenía
+        cuando no hay catálogo elegido - correcto tanto en Enterprise (conserva lo sincronizado)
+        como en Community (si el jefe de técnicos limpia el desplegable, el texto anterior queda
+        obsoleto pero no se pierde nada real)."""
         for rec in self:
-            name = rec.proveedor_materiales_catalogo_id.name or ''
-            if rec.proveedor_materiales_name != name:
-                rec.proveedor_materiales_name = name
+            if rec.proveedor_materiales_catalogo_id \
+                    and rec.proveedor_materiales_name != rec.proveedor_materiales_catalogo_id.name:
+                rec.proveedor_materiales_name = rec.proveedor_materiales_catalogo_id.name
 
     @api.onchange('pagar_a')
     def _onchange_pagar_a(self):

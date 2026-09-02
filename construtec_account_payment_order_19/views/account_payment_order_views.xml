@@ -160,8 +160,9 @@
                             <button name="action_retry_sync" string="Reintentar Sincronización" type="object"
                                     invisible="sync_state != 'error'"/>
                         </page>
-                        <page string="Información" invisible="tipo != 'anticipo_viaticos'">
-                            <group>
+                        <page string="Información"
+                              invisible="tipo not in ('anticipo_viaticos', 'anticipo_materiales')">
+                            <group invisible="tipo != 'anticipo_viaticos'">
                                 <group>
                                     <field name="departamento"/>
                                     <field name="puesto"/>

@@ -248,10 +248,16 @@ class AccountPaymentOrderQuoteImportWizard(models.TransientModel):
                 'vendor_name': self.proveedor_extraido or False,
                 'catalogo_id': line.catalogo_id.id if line.catalogo_id else False,
             })
-        # `proveedor_materiales_name` (el texto que viaja a Enterprise) se deriva solo - ver
-        # `account.payment.order._sync_proveedor_materiales_name()`, disparada por este mismo
-        # write() al traer `proveedor_materiales_catalogo_id` en vals.
-        self.order_id.proveedor_materiales_catalogo_id = self.proveedor_catalogo_id.id
+        # Se escriben los dos juntos, explícito - `_sync_proveedor_materiales_name()` (llamada
+        # igual por este mismo write()) ya NO limpia `proveedor_materiales_name` cuando
+        # `proveedor_materiales_catalogo_id` viene vacío (protege el texto sincronizado en
+        # Enterprise, donde ese Many2one siempre está vacío) - así que el "reemplazo total" de
+        # esta acción (sin proveedor detectado en la nueva cotización -> limpiar el anterior)
+        # se hace aquí mismo, a propósito, en el único lugar donde de verdad se quiere limpiar.
+        self.order_id.write({
+            'proveedor_materiales_catalogo_id': self.proveedor_catalogo_id.id,
+            'proveedor_materiales_name': self.proveedor_catalogo_id.name or '',
+        })
 
         if lineas_previas:
             self.order_id.message_post(body=self.env._(
