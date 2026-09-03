@@ -2,9 +2,70 @@ from odoo import api, fields, models
 
 from .account_payment_order import _resolve_employee_for_partner
 
+CATEGORIA_EMPLEADOS = 'Empleados'
+CATEGORIA_PROVEEDORES = 'Proveedores'
+CATEGORIA_CLIENTES = 'Clientes'
+
+
+def _construtec_tag_names_for(customer_rank, supplier_rank, is_employee):
+    """Nombres de `res.partner.category` que le tocan a un contacto, derivados 100% de
+    campos nativos de Odoo - nunca etiquetado manual (decisión explícita del usuario,
+    2026-09-03). Un contacto puede calificar para más de uno a la vez (ej. un empleado que
+    también es proveedor). Reutilizada tanto por `ResPartner._apply_construtec_tags()`
+    (Enterprise, sobre sus propios contactos) como por `res.company._sync_partners_from_
+    enterprise()` (Community, sobre los valores YA recibidos en el payload del pull - nunca
+    se recalculan localmente ahí, `customer_rank`/`supplier_rank` locales de Community no
+    significan nada real)."""
+    names = []
+    if is_employee:
+        names.append(CATEGORIA_EMPLEADOS)
+    if customer_rank and customer_rank > 0:
+        names.append(CATEGORIA_CLIENTES)
+    if supplier_rank and supplier_rank > 0:
+        names.append(CATEGORIA_PROVEEDORES)
+    return names
+
 
 class ResPartner(models.Model):
     _inherit = 'res.partner'
+
+    enterprise_partner_ref = fields.Integer(
+        string='ID en Enterprise', index=True,
+        help='El id real de este contacto en Enterprise - clave de upsert usada por '
+             '_sync_partners_from_enterprise() (res.company). NUNCA un id local de este '
+             'registro en Community - no confundir con el id propio de este registro. Vacío '
+             'en cualquier contacto que no llegó por esa sincronización (la inmensa mayoría '
+             'en Enterprise, donde este campo nunca se usa).')
+
+    def _apply_construtec_tags(self):
+        """Autoetiquetado local (Empleados/Proveedores/Clientes) desde campos nativos -
+        idempotente y ADITIVO ÚNICAMENTE: nunca quita una etiqueta ya puesta, ni siquiera si
+        el contacto deja de calificar después (ej. customer_rank vuelve a 0) - simplificación
+        aceptada explícitamente, ver el plan de esta feature. Corre en ambas ediciones sin
+        distinción de rol (mismo criterio ya documentado en este módulo para Solicitante/
+        Procesador) - en Community, los contactos locales normalmente tienen customer_rank=0,
+        así que esto es esencialmente no-op salvo para contactos creados a mano ahí."""
+        Category = self.env['res.partner.category'].sudo()
+        for partner in self:
+            names = _construtec_tag_names_for(
+                partner.customer_rank, partner.supplier_rank, partner.employee)
+            if not names:
+                continue
+            existing_names = set(partner.category_id.mapped('name'))
+            missing = [name for name in names if name not in existing_names]
+            if not missing:
+                continue
+            categories = Category.browse()
+            for name in missing:
+                category = Category.search([('name', '=', name)], limit=1)
+                if not category:
+                    category = Category.create({'name': name})
+                categories |= category
+            partner.write({'category_id': [(4, cat.id) for cat in categories]})
+
+    @api.model
+    def _cron_apply_construtec_tags(self):
+        self.sudo().search([])._apply_construtec_tags()
 
     # No se crea un campo nuevo para el puesto - `function` ("Job Position") ya existe de serie
     # en res.partner (base) y está disponible tanto en Community como en Enterprise. Se

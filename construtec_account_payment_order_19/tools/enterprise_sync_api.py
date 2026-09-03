@@ -178,6 +178,27 @@ def fetch_order_status(url, db, login, api_key, external_refs):
          {'fields': ['external_ref', 'state', 'reject_reason', 'approve_date', 'reject_date']}])
 
 
+def fetch_partners(url, db, login, api_key):
+    """Read-only pull de los contactos que ya son Clientes o Proveedores reales en Enterprise
+    (`customer_rank > 0` o `supplier_rank > 0`, campos nativos de `account`) - deliberadamente
+    NO todos los `res.partner` (decisión explícita del usuario, ver el plan de esta feature).
+    Deliberadamente NO se pide `category_id` aquí - las etiquetas Empleados/Proveedores/
+    Clientes las deriva Community por su cuenta desde `customer_rank`/`supplier_rank`
+    (`_construtec_tag_names_for()`), nunca copiando las etiquetas reales de Enterprise (que
+    podrían incluir "Empleados" u otras ajenas a este mecanismo)."""
+    if not (url and db and login and api_key):
+        raise EnterpriseSyncError(
+            'Sincronización de Contactos incompleta (falta URL, base de datos, usuario o '
+            'API Key).')
+    uid = authenticate(url, db, login, api_key)
+    return _jsonrpc(
+        url, 'object', 'execute_kw',
+        [db, uid, api_key, 'res.partner', 'search_read',
+         [['|', ('customer_rank', '>', 0), ('supplier_rank', '>', 0)]],
+         {'fields': ['name', 'email', 'phone', 'vat', 'street', 'city',
+                     'is_company', 'customer_rank', 'supplier_rank']}])
+
+
 def fetch_companies(url, db, login, api_key):
     """Read-only pull of the Enterprise company list - usado para el desplegable "Compañía por
     defecto" (`res.company.payment_order_default_company_id`), el respaldo cuando el empleado

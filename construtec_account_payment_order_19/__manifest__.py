@@ -22,6 +22,7 @@
         'data/payment_order_sync_cron.xml',
         'data/payment_order_status_sync_cron.xml',
         'data/employee_sync_cron.xml',
+        'data/partner_auto_tag_cron.xml',
         'views/account_payment_order_quote_import_wizard_views.xml',
         'views/account_payment_order_views.xml',
         'views/sat_catalog_sync_menu_views.xml',

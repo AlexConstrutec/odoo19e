@@ -4,8 +4,9 @@ from odoo import api, fields, models
 
 from ..tools.enterprise_sync_api import (
     EnterpriseSyncError, fetch_analytic_accounts, fetch_companies, fetch_employees,
-    fetch_order_status,
+    fetch_order_status, fetch_partners,
 )
+from .res_partner import _construtec_tag_names_for
 
 _logger = logging.getLogger(__name__)
 
@@ -267,12 +268,13 @@ class ResCompany(models.Model):
         ok_emp, message_emp = self._sync_employees_from_enterprise()
         ok_analytic, message_analytic = self._sync_analytic_accounts_from_enterprise()
         ok_company, message_company = self._sync_enterprise_companies()
-        ok = ok_emp and ok_analytic and ok_company
+        ok_partners, message_partners = self._sync_partners_from_enterprise()
+        ok = ok_emp and ok_analytic and ok_company and ok_partners
         message = self.env._(
             'Empleados: %(message_emp)s\nCuentas Analíticas: %(message_analytic)s\n'
-            'Compañías: %(message_company)s',
+            'Compañías: %(message_company)s\nContactos: %(message_partners)s',
             message_emp=message_emp, message_analytic=message_analytic,
-            message_company=message_company)
+            message_company=message_company, message_partners=message_partners)
         self._payment_order_sync_log(ok, message)
         return {
             'type': 'ir.actions.client',
@@ -430,6 +432,62 @@ class ResCompany(models.Model):
             created=created, updated=updated)
         return True, message
 
+    def _sync_partners_from_enterprise(self):
+        """Pull de los contactos que ya son Clientes/Proveedores reales en Enterprise
+        (`fetch_partners()` ya filtra por `customer_rank`/`supplier_rank` > 0) - upsert por
+        `enterprise_partner_ref`, igual patrón que empleados/cuentas analíticas. Las etiquetas
+        (`category_id`) se derivan de los `customer_rank`/`supplier_rank` YA recibidos en el
+        payload - nunca se recalculan localmente (los campos de rango de Community no
+        significan nada real, esta base no factura contra estos contactos)."""
+        self.ensure_one()
+        if self.payment_order_role != 'solicitante' or not self.payment_order_sync_enabled:
+            return True, self.env._('Sincronización de Contactos no aplica (rol o '
+                                     'sincronización no configurados).')
+        try:
+            partners = fetch_partners(
+                self.payment_order_sync_url, self.payment_order_sync_db,
+                self.payment_order_sync_login, self.payment_order_sync_api_key)
+        except EnterpriseSyncError as exc:
+            _logger.warning('Sincronización de Contactos falló para %s: %s', self.name, exc)
+            return False, str(exc)
+
+        Partner = self.env['res.partner'].sudo()
+        Category = self.env['res.partner.category'].sudo()
+        created = updated = 0
+        for p in partners:
+            enterprise_ref = p['id']
+            category_names = _construtec_tag_names_for(
+                p.get('customer_rank'), p.get('supplier_rank'), False)
+            categories = Category.browse()
+            for name in category_names:
+                category = Category.search([('name', '=', name)], limit=1)
+                if not category:
+                    category = Category.create({'name': name})
+                categories |= category
+            vals = {
+                'name': p['name'],
+                'email': p.get('email') or False,
+                'phone': p.get('phone') or False,
+                'vat': p.get('vat') or False,
+                'street': p.get('street') or False,
+                'city': p.get('city') or False,
+                'is_company': bool(p.get('is_company')),
+                'category_id': [(4, cat_id) for cat_id in categories.ids],
+                'enterprise_partner_ref': enterprise_ref,
+                'company_id': self.id,
+            }
+            existing = Partner.search([('enterprise_partner_ref', '=', enterprise_ref)], limit=1)
+            if existing:
+                existing.write(vals)
+                updated += 1
+            else:
+                Partner.create(vals)
+                created += 1
+        message = self.env._(
+            '%(created)s contactos nuevos, %(updated)s actualizados.',
+            created=created, updated=updated)
+        return True, message
+
     _MATERIALS_CATALOG_SYNC_CREDENTIAL_FIELDS = (
         'payment_order_sync_url', 'payment_order_sync_db',
         'payment_order_sync_login', 'payment_order_sync_api_key')
@@ -497,4 +555,6 @@ class ResCompany(models.Model):
             ok, message = company._sync_analytic_accounts_from_enterprise()
             company._payment_order_sync_log(ok, message)
             ok, message = company._sync_enterprise_companies()
+            company._payment_order_sync_log(ok, message)
+            ok, message = company._sync_partners_from_enterprise()
             company._payment_order_sync_log(ok, message)
