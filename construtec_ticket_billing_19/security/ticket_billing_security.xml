@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="group_ticket_billing_sync_integration" model="res.groups">
+        <field name="name">Integración: Sincronización de Facturación de Tickets (Community)</field>
+        <field name="comment">
+            Grupo de mínimo privilegio para el usuario de servicio cuya API Key usa Odoo
+            Community para sincronizar Tickets (construtec_helpdesk_field_service). Puede
+            leer/crear/actualizar SOLO construtec.helpdesk.ticket.mirror (necesita lectura y
+            escritura porque sync_from_community() hace upsert, a diferencia de un mirror
+            create-only) - nunca eliminar, y ningún acceso a account.move/account.payment ni a
+            ningún otro modelo real de Enterprise.
+        </field>
+    </record>
+</odoo>

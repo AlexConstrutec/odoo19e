@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_construtec_helpdesk_ticket_mirror_integration,construtec.helpdesk.ticket.mirror.integration,model_construtec_helpdesk_ticket_mirror,group_ticket_billing_sync_integration,1,1,1,0
+access_construtec_helpdesk_ticket_mirror_user,construtec.helpdesk.ticket.mirror.user,model_construtec_helpdesk_ticket_mirror,account.group_account_invoice,1,1,0,0
+access_construtec_helpdesk_ticket_mirror_manager,construtec.helpdesk.ticket.mirror.manager,model_construtec_helpdesk_ticket_mirror,account.group_account_manager,1,1,0,1

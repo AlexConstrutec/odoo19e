@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="construtec_helpdesk_ticket_mirror_view_form" model="ir.ui.view">
+        <field name="name">construtec.helpdesk.ticket.mirror.view.form</field>
+        <field name="model">construtec.helpdesk.ticket.mirror</field>
+        <field name="arch" type="xml">
+            <form string="Ticket (Community)" create="0">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="number" readonly="1" />
+                        </h1>
+                        <h3>
+                            <field name="name" readonly="1" />
+                        </h3>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="partner_name" readonly="1" />
+                            <field name="stage_name" readonly="1" />
+                            <field name="costo_total" readonly="1" />
+                            <field name="currency_id" invisible="1" />
+                        </group>
+                        <group>
+                            <field name="billing_state" readonly="1" />
+                            <field name="move_id" />
+                            <field name="payment_id" readonly="1" invisible="not payment_id" />
+                            <field name="received_date" readonly="1" />
+                        </group>
+                    </group>
+                    <group string="Vínculo Community / Enterprise" invisible="not community_url">
+                        <field name="community_url" widget="url" string="Ver Ticket en Community" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="construtec_helpdesk_ticket_mirror_view_list" model="ir.ui.view">
+        <field name="name">construtec.helpdesk.ticket.mirror.view.list</field>
+        <field name="model">construtec.helpdesk.ticket.mirror</field>
+        <field name="arch" type="xml">
+            <list create="0" decoration-muted="billing_state == 'cobrado'">
+                <field name="number" />
+                <field name="name" />
+                <field name="partner_name" />
+                <field name="stage_name" optional="hide" />
+                <field name="costo_total" sum="Total" />
+                <field name="move_id" />
+                <field name="billing_state" />
+                <field name="received_date" optional="hide" />
+            </list>
+        </field>
+    </record>
+
+    <record id="construtec_helpdesk_ticket_mirror_view_search" model="ir.ui.view">
+        <field name="name">construtec.helpdesk.ticket.mirror.view.search</field>
+        <field name="model">construtec.helpdesk.ticket.mirror</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="number" />
+                <field name="name" />
+                <field name="partner_name" />
+                <field name="move_id" />
+                <filter string="Sin Facturar" name="sin_facturar"
+                        domain="[('billing_state', '=', 'no_facturado')]" />
+                <filter string="Facturado" name="facturado"
+                        domain="[('billing_state', '=', 'facturado')]" />
+                <filter string="Cobrado" name="cobrado"
+                        domain="[('billing_state', '=', 'cobrado')]" />
+                <separator />
+                <filter string="Estado de Facturación" name="group_billing_state"
+                        context="{'group_by': 'billing_state'}" />
+                <filter string="Cliente" name="group_partner_name"
+                        context="{'group_by': 'partner_name'}" />
+            </search>
+        </field>
+    </record>
+
+    <record id="construtec_helpdesk_ticket_mirror_action" model="ir.actions.act_window">
+        <field name="name">Tickets (Community)</field>
+        <field name="res_model">construtec.helpdesk.ticket.mirror</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_sin_facturar': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Todavía no se ha recibido ningún Ticket desde Community.
+            </p>
+        </field>
+    </record>
+
+    <menuitem action="construtec_helpdesk_ticket_mirror_action"
+              id="menu_construtec_helpdesk_ticket_mirror"
+              parent="account.menu_finance_receivables" sequence="15" />
+</odoo>
