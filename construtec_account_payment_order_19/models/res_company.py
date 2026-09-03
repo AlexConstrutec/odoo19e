@@ -266,9 +266,12 @@ class ResCompany(models.Model):
     def action_sync_employees_now(self):
         self.ensure_one()
         ok_emp, message_emp = self._sync_employees_from_enterprise()
+        # Contactos ANTES de Cuentas Analíticas: analytic_account.partner_id se resuelve por
+        # enterprise_partner_ref, así que la primera pasada ya lo deja correcto en vez de
+        # tener que esperar a la siguiente sincronización.
+        ok_partners, message_partners = self._sync_partners_from_enterprise()
         ok_analytic, message_analytic = self._sync_analytic_accounts_from_enterprise()
         ok_company, message_company = self._sync_enterprise_companies()
-        ok_partners, message_partners = self._sync_partners_from_enterprise()
         ok = ok_emp and ok_analytic and ok_company and ok_partners
         message = self.env._(
             'Empleados: %(message_emp)s\nCuentas Analíticas: %(message_analytic)s\n'
@@ -378,10 +381,15 @@ class ResCompany(models.Model):
                 plan = AnalyticPlan.search([('name', '=', 'Proyectos (sin plan de origen)')], limit=1)
                 if not plan:
                     plan = AnalyticPlan.create({'name': 'Proyectos (sin plan de origen)'})
+            partner = self.env['res.partner']
+            if acc.get('partner_id'):
+                partner = self.env['res.partner'].sudo().search(
+                    [('enterprise_partner_ref', '=', acc['partner_id'][0])], limit=1)
             vals = {
                 'name': acc['name'],
                 'code': acc.get('code') or False,
                 'plan_id': plan.id,
+                'partner_id': partner.id or False,
                 'company_id': self.id,
                 'enterprise_analytic_ref': enterprise_ref,
             }
@@ -552,9 +560,10 @@ class ResCompany(models.Model):
             company._sync_materials_catalog_credentials()
             ok, message = company._sync_employees_from_enterprise()
             company._payment_order_sync_log(ok, message)
+            # Contactos antes de Cuentas Analíticas - ver nota en action_sync_employees_now().
+            ok, message = company._sync_partners_from_enterprise()
+            company._payment_order_sync_log(ok, message)
             ok, message = company._sync_analytic_accounts_from_enterprise()
             company._payment_order_sync_log(ok, message)
             ok, message = company._sync_enterprise_companies()
-            company._payment_order_sync_log(ok, message)
-            ok, message = company._sync_partners_from_enterprise()
             company._payment_order_sync_log(ok, message)

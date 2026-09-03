@@ -137,10 +137,14 @@ def fetch_employees(url, db, login, api_key):
 
 
 def fetch_analytic_accounts(url, db, login, api_key):
-    """Read-only pull of the Enterprise analytic account catalog (used as "Proyecto" in
-    Solicitudes de Pago). `plan_id` comes back as [id, display_name] - only the name travels
-    onward when mirroring, same "no ids across independent databases" rule as everywhere else
-    in this module."""
+    """Read-only pull of the Enterprise analytic account catalog (used as "Proyecto" en
+    Solicitudes de Pago, y como "Cuenta Analítica" en Tickets de Helpdesk). `plan_id` viene
+    como [id, display_name] - solo el nombre viaja al mirror (mismo criterio "nunca ids entre
+    bases independientes" de todo este módulo). `partner_id` viaja como el id REAL en
+    Enterprise (no el nombre) - a diferencia de `plan_id`, este SÍ se resuelve por id del
+    otro lado, igual que `employee_enterprise_ref`/`analytic_enterprise_ref`, porque ya existe
+    `res.partner.enterprise_partner_ref` (ver `_sync_partners_from_enterprise()`) capaz de
+    resolverlo a un contacto real de Community."""
     if not (url and db and login and api_key):
         raise EnterpriseSyncError(
             'Sincronización de Cuentas Analíticas incompleta (falta URL, base de datos, '
@@ -149,7 +153,7 @@ def fetch_analytic_accounts(url, db, login, api_key):
     return _jsonrpc(
         url, 'object', 'execute_kw',
         [db, uid, api_key, 'account.analytic.account', 'search_read',
-         [[]], {'fields': ['name', 'code', 'plan_id']}])
+         [[]], {'fields': ['name', 'code', 'plan_id', 'partner_id']}])
 
 
 def fetch_order_status(url, db, login, api_key, external_refs):
