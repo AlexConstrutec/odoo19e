@@ -355,6 +355,7 @@ class ConstructecSatDocument(models.Model):
                 'nit_certificador': vals.get('nit_certificador'),
                 'nombre_certificador': vals.get('nombre_certificador'),
                 'moneda_codigo': vals.get('moneda_codigo'),
+                'currency_id': self._sat_resolve_currency(vals.get('moneda_codigo')).id,
                 'partner_id': partner.id if partner else False,
                 'monto_total': vals.get('monto_total', 0.0),
                 'monto_iva': vals.get('monto_iva', 0.0),
@@ -466,6 +467,33 @@ class ConstructecSatDocument(models.Model):
         """
         company_vat = (self.env.company.vat or '').strip()
         return {company_vat} if company_vat else set()
+
+    def _sat_resolve_currency(self, moneda_codigo):
+        """Resuelve la res.currency real a partir del código ISO que trae el DTE
+        (moneda_codigo, ej. 'USD'/'GTQ') - caso real: una factura de alquiler en
+        dólares (CodigoMoneda='USD' en el XML) se estaba guardando con
+        currency_id sin tocar (default = moneda de la compañía, GTQ), así que
+        monto_total/monto_iva - que SÍ vienen en USD en el propio DTE - se
+        mostraban con símbolo de Quetzales sin ninguna conversión: 2,750.00
+        dólares se veía como "Q 2,750.00". Los montos del XML nunca se
+        recalculan aquí - currency_id solo corrige CÓMO se interpretan/
+        muestran, el número ya es el correcto en su propia moneda.
+
+        Búsqueda por 'name' (el código ISO es el name de res.currency en Odoo),
+        NO se activa una moneda inactiva por cuenta propia - si no la encuentra
+        (código no reconocido, o la moneda existe pero está desactivada en
+        Ajustes > Contabilidad > Monedas), se queda en la moneda de la
+        compañía, igual que el comportamiento de siempre - nunca se adivina con
+        otra moneda. El resto de la conversión contable a moneda de la
+        compañía (asiento con la diferencial cambiaria si aplica) la resuelve
+        el propio motor multi-moneda de Odoo al postear la factura - para eso
+        hace falta tener la tasa de cambio del día cargada en esa misma
+        pantalla, algo que este método no gestiona."""
+        company_currency = self.env.company.currency_id
+        if not moneda_codigo or moneda_codigo == company_currency.name:
+            return company_currency
+        currency = self.env['res.currency'].search([('name', '=', moneda_codigo)], limit=1)
+        return currency or company_currency
 
     def _sat_es_compra(self):
         """True si el documento debe contabilizarse como compra (factura de
@@ -1000,6 +1028,7 @@ class ConstructecSatDocument(models.Model):
                             campo: datos[campo] for campo in self._CAMPOS_RECTIFICABLES_DESDE_XML
                             if campo in datos
                         }
+                        vals['currency_id'] = document._sat_resolve_currency(datos.get('moneda_codigo')).id
                         document.write(vals)
                         for line in document.line_ids:
                             categorization_model._sat_apply_to_line(document, line)
@@ -1014,6 +1043,7 @@ class ConstructecSatDocument(models.Model):
                             campo: datos[campo] for campo in self._CAMPOS_RECTIFICABLES_DESDE_XML
                             if campo in datos
                         }
+                        vals['currency_id'] = document._sat_resolve_currency(datos.get('moneda_codigo')).id
                         document.write(vals)
                         document.action_sincronizar_a_factura()
                         if document.tipo_dte in TIPOS_DTE_FACTURA_ESPECIAL \
