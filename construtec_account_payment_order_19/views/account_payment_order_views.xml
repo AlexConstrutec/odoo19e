@@ -107,9 +107,11 @@
 
                     <notebook invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')">
                         <page string="Viáticos" invisible="tipo != 'anticipo_viaticos'">
-                            <field name="orden_padre_id" invisible="not orden_padre_id" readonly="1"/>
-                            <field name="depositar_directo_tecnicos" readonly="state != 'borrador'"
-                                   invisible="orden_padre_id"/>
+                            <group>
+                                <field name="orden_padre_id" invisible="not orden_padre_id" readonly="1"/>
+                                <field name="depositar_directo_tecnicos" readonly="state != 'borrador'"
+                                       invisible="orden_padre_id"/>
+                            </group>
                             <field name="viaticos_line_ids" readonly="state != 'borrador'">
                                 <list editable="bottom">
                                     <field name="employee_partner_id" required="1"/>
