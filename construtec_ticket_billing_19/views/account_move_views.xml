@@ -24,7 +24,7 @@
                             <field name="analytic_account_id" />
                             <field name="costo_total" sum="Total" />
                             <field name="billing_state" />
-                            <field name="community_url" widget="url" string="Ver en Community" />
+                            <field name="community_url" widget="url" string="Link Community" />
                         </list>
                     </field>
                 </page>
