@@ -9,3 +9,5 @@ from . import sat_import_log
 from . import sat_product_catalog
 from . import sat_retention
 from . import sat_retention_import
+from . import sat_retention_emitida
+from . import sat_retention_emitida_import

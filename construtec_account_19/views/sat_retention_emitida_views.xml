@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_construtec_sat_retention_emitida_list" model="ir.ui.view">
+        <field name="name">construtec.sat.retention.emitida.list</field>
+        <field name="model">construtec.sat.retention.emitida</field>
+        <field name="arch" type="xml">
+            <list string="Constancias de Retención de ISR Emitidas" decoration-warning="requiere_revision_manual">
+                <field name="numero_constancia"/>
+                <field name="fecha_emision"/>
+                <field name="nombre_retenido"/>
+                <field name="serie"/>
+                <field name="numero_factura"/>
+                <field name="monto_retencion_total" sum="Retención"/>
+                <field name="state" widget="badge" decoration-success="state == 'vinculada'"
+                       decoration-danger="state == 'pendiente'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_construtec_sat_retention_emitida_form" model="ir.ui.view">
+        <field name="name">construtec.sat.retention.emitida.form</field>
+        <field name="model">construtec.sat.retention.emitida</field>
+        <field name="arch" type="xml">
+            <form string="Constancia de Retención de ISR Emitida">
+                <header>
+                    <button name="action_vincular_factura" type="object" string="Vincular Factura"
+                            invisible="state == 'vinculada'"/>
+                    <button name="action_aplicar_retenciones_contables" type="object"
+                            string="Aplicar Retención a Factura" class="btn-primary"
+                            invisible="state != 'vinculada' or requiere_revision_manual"/>
+                    <field name="state" widget="statusbar" statusbar_visible="pendiente,vinculada"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-warning" role="alert" invisible="not requiere_revision_manual">
+                        El layout de este PDF no calzó con el patrón conocido (formulario SAT-1911) - revisa/completa
+                        los montos de cada línea manualmente.
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="numero_constancia"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="fecha_emision"/>
+                            <field name="serie"/>
+                            <field name="numero_factura"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group>
+                            <field name="nit_agente_retenedor"/>
+                            <field name="nombre_agente_retenedor"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group>
+                            <field name="nit_retenido"/>
+                            <field name="nombre_retenido"/>
+                            <field name="retenido_partner_id"/>
+                        </group>
+                        <group>
+                            <field name="sat_document_id"/>
+                            <field name="move_id"/>
+                            <field name="partner_id"/>
+                            <field name="monto_renta_imponible_total"/>
+                            <field name="monto_retencion_total"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Conceptos Retenidos">
+                            <field name="line_ids">
+                                <list editable="bottom">
+                                    <field name="regimen"/>
+                                    <field name="concepto"/>
+                                    <field name="monto_renta_imponible"/>
+                                    <field name="monto_retencion"/>
+                                    <field name="move_line_id" optional="show"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="PDF">
+                            <field name="pdf_filename" invisible="1"/>
+                            <field name="pdf_file" widget="pdf_viewer" filename="pdf_filename" nolabel="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_construtec_sat_retention_emitida_search" model="ir.ui.view">
+        <field name="name">construtec.sat.retention.emitida.search</field>
+        <field name="model">construtec.sat.retention.emitida</field>
+        <field name="arch" type="xml">
+            <search string="Constancias de Retención de ISR Emitidas">
+                <field name="numero_constancia"/>
+                <field name="nombre_retenido"/>
+                <field name="serie"/>
+                <field name="numero_factura"/>
+                <filter string="Pendientes de Vincular" name="pendientes" domain="[('state', '=', 'pendiente')]"/>
+                <filter string="Requiere Revisión Manual" name="revision" domain="[('requiere_revision_manual', '=', True)]"/>
+                <group>
+                    <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
+                    <filter string="Retenido" name="group_retenido" context="{'group_by': 'nombre_retenido'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_construtec_sat_retention_emitida" model="ir.actions.act_window">
+        <field name="name">Constancias de Retención de ISR Emitidas</field>
+        <field name="res_model">construtec.sat.retention.emitida</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_construtec_sat_retention_emitida_aplicar_masivo" model="ir.actions.server">
+        <field name="name">Aplicar Retención a Factura(s)</field>
+        <field name="model_id" ref="model_construtec_sat_retention_emitida"/>
+        <field name="binding_model_id" ref="model_construtec_sat_retention_emitida"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_aplicar_retenciones_contables()</field>
+    </record>
+
+    <record id="view_construtec_sat_retention_emitida_import_wizard_form" model="ir.ui.view">
+        <field name="name">construtec.sat.retention.emitida.import.wizard.form</field>
+        <field name="model">construtec.sat.retention.emitida.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Importar Constancia de Retención de ISR Emitida">
+                <group>
+                    <field name="pdf_filename" invisible="1"/>
+                    <field name="pdf_file" filename="pdf_filename" required="1"/>
+                </group>
+                <footer>
+                    <button name="action_importar" type="object" string="Importar" class="btn-primary"/>
+                    <button string="Cancelar" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_construtec_sat_retention_emitida_import_wizard" model="ir.actions.act_window">
+        <field name="name">Importar Constancia Emitida (PDF)</field>
+        <field name="res_model">construtec.sat.retention.emitida.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_construtec_sat_retention_emitida" action="action_construtec_sat_retention_emitida"
+              parent="menu_construtec_sat_document_root" sequence="7"/>
+    <menuitem id="menu_construtec_sat_retention_emitida_import" action="action_construtec_sat_retention_emitida_import_wizard"
+              parent="menu_construtec_sat_document_root" sequence="8"/>
+</odoo>
