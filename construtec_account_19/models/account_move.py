@@ -149,4 +149,6 @@ class AccountMoveLine(models.Model):
     sat_bien_o_servicio = fields.Selection(
         BIEN_O_SERVICIO_SELECTION, string='Bien/Servicio', copy=False,
         help='Heredado de construtec.sat.document.line.bien_o_servicio al convertir (o al usar '
-             'el botón "Sincronizar a Factura" desde el Documento SAT).')
+             'el botón "Sincronizar a Factura" desde el Documento SAT) - editable a mano '
+             'después en la propia factura (decisión explícita del usuario 2026-09-04: se '
+             'usará más adelante para un reporte, corregirlo aquí no afecta nada más).')
