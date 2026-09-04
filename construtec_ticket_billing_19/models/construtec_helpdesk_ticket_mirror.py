@@ -28,6 +28,11 @@ class ConstructecHelpdeskTicketMirror(models.Model):
     currency_id = fields.Many2one(
         'res.currency', string='Moneda', default=lambda self: self.env.company.currency_id)
     stage_name = fields.Char(string='Etapa (Community)')
+    is_closed = fields.Boolean(
+        string='Hecho (Community)',
+        help='Refleja `helpdesk.ticket.closed` (Community) al momento del último empuje - '
+             'un ticket que todavía no está en una etapa Cerrada no debe poder facturarse '
+             '(ver el domain de `account.move.ticket_mirror_ids`).')
     partner_name = fields.Char(string='Cliente (Community)')
     company_id = fields.Many2one(
         'res.company', string='Compañía', default=lambda self: self.env.company)

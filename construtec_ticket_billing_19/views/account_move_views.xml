@@ -15,7 +15,9 @@
             <xpath expr="//notebook" position="inside">
                 <page string="Tickets (Community)" name="ticket_mirrors"
                       invisible="move_type != 'out_invoice'">
-                    <field name="ticket_mirror_ids" widget="many2many">
+                    <field name="available_ticket_mirror_ids" invisible="1" />
+                    <field name="ticket_mirror_ids" widget="many2many"
+                           domain="[('id', 'in', available_ticket_mirror_ids)]">
                         <list create="0">
                             <field name="number" />
                             <field name="name" />

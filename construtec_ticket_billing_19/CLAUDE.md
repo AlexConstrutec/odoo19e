@@ -38,7 +38,17 @@ Unlike `helpdesk.material.requisition.mirror`'s deliberately create-only integra
 
 ## Menu placement
 
-`account.menu_finance_receivables` ("Customers", not "Vendors" — this is billing tickets to clients) — a standalone "Tickets (Community)" list/form, filtered to "Sin Facturar" by default (`context: {'search_default_sin_facturar': 1}`), so the accountant opens straight into what still needs a factura linked.
+`account.menu_finance_receivables` ("Customers", not "Vendors" — this is billing tickets to clients) — a standalone "Tickets (Community)" list/form, filtered to "Listos para Facturar" by default (`context: {'search_default_listos_para_facturar': 1}` — Hecho + Sin Facturar combined, see below), so the accountant opens straight into what's actually ready to invoice.
+
+## `is_closed`: no se puede facturar un ticket que no está hecho (2026-09-04)
+
+Requisito explícito del usuario, confirmado vía `AskUserQuestion` (eligió el filtro **duro**, no solo visual): un ticket todavía abierto en Community no debe poder vincularse a una Factura en Enterprise, aunque el contable lo busque a propósito.
+
+- **`is_closed`** (Boolean, nuevo, este modelo) — espejo de `helpdesk.ticket.closed` (Community, `related="stage_id.closed"`) al momento del último empuje. `_prepare_ticket_sync_vals()` (Community, `construtec_helpdesk_field_service/models/helpdesk_ticket.py`) ahora manda `is_closed: self.closed` — no hizo falta ningún disparador nuevo, un cambio de etapa ya dispara `_sync_ticket_to_enterprise()` vía el `write()` existente (`'stage_id' in vals`).
+- **Filtro duro en el selector de la Factura** (`account.move.ticket_mirror_ids`, `views/account_move_views.xml`): en vez de poner `domain=` directo sobre `ticket_mirror_ids` (revienta exactamente igual que el bug real ya documentado en `construtec_account_payment_order_19/CLAUDE.md` para `factura_ids`/`pago_ids` - un domain sobre un One2many se aplica también al LEER, no solo al buscar candidatos, así que un ticket ya vinculado desaparecería de la factura en cuanto cambiara de estado, ej. al postear), se usa el mismo patrón ya probado ahí (`anticipos_disponibles_ids`/`available_payment_method_line_ids`): un campo Many2many auxiliar **`available_ticket_mirror_ids`** (`account_move.py`, compute no-stored) calcula `Mirror.search([('billing_state','=','no_facturado'), ('is_closed','=',True)])` **más los ya vinculados a esta misma factura** (`| move.ticket_mirror_ids` — así uno que deja de calificar después, ej. al postear, nunca desaparece de su propia factura). La vista pone `domain="[('id', 'in', available_ticket_mirror_ids)]"` sobre `ticket_mirror_ids`, con el auxiliar oculto (`invisible="1"`) en la misma página.
+- **Lista/búsqueda de "Tickets (Community)"**: nuevo filtro combinado "Listos para Facturar" (`billing_state='no_facturado' AND is_closed=True`) — es el nuevo default de la acción, reemplazando al antiguo "Sin Facturar" solo. "Sin Facturar"/"Hecho" siguen existiendo como filtros individuales, por si el contable quiere ver todo lo que llega sin importar si ya está listo. Columna `is_closed` ("Hecho") agregada a la lista y al formulario.
+
+Verificado con `odoo-bin shell` en `construtec_test`: un ticket abierto (`is_closed=False`) y uno ya facturado (`billing_state='facturado'`, tras postear su propia factura) **no** aparecen en `available_ticket_mirror_ids` de una factura nueva; uno hecho y sin facturar sí aparece. Vinculado ese último a la factura y posteada (pasa a `billing_state='facturado'`), **sigue** apareciendo en `ticket_mirror_ids` de esa misma factura pese a ya no calificar para el domain — confirma que no se reabrió el bug de "desaparición" ya documentado en el otro módulo. `-u` limpio en `construtec_test`, sin `ERROR`/`CRITICAL` nuevos.
 
 ## Verified
 
