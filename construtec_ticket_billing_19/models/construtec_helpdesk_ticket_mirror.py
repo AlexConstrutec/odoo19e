@@ -20,7 +20,13 @@ class ConstructecHelpdeskTicketMirror(models.Model):
         string='No. Ticket', required=True, index=True,
         help='El propio `number` del Ticket en Community - clave de upsert usada por '
              'sync_from_community(). NUNCA un id local de este registro en Enterprise.')
-    name = fields.Char(string='Ticket')
+    name = fields.Char(string='Título (Community)')
+    ticket_label = fields.Char(
+        string='Ticket', compute='_compute_ticket_label', store=True,
+        help='"`number`" a secas si el ticket nunca tuvo un título propio distinto (el caso '
+             'normal - `name` llega igual a `number` desde Community), o "`number` - `name`" '
+             'si sí difieren - mismo criterio que `helpdesk.ticket._compute_display_name()` '
+             '(Community). Evita mostrar dos columnas casi siempre idénticas en las listas.')
     costo_total = fields.Monetary(
         string='Costo Total', currency_field='currency_id',
         help='Suma de las Órdenes de Pago vinculadas al Ticket en Community (payment_order_ids), '
@@ -89,6 +95,14 @@ class ConstructecHelpdeskTicketMirror(models.Model):
                 rec.billing_state = 'facturado'
                 rec.payment_id = False
             rec.reconciled_payment_ids = move.reconciled_payment_ids
+
+    @api.depends('number', 'name')
+    def _compute_ticket_label(self):
+        for rec in self:
+            if rec.name and rec.name != rec.number:
+                rec.ticket_label = f'{rec.number} - {rec.name}'
+            else:
+                rec.ticket_label = rec.number
 
     @api.depends('origin_record_id', 'origin_base_url')
     def _compute_community_url(self):

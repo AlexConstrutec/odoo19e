@@ -19,8 +19,7 @@
                     <field name="ticket_mirror_ids" widget="many2many"
                            domain="[('id', 'in', available_ticket_mirror_ids)]">
                         <list create="0">
-                            <field name="number" />
-                            <field name="name" />
+                            <field name="ticket_label" string="Ticket" />
                             <field name="partner_name" />
                             <field name="costo_total" sum="Total" />
                             <field name="billing_state" />

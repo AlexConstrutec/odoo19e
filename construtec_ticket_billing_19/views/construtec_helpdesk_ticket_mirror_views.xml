@@ -10,7 +10,7 @@
                         <h1>
                             <field name="number" readonly="1" />
                         </h1>
-                        <h3>
+                        <h3 invisible="not name or name == number">
                             <field name="name" readonly="1" />
                         </h3>
                     </div>
@@ -42,8 +42,9 @@
         <field name="model">construtec.helpdesk.ticket.mirror</field>
         <field name="arch" type="xml">
             <list create="0" decoration-muted="billing_state == 'cobrado'">
-                <field name="number" />
-                <field name="name" />
+                <field name="ticket_label" string="Ticket" />
+                <field name="number" optional="hide" />
+                <field name="name" optional="hide" />
                 <field name="partner_name" />
                 <field name="stage_name" optional="hide" />
                 <field name="is_closed" string="Hecho" />
