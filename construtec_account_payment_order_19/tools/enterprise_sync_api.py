@@ -179,7 +179,7 @@ def fetch_order_status(url, db, login, api_key, external_refs):
         url, 'object', 'execute_kw',
         [db, uid, api_key, SYNC_MODEL, 'search_read',
          [[('external_ref', 'in', list(external_refs))]],
-         {'fields': ['external_ref', 'state', 'reject_reason', 'approve_date', 'reject_date']}])
+         {'fields': ['external_ref', 'state', 'monto', 'reject_reason', 'approve_date', 'reject_date']}])
 
 
 def fetch_partners(url, db, login, api_key):

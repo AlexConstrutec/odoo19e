@@ -785,6 +785,19 @@ Verificado con `odoo-bin shell` (Enterprise y Community, `construtec_test`): moc
 
 **Pendiente real, fuera de alcance de esta pasada** (visión más grande, todavía en discusión con el usuario): reestructurar `account.analytic.plan` para que cada Plan represente un Departamento de la empresa, y las Cuentas Analíticas dentro de cada plan representen las ubicaciones que ese departamento atiende (usando la jerarquía nativa `account.analytic.plan.parent_id`). Requiere decisiones de datos reales (nombres de departamentos, migración de las cuentas analíticas "Proyecto" ya sincronizadas hacia esta nueva estructura) - no se construye hasta que el usuario lo pida como una pasada concreta.
 
+### Bug real: `monto` nunca se sincronizaba de vuelta a Community tras Aplicar en Enterprise (2026-09-03)
+
+Reportado por el usuario probando el flujo real: creó un ticket en Community, creó su Orden de Pago vinculada, la sincronizó y la Aplicó en Enterprise (donde el monto final quedó registrado) - pero al correr el pull de vuelta hacia Community, ese `monto` real nunca llegó. Impacto directo: `helpdesk.ticket.costo_total` (`construtec_helpdesk_field_service`, `@api.depends('payment_order_ids.monto', ...)`) suma el `monto` **local** de Community, que se quedaba con el valor viejo (el que tenía al Enviar) para siempre.
+
+**Causa real, confirmada leyendo el código**: `_pull_payment_order_status()` (`res_company.py`) y `fetch_order_status()` (`tools/enterprise_sync_api.py`) - el mecanismo ya documentado arriba ("Sincronización de vuelta: el estado real... ya regresa a Community") - solo pedían/escribían `state`/`reject_reason`/`approve_date`/`reject_date`. `monto` nunca estuvo en esa lista desde que el mecanismo se construyó - no es una regresión, es un campo que faltó desde el diseño original del pull.
+
+**El fix**:
+- `fetch_order_status()` ahora también pide `'monto'` al `search_read` remoto.
+- `_pull_payment_order_status()` ahora también escribe `monto` en el `write()` plano de siempre (sigue sin llamar a ninguna lógica de negocio, mismo criterio de todo este mecanismo).
+- **El guard que decidía si valía la pena consultar/escribir una Orden cambió** - antes solo comparaba `remoto['state'] == orden.state` (si el estado no había cambiado, se saltaba TODO, incluido un `monto` que sí hubiera cambiado sin mover el estado - ej. el contable ajustó el monto ya con la Orden en `aplicado`, sin que eso cambie su `state`). Ahora compara **estado Y monto**: solo se salta si ninguno de los dos difiere.
+
+Verificado con `odoo-bin shell` en `construtec_test` (mock de `fetch_order_status()`, nunca `requests` directo, mismo criterio de todo este módulo): una Orden local en `state='aplicado'`/`monto=100.0` con un remoto que reporta el MISMO `state` pero `monto=175.50` sí se actualiza (antes del fix, el guard viejo la habría saltado por completo); una segunda corrida con el mismo remoto ya no encuentra nada que actualizar (`"0 de 1 Órdenes de Pago actualizadas"` - confirma que el guard no vuelve a escribir de más). `costo_total` del ticket se recalcula solo vía su `@api.depends('payment_order_ids.monto', ...)` ya existente - no necesitó ningún cambio, el mecanismo de Odoo ya lo dispara en cuanto el `write()` toca `monto`. `-u` limpio en las tres copias (`odoo19e`, `odoo19enterprise`, `odoo19c`), sin `ERROR`/`CRITICAL` nuevos.
+
 ## Common commands
 
 ```

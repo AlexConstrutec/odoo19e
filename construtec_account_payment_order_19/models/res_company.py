@@ -190,11 +190,16 @@ class ResCompany(models.Model):
 
         Empareja por `external_ref` = el propio `name` de esta Orden (guardado del lado de
         Enterprise por `_prepare_sync_vals()`) - nunca por id, son bases de datos distintas.
-        Solo actualiza `state`/`reject_reason`/`approve_date`/`reject_date` - un `write()` plano,
-        NO se llaman `action_approve()`/`action_reject()`/`action_aplicar()`/`action_conciliar()`
-        (esos son para ejecutar la transición AQUÍ; esto solo refleja una transición que ya
-        ocurrió allá, sin repetir ningún efecto secundario - crear un pago local, disparar sync,
-        etc. - de nuevo)."""
+        Actualiza `state`/`monto`/`reject_reason`/`approve_date`/`reject_date` - un `write()`
+        plano, NO se llaman `action_approve()`/`action_reject()`/`action_aplicar()`/
+        `action_conciliar()` (esos son para ejecutar la transición AQUÍ; esto solo refleja una
+        transición que ya ocurrió allá, sin repetir ningún efecto secundario - crear un pago
+        local, disparar sync, etc. - de nuevo).
+
+        `monto` se pull igual que el resto: un Anticipo Aplicado en Enterprise puede tener un
+        `monto` distinto al que Community tenía al Enviar (ej. el contable lo ajustó antes de
+        Aplicar) - sin esto, `helpdesk.ticket.costo_total` (que suma `payment_order_ids.monto`
+        LOCAL, ver `construtec_helpdesk_field_service`) queda con el valor viejo para siempre."""
         self.ensure_one()
         if self.payment_order_role != 'solicitante' or not self.payment_order_sync_enabled:
             return True, self.env._(
@@ -224,10 +229,14 @@ class ResCompany(models.Model):
         actualizadas = 0
         for orden in pendientes:
             remoto = por_ref.get(orden.name)
-            if not remoto or remoto['state'] == orden.state:
+            if not remoto:
+                continue
+            monto_remoto = remoto.get('monto', orden.monto)
+            if remoto['state'] == orden.state and monto_remoto == orden.monto:
                 continue
             orden.write({
                 'state': remoto['state'],
+                'monto': monto_remoto,
                 'reject_reason': remoto.get('reject_reason') or orden.reject_reason,
                 'approve_date': remoto.get('approve_date') or orden.approve_date,
                 'reject_date': remoto.get('reject_date') or orden.reject_date,
