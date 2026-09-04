@@ -257,6 +257,25 @@ class AccountPaymentOrder(models.Model):
     observaciones = fields.Text(string='Observaciones / Instrucciones')
     viaticos_line_ids = fields.One2many(
         'account.payment.order.viatico.line', 'order_id', string='Líneas de Viáticos')
+    depositar_directo_tecnicos = fields.Boolean(
+        string='¿Depositar Directo a Técnicos?',
+        help='Solo para Anticipo Viáticos: al Enviar, en vez de mandar esta Orden con el jefe '
+             'de técnicos como Contacto/beneficiario del depósito, se genera una Orden de Pago '
+             'independiente POR CADA técnico de la lista de Viáticos (ver '
+             '`_dividir_en_ordenes_por_tecnico()`), con ese técnico como Contacto real - el '
+             'depósito llega a su propia cuenta, no a la del jefe. Esta Orden original queda '
+             'entonces `cancelado`, solo como referencia (ver `ordenes_hijas_ids`). Editable '
+             'libremente mientras la Orden esté en Borrador.')
+    orden_padre_id = fields.Many2one(
+        'account.payment.order', string='Orden Original', readonly=True, copy=False,
+        help='Si esta Orden se generó al dividir un Anticipo Viáticos con "Depositar Directo a '
+             'Técnicos" marcado, aquí queda la Orden original de la que salió.')
+    ordenes_hijas_ids = fields.One2many(
+        'account.payment.order', 'orden_padre_id', string='Órdenes Generadas',
+        help='Si esta Orden se dividió ("Depositar Directo a Técnicos"), aquí quedan las '
+             'Órdenes independientes que se generaron, una por técnico.')
+    ordenes_hijas_count = fields.Integer(
+        string='Cantidad de Órdenes Generadas', compute='_compute_ordenes_hijas_count')
     material_line_ids = fields.One2many(
         'account.payment.order.material.line', 'order_id', string='Líneas de Materiales')
     pagar_a = fields.Selection([
@@ -445,6 +464,11 @@ class AccountPaymentOrder(models.Model):
     def _compute_purchase_order_count(self):
         for rec in self:
             rec.purchase_order_count = len(rec.purchase_order_ids)
+
+    @api.depends('ordenes_hijas_ids')
+    def _compute_ordenes_hijas_count(self):
+        for rec in self:
+            rec.ordenes_hijas_count = len(rec.ordenes_hijas_ids)
 
     @api.depends('factura_ids.amount_total', 'factura_ids.state', 'pago_ids.amount', 'pago_ids.state')
     def _compute_diferencia_conciliacion(self):
@@ -754,18 +778,81 @@ class AccountPaymentOrder(models.Model):
             if rec.tipo == 'anticipo_materiales' and not rec.material_line_ids:
                 raise UserError(self.env._(
                     'Agregue al menos una línea de materiales antes de enviar la orden.'))
+            if rec.tipo == 'anticipo_viaticos' and not (rec.periodo_del and rec.periodo_al):
+                raise UserError(self.env._('Complete el período antes de enviar la orden.'))
+
+            if rec.tipo == 'anticipo_viaticos' and rec.depositar_directo_tecnicos:
+                # El depósito va a la cuenta de CADA técnico, no a la del jefe que captura -
+                # esta Orden nunca se envía ella misma como una orden de dinero real, se divide.
+                # Ver _dividir_en_ordenes_por_tecnico() para el detalle completo.
+                faltantes = rec.viaticos_line_ids.filtered(
+                    lambda l: not (l.cuenta_acreditar and l.tipo_cuenta and l.banco))
+                if faltantes:
+                    raise UserError(self.env._(
+                        'Los siguientes técnicos no tienen cuenta bancaria sincronizada - '
+                        'complétala a mano en su línea (pestaña Viáticos) antes de enviar: '
+                        '%(nombres)s', nombres=', '.join(faltantes.mapped('tecnico_name'))))
+                rec._dividir_en_ordenes_por_tecnico()
+                continue
+
             if rec.tipo == 'anticipo_viaticos' and not (
-                    rec.cuenta_acreditar and rec.tipo_cuenta and rec.banco
-                    and rec.periodo_del and rec.periodo_al):
+                    rec.cuenta_acreditar and rec.tipo_cuenta and rec.banco):
                 raise UserError(self.env._(
-                    'Complete cuenta a acreditar, tipo de cuenta, banco y el período antes de '
-                    'enviar la orden.'))
+                    'Complete cuenta a acreditar, tipo de cuenta y banco antes de enviar la '
+                    'orden.'))
             rec.write({'state': 'enviado', 'submit_date': fields.Datetime.now()})
-        # La sincronización ocurre al enviar, no al aprobar - la aprobación (Nivel Medio/Alto)
-        # ocurre en la instalación Procesadora (Enterprise), donde están los usuarios
-        # administrativos reales. En una instalación Procesadora esto es un no-op
-        # (_sync_to_enterprise() solo actúa si payment_order_role == 'solicitante').
-        self._sync_to_enterprise()
+            # La sincronización ocurre al enviar, no al aprobar - la aprobación (Nivel Medio/
+            # Alto) ocurre en la instalación Procesadora (Enterprise), donde están los usuarios
+            # administrativos reales. En una instalación Procesadora esto es un no-op
+            # (_sync_to_enterprise() solo actúa si payment_order_role == 'solicitante'). Por
+            # registro (no al final, en lote) porque una Orden dividida arriba nunca llega
+            # aquí - sus hijas se sincronizan cada una por su cuenta, dentro de su propia
+            # llamada recursiva a action_submit() (ver _dividir_en_ordenes_por_tecnico()).
+            rec._sync_to_enterprise()
+
+    def _dividir_en_ordenes_por_tecnico(self):
+        """Con 'depositar_directo_tecnicos' marcado: por cada línea de viáticos, crea una Orden
+        de Pago independiente (mismo tipo/fecha/período/compañía) con ESE técnico como Contacto
+        real y su propia cuenta bancaria (ya resuelta en la línea, ver
+        account_payment_order_viatico_line.py) - así el depósito llega a la cuenta de cada
+        técnico, no a la del jefe que capturó la Orden original.
+
+        Cada Orden hija se envía (`action_submit()`) por su cuenta, recorriendo el camino
+        NORMAL (no vuelve a dividirse - trae una sola línea y `depositar_directo_tecnicos` en
+        False por default), lo que reutiliza sin cambios toda la validación/sincronización que
+        ya existe - ninguna lógica nueva de sincronización, solo el paso previo de dividir.
+
+        La Orden original NUNCA se envía ella misma como una orden de dinero real - queda
+        `cancelado`, con una nota en el chatter y las hijas enlazadas vía
+        `orden_padre_id`/`ordenes_hijas_ids`. División en 1 sola hija incluida, incluso con un
+        solo técnico en la lista - pedido explícito del usuario, por trazabilidad uniforme, sin
+        un camino especial según cuántos técnicos haya."""
+        self.ensure_one()
+        nuevas = self.env['account.payment.order']
+        for linea in self.viaticos_line_ids:
+            nuevas |= self.create({
+                'tipo': 'anticipo_viaticos',
+                'partner_id': linea.employee_partner_id.id,
+                'company_id': self.company_id.id,
+                'fecha': self.fecha,
+                'periodo_del': self.periodo_del,
+                'periodo_al': self.periodo_al,
+                'orden_padre_id': self.id,
+                'cuenta_acreditar': linea.cuenta_acreditar,
+                'banco': linea.banco,
+                'tipo_cuenta': linea.tipo_cuenta,
+                'viaticos_line_ids': [(0, 0, {
+                    'employee_partner_id': linea.employee_partner_id.id,
+                    'cantidad': linea.cantidad,
+                    'costo_individual': linea.costo_individual,
+                })],
+            })
+        nuevas.action_submit()
+        self.write({'state': 'cancelado'})
+        self.message_post(body=self.env._(
+            'Dividida en %(cantidad)s Orden(es) de Pago (depósito directo a técnicos): '
+            '%(nombres)s', cantidad=len(nuevas), nombres=', '.join(nuevas.mapped('name'))))
+        return nuevas
 
     def action_approve(self):
         for rec in self:
@@ -1339,6 +1426,24 @@ class AccountPaymentOrder(models.Model):
             action.update({
                 'view_mode': 'list,form',
                 'domain': [('id', 'in', self.purchase_order_ids.ids)],
+            })
+        return action
+
+    def action_view_ordenes_hijas(self):
+        """Botón inteligente 'Órdenes Generadas' - mismo patrón que
+        action_view_purchase_orders(): form directo si solo hay una, lista si hay más."""
+        self.ensure_one()
+        action = {
+            'type': 'ir.actions.act_window',
+            'res_model': 'account.payment.order',
+            'name': self.env._('Órdenes Generadas'),
+        }
+        if len(self.ordenes_hijas_ids) == 1:
+            action.update({'view_mode': 'form', 'res_id': self.ordenes_hijas_ids.id})
+        else:
+            action.update({
+                'view_mode': 'list,form',
+                'domain': [('id', 'in', self.ordenes_hijas_ids.ids)],
             })
         return action
 

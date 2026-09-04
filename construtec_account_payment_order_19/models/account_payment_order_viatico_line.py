@@ -34,6 +34,16 @@ class AccountPaymentOrderViaticoLine(models.Model):
              'elige `employee_id`.')
     departamento = fields.Char(string='Departamento')
     puesto = fields.Char(string='Puesto')
+    cuenta_acreditar = fields.Char(
+        string='Cuenta a Acreditar',
+        help='Cuenta bancaria de ESTE técnico (no la del jefe que solicita) - se autocompleta '
+             'desde su ficha de empleado, ya sincronizada desde Enterprise (ver '
+             '`hr.employee.cuenta_bancaria_raw`). Se usa al dividir la Orden con "Depositar '
+             'Directo a Técnicos" marcado - cada Orden generada necesita su propia cuenta, no '
+             'la del jefe. Editable a mano si el dato no llegó sincronizado o hay que corregirlo.')
+    banco = fields.Char(string='Banco')
+    tipo_cuenta = fields.Selection(
+        [('monetaria', 'Monetaria'), ('ahorro', 'Ahorro')], string='Tipo de Cuenta')
     cantidad = fields.Integer(string='Cantidad', default=1)
     costo_individual = fields.Float(string='Costo Individual')
     total = fields.Float(string='Total', compute='_compute_total', store=True)
@@ -82,6 +92,18 @@ class AccountPaymentOrderViaticoLine(models.Model):
                 # puesto/departamento: del CONTACTO, no resueltos en vivo - ver header/res_partner.py.
                 line.puesto = line.employee_partner_id.function or line.puesto
                 line.departamento = line.employee_partner_id.employee_department_id.name or line.departamento
+                # Cuenta bancaria del TÉCNICO de esta línea, no de quien captura la Orden -
+                # `hr.employee.cuenta_bancaria` (el campo público, ver hr_employee.py) solo
+                # resuelve a un valor real cuando el empleado consultado es el vinculado al
+                # usuario actual (protección de privacidad a propósito, para que un usuario
+                # cualquiera no pueda leer la cuenta de otro empleado). Aquí el jefe SÍ necesita
+                # ver la cuenta del técnico para saber a dónde depositarle - mismo criterio (y
+                # mismo mecanismo, sudo() + campo _raw) que ya usa el encabezado para
+                # teléfono/correo (ver `_onchange_partner_id` en account_payment_order.py).
+                empleado = line.employee_id.sudo()
+                line.cuenta_acreditar = empleado.cuenta_bancaria_raw or line.cuenta_acreditar
+                line.banco = empleado.banco_nombre_raw or line.banco
+                line.tipo_cuenta = empleado.tipo_cuenta_raw or line.tipo_cuenta
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -108,6 +130,13 @@ class AccountPaymentOrderViaticoLine(models.Model):
                 employee = _resolve_employee_for_partner(partner, order.company_id)
                 if employee:
                     vals.setdefault('tecnico_name', employee.name)
+                    # Mismo criterio de sudo()+campo _raw que el onchange de arriba - necesario
+                    # aquí porque un create() por API/script (ej. al dividir la Orden por
+                    # técnico) no dispara el onchange, que solo corre en el formulario web.
+                    empleado = employee.sudo()
+                    vals.setdefault('cuenta_acreditar', empleado.cuenta_bancaria_raw or False)
+                    vals.setdefault('banco', empleado.banco_nombre_raw or False)
+                    vals.setdefault('tipo_cuenta', empleado.tipo_cuenta_raw or False)
         return super().create(vals_list)
 
     @api.depends('cantidad', 'costo_individual')

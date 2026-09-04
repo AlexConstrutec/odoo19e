@@ -55,6 +55,10 @@
                                 invisible="tipo != 'anticipo_materiales' or not purchase_order_count">
                             <field name="purchase_order_count" widget="statinfo" string="Órdenes de Compra"/>
                         </button>
+                        <button name="action_view_ordenes_hijas" type="object" class="oe_stat_button"
+                                icon="fa-sitemap" invisible="not ordenes_hijas_count">
+                            <field name="ordenes_hijas_count" widget="statinfo" string="Órdenes Generadas"/>
+                        </button>
                     </div>
                     <div class="oe_title">
                         <h1><field name="name" readonly="1"/></h1>
@@ -103,6 +107,9 @@
 
                     <notebook invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')">
                         <page string="Viáticos" invisible="tipo != 'anticipo_viaticos'">
+                            <field name="orden_padre_id" invisible="not orden_padre_id" readonly="1"/>
+                            <field name="depositar_directo_tecnicos" readonly="state != 'borrador'"
+                                   invisible="orden_padre_id"/>
                             <field name="viaticos_line_ids" readonly="state != 'borrador'">
                                 <list editable="bottom">
                                     <field name="employee_partner_id" required="1"/>
@@ -113,6 +120,9 @@
                                     <field name="total" sum="Total"/>
                                     <field name="viaticos_sin_liquidar_count" string="Sin Liquidar"
                                            decoration-warning="viaticos_sin_liquidar_count &gt; 0"/>
+                                    <field name="cuenta_acreditar" optional="hide"/>
+                                    <field name="banco" optional="hide"/>
+                                    <field name="tipo_cuenta" optional="hide"/>
                                 </list>
                             </field>
                             <group class="oe_subtotal_footer oe_right">
