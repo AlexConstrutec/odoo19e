@@ -572,7 +572,16 @@ class AccountPaymentOrder(models.Model):
         for vals in vals_list:
             if vals.get('tipo', 'anticipo') in (
                     'anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') \
-                    and not vals.get('name'):
+                    and vals.get('name', '/') in ('/', False, None, '', 'Nueva Orden de Pago'):
+                # Bug real (2026-09-04): `name` es store=True/readonly=False (_compute_name()),
+                # así que un formulario web real (ej. "Nuevo" desde payment_order_ids dentro de
+                # un Ticket) SIEMPRE manda 'Nueva Orden de Pago' ya puesto en vals - el viejo
+                # `not vals.get('name')` lo trataba como "ya tiene nombre" y JAMÁS asignaba la
+                # secuencia real. Un `create()` por `odoo-bin shell` sin la clave 'name' nunca
+                # reproducía esto (por eso pasó inadvertido durante toda la verificación de esta
+                # sesión) - solo se manifiesta guardando desde el cliente web real. Confirmado
+                # leyendo el propio código del cliente (`record.js::_getChanges()`): un registro
+                # nuevo manda TODOS sus valores actuales, no solo los que el usuario tocó.
                 vals['name'] = self.env['ir.sequence'].next_by_code(
                     'account.payment.order.sequence') or '/'
             self._resolve_employee_enterprise_ref(vals)
