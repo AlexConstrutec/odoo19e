@@ -826,11 +826,32 @@ class AccountPaymentOrder(models.Model):
         `cancelado`, con una nota en el chatter y las hijas enlazadas vía
         `orden_padre_id`/`ordenes_hijas_ids`. División en 1 sola hija incluida, incluso con un
         solo técnico en la lista - pedido explícito del usuario, por trazabilidad uniforme, sin
-        un camino especial según cuántos técnicos haya."""
+        un camino especial según cuántos técnicos haya.
+
+        `ticket_id` (si esta Orden se creó desde dentro de un Ticket - campo que agrega
+        `construtec_helpdesk_field_service`, un módulo aparte que NO es dependencia de este,
+        por eso el chequeo `'ticket_id' in self._fields` antes de tocarlo, para no romper una
+        instalación donde ese campo no existe, ej. Enterprise): se traslada a cada Orden hija
+        (si no, quedarían invisibles en la pestaña "Órdenes de Pago" del Ticket, y su costo real
+        nunca se sumaría a `helpdesk.ticket.costo_total`), y se QUITA de la Orden original al
+        cancelarla - `_compute_costo_total()` suma el `monto` de TODAS las Órdenes vinculadas al
+        Ticket sin filtrar por `state`, así que dejar esta Orden (ya obsoleta) vinculada
+        duplicaría el total (el suyo + el de sus hijas). La trazabilidad hacia esta Orden sigue
+        disponible por `orden_padre_id` en cada hija, sin necesidad de que el Ticket la siga
+        listando. Se desvincula ANTES de crear las hijas (no después) para que el recómputo de
+        `costo_total` nunca pase por un estado intermedio donde cuenta el monto de esta Orden Y
+        el de sus hijas a la vez."""
         self.ensure_one()
+        tiene_ticket_id = 'ticket_id' in self._fields
+        ticket_id = self.ticket_id.id if tiene_ticket_id and self.ticket_id else False
+        cancelar_vals = {'state': 'cancelado'}
+        if ticket_id:
+            cancelar_vals['ticket_id'] = False
+        self.write(cancelar_vals)
+
         nuevas = self.env['account.payment.order']
         for linea in self.viaticos_line_ids:
-            nuevas |= self.create({
+            vals = {
                 'tipo': 'anticipo_viaticos',
                 'partner_id': linea.employee_partner_id.id,
                 'company_id': self.company_id.id,
@@ -846,9 +867,11 @@ class AccountPaymentOrder(models.Model):
                     'cantidad': linea.cantidad,
                     'costo_individual': linea.costo_individual,
                 })],
-            })
+            }
+            if ticket_id:
+                vals['ticket_id'] = ticket_id
+            nuevas |= self.create(vals)
         nuevas.action_submit()
-        self.write({'state': 'cancelado'})
         self.message_post(body=self.env._(
             'Dividida en %(cantidad)s Orden(es) de Pago (depósito directo a técnicos): '
             '%(nombres)s', cantidad=len(nuevas), nombres=', '.join(nuevas.mapped('name'))))
