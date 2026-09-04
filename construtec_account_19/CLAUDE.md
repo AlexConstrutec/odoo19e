@@ -514,6 +514,94 @@ retenciones de esta compañía?"):
   `nit_no_permitido` se mueve a `data/retenciones_rechazados/` (no se borra, no se reintenta
   indefinidamente), mismo patrón que `data/rechazados/` en el script de subida de XML de facturas.
 
+## Constancias de Retención de ISR Emitidas (retenciones a proveedores, no a Construtec)
+
+Un tercer modelo de constancia, deliberadamente **distinto** de `construtec.sat.retention`
+(Recibidas) de arriba - pantalla distinta de Agencia Virtual (Servicios Tributarios >
+**Retenciones Web** > "Consulta constancias de retención", no "Constancias de Retenciones y
+Exenciones"), y dirección contable invertida: aquí Construtec es el **agente retenedor**
+(quien retiene al pagarle a un proveedor sin NIT registrado como agente/contribuyente
+especial), no quien recibe la retención en una venta propia.
+
+- **Por qué un modelo nuevo y no reutilizar `construtec.sat.retention`**: la estructura del PDF
+  (formulario **SAT-1911**, no SAT-2229), la dirección de vinculación (`direction='recibida'`
+  contra `construtec.sat.document`, no `'emitida'`), y sobre todo el mecanismo contable son
+  distintos - `construtec.sat.retention` crea un `account.payment` conciliado contra la línea
+  por cobrar de una factura de VENTA ya posteada (Construtec cobra menos porque el cliente ya
+  retuvo). Aquí, en cambio, Construtec le debe pagar MENOS a un proveedor - el efecto correcto
+  es una línea adicional en la misma factura de COMPRA, no un pago aparte. Forzar el mismo
+  modelo/mecanismo para ambos casos habría significado un montón de campos/lógica
+  condicionales por dirección, en vez de dos modelos simples cada uno con su propia semántica.
+- **Por qué no se reutiliza el mecanismo de Factura Especial (`_sat_get_retencion_taxes_fesp`,
+  un `account.tax` de tasa fija)**: la tarifa de retención VARÍA por régimen - confirmado
+  contra 2 PDF reales (`RÉGIMEN OPCIONAL SIMPLIFICADO SOBRE INGRESOS...` = 5%,
+  `RENTAS DE CAPITAL INMOBILIARIO` = 10%) - así que no hay una tasa única que buscar como
+  `account.tax`. En su lugar, `ConstructecSatRetentionEmitidaLine.action_aplicar_retencion_contable()`
+  agrega una línea **negativa directa** (`account.move.line`, no un tax computado) a
+  `move.invoice_line_ids` con `account_id` = la cuenta de pasivo `210203` "ISR Retenido por
+  Pagar (a terceros)" (ya existe en el plan de cuentas real, distinta de `110702` "ISR
+  Retenido a Favor/Pagos en Exceso" - esa es el activo del caso Recibidas - y de `210209` "ISR
+  por Pagar Retenido (FE)" - esa es la de Factura Especial) y `price_unit = -monto_retencion`
+  (el monto EXACTO certificado en el PDF, nunca recalculado desde un porcentaje). Si la factura
+  ya estaba posteada, se resetea a borrador, se agrega la línea, y se vuelve a postear.
+- **Alcance: solo 3 de las 4 categorías de "Retenciones que Declara" de esa pantalla** -
+  Opcional Simplificado Sobre Ingresos, Rentas de Capital Inmobiliario, Rentas de Capital
+  Mobiliario. La cuarta, **"Facturas Especiales", queda deliberadamente fuera** - confirmado
+  por el usuario que esa categoría específica de esa pantalla no ofrece descarga de PDF por
+  fila (solo copiar datos a mano), y de todas formas es 100% redundante con lo que ya se
+  extrae automáticamente del complemento `RetencionesFacturaEspecial` del propio XML del DTE
+  (`_extraer_retencion_fesp`, ver más arriba) - no hay necesidad real de construir un segundo
+  camino para el mismo dato.
+- **`construtec.sat.retention.emitida`** (header) + **`.line`** (un concepto retenido por
+  fila) - `numero_constancia` único, `serie`/`numero_factura` a nivel de HEADER (confirmado
+  contra 2 PDF reales: esta constancia SIEMPRE trae exactamente 1 factura, a diferencia de
+  SAT-2229/Recibidas que puede cubrir varias en una sola constancia - no existe aquí el caso
+  multi-factura de aquel otro formulario), `regimen`/`concepto`/`monto_renta_imponible`/
+  `monto_retencion` a nivel de LÍNEA. `sat_document_id` se resuelve automáticamente por
+  Serie+Número de factura contra `construtec.sat.document` filtrado `direction='recibida'`
+  (invertido respecto a Recibidas, que filtra `'emitida'`) - mismo patrón de
+  `_sat_buscar_documento()`/botón "Vincular Factura" (fills-blanks-only) que el modelo
+  original. Filtro de compañía en `create_from_pdf()`: compara `nit_agente_retenedor` (no
+  `nit_contribuyente` como en Recibidas) contra `self.env.company.vat` - roles invertidos,
+  mismo criterio de "no importar lo que no es de esta compañía".
+- **Aplicación automática en ambos órdenes posibles**, mismo patrón que Recibidas: si la
+  vinculación ocurre y la factura ya está posteada, se intenta aplicar de una vez
+  (`_sat_intentar_aplicar_retenciones_automatica()`, envuelto en `try/except` silencioso - un
+  fallo aquí nunca debe tumbar la vinculación en sí). Botón/acción masiva
+  "Aplicar Retención a Factura(s)" para el caso manual o de reintento. Idempotente por línea
+  vía `move_line_id` (una vez seteado, nunca se vuelve a aplicar esa línea).
+- **PDF parsing** (`sat_retention_emitida_import.py::_parse_constancia_emitida_pdf`) reutiliza
+  `_fix_pdf_accents()`/`_fix_mangled_accents()` de los otros dos parsers de este módulo (misma
+  corrupción `�`/U+FFFD de pdfminer.six). Un solo regex genérico cubre las 3 categorías (los 2
+  PDF reales de muestra son idénticos en estructura, solo cambia el texto del régimen/montos) -
+  ancla el par Serie/Número de factura y el bloque régimen/concepto/montos EN UN SOLO regex
+  (no en dos búsquedas separadas): un primer intento con regex separados emparejaba por error
+  la MISMA corrida de dígitos de `numero_constancia` (aparece antes en el texto, con la misma
+  forma de 4-15 dígitos) en vez del `numero_factura` real - bug encontrado y corregido antes
+  de escribir cualquier código, probando en vivo contra los 2 PDF reales. Si el layout no
+  calza (un caso todavía no visto), se marca `requiere_revision_manual=True` en vez de adivinar
+  - mismo criterio del resto de este módulo.
+- **Verificado end-to-end vía `odoo-bin shell` contra `construtec_test`**: ambos PDF reales
+  parseados con los 7 campos exactos esperados (`numero_constancia`, NIT/nombre retenido,
+  fecha, serie/número, régimen/concepto/montos, NIT/nombre agente); reimportar el mismo PDF
+  devuelve `skipped_duplicate`; vinculación automática contra un `construtec.sat.document`
+  sintético + `account.move` posteado; aplicación contable con la cuenta `210203` creada a
+  propósito para la prueba (no existe en `construtec_test` por defecto, solo en producción):
+  nueva línea `account.move.line` con `account_id=210203`, `credit=935.48`, `amount_residual`
+  de la factura correctamente reducido en exactamente ese monto (`18709.63 → 17774.15`), y una
+  segunda llamada manual/automática confirmada idempotente (no duplica la línea).
+- **No construido todavía**: el lado del bot (Selenium) para automatizar la descarga desde
+  "Retenciones Web > Consulta constancias de retención" - a diferencia del resto del bot SAT ya
+  construido (`run_sat_download_only.py`/`run_sat_download_retenciones.py`), esta pantalla
+  todavía no se ha inspeccionado en vivo (no hay un volcado real del HTML/DOM del formulario de
+  búsqueda ni de la tabla de resultados) - escribir selectores de Selenium sin eso sería
+  adivinar, el mismo riesgo que ya causó los 2 bugs reales (datepicker `changeMonth`/
+  `changeYear`, paginación PrimeFaces) documentados arriba para el bot de Retenciones Recibidas,
+  ambos encontrados solo probando contra el portal real. Pendiente también, explícitamente
+  diferido por el usuario: un campo indicador en `res.company` de si la compañía es agente
+  retenedor de IVA (no solo ISR), para poder repetir este mismo flujo con la otra opción de
+  "Retenciones que declara" en esa misma pantalla ("Eso lo vamos a ver después").
+
 ## Common commands
 
 ```
