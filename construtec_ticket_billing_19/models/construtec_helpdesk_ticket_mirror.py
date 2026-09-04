@@ -40,6 +40,14 @@ class ConstructecHelpdeskTicketMirror(models.Model):
              'un ticket que todavía no está en una etapa Cerrada no debe poder facturarse '
              '(ver el domain de `account.move.ticket_mirror_ids`).')
     partner_name = fields.Char(string='Cliente (Community)')
+    analytic_account_id = fields.Many2one(
+        'account.analytic.account', string='Cuenta Analítica',
+        help='Ubicación del Ticket en Community - relación REAL (no texto): resuelta al '
+             'sincronizar vía `analytic_enterprise_ref`, el mismo `account.analytic.account` '
+             'de esta base que Community solo espejea - mismo patrón que `account.payment.'
+             'order._resolve_analytic_enterprise_ref()` (construtec_account_payment_order_19). '
+             'Alimenta la distribución analítica automática de la Factura, ver `account.move.'
+             '_compute_ticket_analytic_distribution()`.')
     company_id = fields.Many2one(
         'res.company', string='Compañía', default=lambda self: self.env.company)
     origin_record_id = fields.Integer(
@@ -114,6 +122,25 @@ class ConstructecHelpdeskTicketMirror(models.Model):
             else:
                 rec.community_url = False
 
+    def _resolve_analytic_enterprise_ref(self, vals):
+        """Resuelve `analytic_enterprise_ref` (enviado por `_prepare_ticket_sync_vals()`,
+        Community) hacia un `analytic_account_id` REAL de esta base - mismo patrón que
+        `account.payment.order._resolve_analytic_enterprise_ref()` (construtec_account_
+        payment_order_19): el ref YA es el id real en Enterprise (Community solo espejea esa
+        cuenta analítica, nunca la crea de cero), así que un `browse()` directo alcanza.
+
+        A diferencia de ese otro método (que solo AGREGA, nunca limpia), aquí Community manda
+        `analytic_enterprise_ref` en CADA push, incluso vacío (`False`) si el ticket todavía no
+        tiene Ubicación - así que la clave, cuando está presente en el payload, es la fuente de
+        verdad completa: se sobreescribe `analytic_account_id` con lo que traiga, resuelto o
+        vacío, para que la Ubicación se pueda corregir/quitar en Community sin quedar pegada
+        aquí para siempre."""
+        if 'analytic_enterprise_ref' not in vals:
+            return
+        ref = vals.pop('analytic_enterprise_ref')
+        analytic_account = self.env['account.analytic.account'].browse(int(ref)).exists() if ref else False
+        vals['analytic_account_id'] = analytic_account.id if analytic_account else False
+
     @api.model
     def sync_from_community(self, vals):
         """Punto de entrada único, llamado vía XML-RPC estándar de Odoo (`/jsonrpc`) desde
@@ -136,6 +163,7 @@ class ConstructecHelpdeskTicketMirror(models.Model):
         vals = dict(vals, received_date=fields.Datetime.now())
         if not vals.get('company_id'):
             vals['company_id'] = self.env.company.id
+        self._resolve_analytic_enterprise_ref(vals)
         entry = self.search([('number', '=', number)], limit=1)
         if entry:
             entry.write(vals)

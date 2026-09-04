@@ -19,6 +19,7 @@
                             <field name="partner_name" readonly="1" />
                             <field name="stage_name" readonly="1" />
                             <field name="is_closed" readonly="1" />
+                            <field name="analytic_account_id" readonly="1" />
                             <field name="costo_total" readonly="1" />
                             <field name="currency_id" invisible="1" />
                         </group>
@@ -48,6 +49,7 @@
                 <field name="partner_name" />
                 <field name="stage_name" optional="hide" />
                 <field name="is_closed" string="Hecho" />
+                <field name="analytic_account_id" optional="show" />
                 <field name="costo_total" sum="Total" />
                 <field name="move_id" />
                 <field name="billing_state" />

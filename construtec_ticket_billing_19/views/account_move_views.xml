@@ -21,6 +21,7 @@
                         <list create="0">
                             <field name="ticket_label" string="Ticket" />
                             <field name="partner_name" />
+                            <field name="analytic_account_id" />
                             <field name="costo_total" sum="Total" />
                             <field name="billing_state" />
                             <field name="community_url" widget="url" string="Ver en Community" />

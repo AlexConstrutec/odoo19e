@@ -1,5 +1,5 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 class AccountMove(models.Model):
@@ -45,3 +45,71 @@ class AccountMove(models.Model):
         action['domain'] = [('move_id', '=', self.id)]
         action['context'] = {}
         return action
+
+    def _compute_ticket_analytic_distribution(self):
+        """Reparte 100% proporcionalmente por CANTIDAD de Tickets vinculados por Cuenta
+        Analítica - pedido explícito del usuario, con ejemplo numérico propio (15 tickets:
+        7/3/4/1 entre 4 cuentas → 46.67% / 20% / 26.67% / 6.67%). Deliberadamente por CANTIDAD
+        de tickets, no por `costo_total` ponderado - así lo describió el usuario, no se asumió
+        lo contrario.
+
+        Tickets sin `analytic_account_id` (todavía sin Ubicación en Community) quedan FUERA
+        del reparto por completo - ni cuentan en el denominador ni reciben porcentaje; si
+        NINGÚN ticket vinculado tiene Cuenta Analítica, no hay nada que repartir (`False`).
+
+        Redondeo: a la precisión nativa `decimal.precision` "Percentage Analytic" (la misma
+        que ya usa `analytic.mixin._sanitize_values()` para que el propio ORM no vuelva a
+        redondear distinto al guardar) - el remanente de redondeo se asigna a la cuenta con
+        más tickets (empate → mayor id), para que la suma cierre en exactamente 100.00, nunca
+        99.99/100.01 por arrastre de decimales."""
+        self.ensure_one()
+        tickets = self.ticket_mirror_ids.filtered('analytic_account_id')
+        total = len(tickets)
+        if not total:
+            return False
+        conteo = {}
+        for ticket in tickets:
+            conteo[ticket.analytic_account_id] = conteo.get(ticket.analytic_account_id, 0) + 1
+        precision = self.env['decimal.precision'].precision_get('Percentage Analytic')
+        porcentajes = {cuenta: round(cantidad / total * 100, precision) for cuenta, cantidad in conteo.items()}
+        remanente = round(100 - sum(porcentajes.values()), precision)
+        if remanente:
+            cuenta_mayor = max(conteo, key=lambda c: (conteo[c], c.id))
+            porcentajes[cuenta_mayor] = round(porcentajes[cuenta_mayor] + remanente, precision)
+        return {str(cuenta.id): pct for cuenta, pct in porcentajes.items()}
+
+    def _apply_ticket_analytic_distribution(self):
+        """Aplica el reparto de `_compute_ticket_analytic_distribution()` a las líneas de la
+        Factura que TODAVÍA no tienen su propia distribución analítica - nunca pisa una que el
+        contable ya fijó a mano (mismo criterio "solo rellena vacíos" usado en todo este
+        proyecto, ej. `cuenta_contable_id` en construtec_account_19). Excluye líneas de
+        sección/nota (`display_type`), que no tienen efecto contable real."""
+        for move in self:
+            if move.move_type != 'out_invoice':
+                continue
+            distribucion = move._compute_ticket_analytic_distribution()
+            if not distribucion:
+                continue
+            lineas = move.invoice_line_ids.filtered(
+                lambda l: l.display_type not in ('line_section', 'line_note')
+                and not l.analytic_distribution
+            )
+            lineas.analytic_distribution = distribucion
+
+    @api.onchange('ticket_mirror_ids', 'invoice_line_ids')
+    def _onchange_ticket_mirror_ids_apply_analytic_distribution(self):
+        self._apply_ticket_analytic_distribution()
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        # _apply_ticket_analytic_distribution() ya es un no-op seguro (move_type != 'out_invoice',
+        # o sin tickets con Cuenta Analítica) - no hace falta filtrar cuáles vals traían qué.
+        records._apply_ticket_analytic_distribution()
+        return records
+
+    def write(self, vals):
+        res = super().write(vals)
+        if 'ticket_mirror_ids' in vals or 'invoice_line_ids' in vals:
+            self._apply_ticket_analytic_distribution()
+        return res
