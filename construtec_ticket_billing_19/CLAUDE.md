@@ -64,6 +64,20 @@ Reportado por el usuario en el selector de tickets de una Factura: "No. Ticket" 
 
 Verificado con `odoo-bin shell`: `number == name` → `ticket_label == number`; `number != name` (título real) → `ticket_label == "number - name"`; sin `name` → `ticket_label == number`. `-u` limpio en `construtec_test`, sin `ERROR`/`CRITICAL` nuevos.
 
+## Bug real: `community_url` nunca llegaba a poblarse - Community no mandaba `origin_record_id`/`origin_base_url` (2026-09-04)
+
+Reportado por el usuario: quería un link visible, justo en el momento de vincular un ticket a una Factura, para poder consultar el ticket real en Community sin salir de Enterprise. El campo `community_url` (compute, `@api.depends('origin_record_id', 'origin_base_url')`) y el grupo "Vínculo Community / Enterprise" en el formulario **ya existían** desde el diseño original de este módulo - mismo patrón exacto que `account.payment.order.community_url` (`construtec_account_payment_order_19`) - pero **nunca se veía nada** porque `origin_record_id`/`origin_base_url` se quedaban vacíos para siempre.
+
+**Causa real**: `_prepare_ticket_sync_vals()` (`construtec_helpdesk_field_service/models/helpdesk_ticket.py`, Community) nunca mandaba esos dos campos en el payload del push - a diferencia de `account.payment.order._prepare_sync_vals()`, que sí los manda desde que se construyó ese mecanismo. Un descuido real al construir el push de tickets, no un cambio de diseño.
+
+**El fix**: `_prepare_ticket_sync_vals()` ahora también manda `origin_record_id: self.id` y `origin_base_url: self.get_base_url()` - mismo criterio exacto que el otro módulo. `sync_from_community()` (este módulo) no necesitó ningún cambio - ya escribía cualquier clave del payload tal cual, incluidas estas dos, solo que nunca las recibía.
+
+**Además, se agregó `community_url` (`widget="url"`) como columna visible en los dos lugares donde de verdad se "está vinculando"** (antes solo se veía dentro del formulario individual de un ticket, un lugar al que nadie entra durante el flujo real de facturación):
+- La lista standalone (`construtec_helpdesk_ticket_mirror_view_list`) - es la que alimenta el diálogo "Agregar" del selector `ticket_mirror_ids` en la Factura (confirmado en la sesión anterior: ese diálogo usa esta vista, no la lista anidada del formulario de la Factura).
+- La lista anidada dentro de la pestaña "Tickets (Community)" de la propia Factura (`account_move_views.xml`) - para revisar un ticket ya vinculado sin salir de ahí.
+
+Verificado con `odoo-bin shell`: `sync_from_community()` con un payload que incluye `origin_record_id`/`origin_base_url` (simulando el push ya corregido de Community) arma correctamente `community_url = '<origin_base_url>/web#id=<origin_record_id>&model=helpdesk.ticket&view_type=form'`. `-u` limpio en ambos lados (`construtec_helpdesk_field_service` en Community, `construtec_ticket_billing_19` en Enterprise), sin `ERROR`/`CRITICAL` nuevos.
+
 ## Verified
 
 `odoo-bin shell` against `construtec_test` (`Odoo19E`): `sync_from_community()` creates on first call, upserts (same id, updated `costo_total`) on a second call with the same `number` — never duplicates; linking `move_id` to a draft invoice keeps `billing_state='no_facturado'`; posting the invoice (unpaid) flips it to `facturado`; two different mirror tickets sharing the same `move_id` both read `facturado`/`cobrado` together and `account.move.ticket_mirror_count == 2`; registering full payment via `account.payment.register` flips both to `cobrado` with `payment_id` resolved; `action_view_ticket_mirrors()` builds the correct domain. `-u`/`-i` clean on `construtec_test`, no new `ERROR`/`CRITICAL` in `odoo.log` (only pre-existing, differently-dated noise already documented in the top-level `Odoo19E\server\odoo19e\CLAUDE.md`).

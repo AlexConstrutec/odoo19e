@@ -51,6 +51,7 @@
                 <field name="costo_total" sum="Total" />
                 <field name="move_id" />
                 <field name="billing_state" />
+                <field name="community_url" widget="url" string="Ver en Community" optional="show" />
                 <field name="received_date" optional="hide" />
             </list>
         </field>
