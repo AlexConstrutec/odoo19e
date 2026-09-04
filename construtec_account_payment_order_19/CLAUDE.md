@@ -834,6 +834,14 @@ Caso real planteado con el contador: un jefe de técnicos captura un Anticipo Vi
     - **El fix**: `_dividir_en_ordenes_por_tecnico()` ahora traslada `ticket_id` a cada Orden hija (si la original lo tenía) y lo **QUITA** de la Orden original al cancelarla - la trazabilidad hacia la Orden original sigue disponible por `orden_padre_id` en cada hija, sin que el Ticket necesite seguir listándola. Se desvincula la original ANTES de crear las hijas (no después), para que el recómputo de `costo_total` nunca pase por un estado intermedio donde cuenta el monto de la original Y el de sus hijas a la vez.
     - **Chequeo defensivo `'ticket_id' in self._fields`** antes de tocar el campo en absoluto - `construtec_account_payment_order_19` no depende de `construtec_helpdesk_field_service`, así que ese campo simplemente no existe en una instalación donde ese módulo no está presente (ej. Enterprise, que no tiene Helpdesk) - referenciarlo directo sin este chequeo habría roto `_dividir_en_ordenes_por_tecnico()` ahí con un `AttributeError`.
 
+### `cuenta_acreditar`/`tipo_cuenta` visibles por defecto en la lista de Viáticos - detectar antes de Enviar, no al final (2026-09-04)
+
+Reportado por el usuario: `action_submit()` exige `cuenta_acreditar`/`tipo_cuenta`/`banco` completos en cada línea (líneas 789/799) - pero como columnas eran `optional="hide"` en `viaticos_line_ids` (visibles solo si alguien las activaba a mano desde el selector de columnas), el Jefe de Técnicos nunca las veía mientras capturaba la solicitud - el primer aviso de "a este técnico le falta la cuenta" llegaba como error hasta el final, al darle Enviar.
+
+**El fix**: `cuenta_acreditar`/`tipo_cuenta` pasan a `optional="show"` - visibles por defecto, sin que nadie tenga que activarlas. `banco` se queda `optional="hide"` (el usuario pidió específicamente dos columnas, no las tres) - pero se agrega `decoration-danger="not cuenta_acreditar or not tipo_cuenta or not banco"` sobre el `<list>` completo, pintando en rojo la fila ENTERA de cualquier técnico al que le falte cualquiera de los tres campos que `action_submit()` exige - incluido `banco`, aunque su columna siga oculta, para que ningún caso real de "error hasta el final" quede sin avisar antes de tiempo.
+
+Verificado con `get_view()`: el arch contiene `cuenta_acreditar`/`tipo_cuenta` con `optional="show"`, `banco` sigue `optional="hide"`, y la decoración en rojo está presente con la condición completa (los tres campos). `-u` limpio en `construtec_test`, sin `ERROR`/`CRITICAL` nuevos.
+
 ## Common commands
 
 ```
