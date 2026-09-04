@@ -107,11 +107,15 @@ class ConstructecHelpdeskTicketMirror(models.Model):
         que `costo_total`/`stage_id` del Ticket cambia. Upsert por `number` - Community reenvía
         el Ticket completo en cada cambio, nunca solo un delta.
 
-        Deliberadamente SIN `sudo()` - la seguridad de este endpoint depende por completo de que
-        el usuario de integración (`group_ticket_billing_sync_integration`, create+write+read
-        SOLO sobre este modelo) sea el único con permiso real de escribir aquí vía RPC - mismo
-        criterio ya documentado en `construtec.materials.catalog.mirror::sync_from_enterprise()`
-        (construtec_sat_catalog_sync_19)."""
+        Deliberadamente SIN `sudo()` - el usuario de integración necesita permiso real (no
+        prestado) sobre este modelo para que el upsert funcione vía RPC. A diferencia de otros
+        mirrors de este proyecto (que usan un grupo dedicado de mínimo privilegio), este
+        reutiliza `account.group_account_manager` ("Facturación: Administrador", ya existente,
+        decisión explícita del usuario 2026-09-04: "reutiliza los grupos, no crea grupos
+        nuevos") - el usuario de integración debe agregarse a ESE grupo. Esto es más amplio que
+        un grupo dedicado (cualquier miembro de ese grupo, no solo la integración, ya tenía
+        create+write+unlink aquí desde antes) - el trade-off aceptado es simplicidad de
+        Ajustes/seguridad sobre superficie de ataque mínima."""
         number = vals.get('number')
         if not number:
             raise ValueError('Falta number - no se puede actualizar sin la clave de upsert.')

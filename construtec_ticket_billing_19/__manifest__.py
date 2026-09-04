@@ -11,7 +11,6 @@
     "license": "AGPL-3",
     "depends": ["account"],
     "data": [
-        "security/ticket_billing_security.xml",
         "security/ir.model.access.csv",
         "views/construtec_helpdesk_ticket_mirror_views.xml",
         "views/account_move_views.xml",
