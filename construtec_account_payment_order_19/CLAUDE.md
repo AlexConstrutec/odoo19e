@@ -871,6 +871,16 @@ Corrección explícita del usuario: `_dividir_en_ordenes_por_tecnico()` dejaba l
 
 Verificado con `odoo-bin shell`: la Orden original queda en `state='dividida'` tras dividirse (no `cancelado`); `viaticos_sin_liquidar_count` de un técnico ya dividido cuenta 1 (solo su Orden hija real), confirmado contra un control que reproduce el domain viejo (sin excluir `dividida`) y da 2, la duplicación real que este fix evita. `-u` limpio en `construtec_test`, sin `ERROR`/`CRITICAL` nuevos.
 
+### Bug real: la línea de viáticos llegaba a Enterprise sin `cuenta_acreditar`/`tipo_cuenta` (2026-09-05)
+
+Reportado por el usuario con una captura real de Enterprise: el ENCABEZADO de la Orden hija sincronizada mostraba bien la cuenta (ya corregida en la sesión anterior), pero la línea de viáticos propia, ya en Enterprise, aparecía con "Cuenta a..."/"Tipo de C..." en blanco para un técnico sin cuenta bancaria cargada en ningún lado (ni Community ni Enterprise) - el jefe la había corregido a mano en Community.
+
+**Causa**: `_prepare_sync_vals()` arma el payload de `viaticos_line_ids` con `tecnico_name`/`employee_enterprise_ref`/`departamento`/`puesto`/`cantidad`/`costo_individual` - nunca incluía `cuenta_acreditar`/`banco`/`tipo_cuenta` por línea (aunque el ENCABEZADO sí los manda, en una clave aparte del mismo payload). Al llegar a Enterprise, el `create()` de la línea (`account_payment_order_viatico_line.py`, mismo módulo/código en ambos lados) vuelve a intentar DERIVARLOS desde el `hr.employee` resuelto vía `employee_enterprise_ref` - y si ese empleado tampoco tiene la cuenta cargada en Enterprise (el mismo motivo por el que el jefe tuvo que escribirla a mano en Community), la línea llega vacía, aunque el encabezado de esa misma Orden sí la traiga bien.
+
+**El fix**: se agregan `cuenta_acreditar`/`banco`/`tipo_cuenta` (de la línea de Community) al payload de cada línea en `_prepare_sync_vals()` - como el `create()` de la línea usa `vals.setdefault(...)`, mandarlos explícitos hace que se respeten tal cual, sin volver a derivarlos del lado Enterprise. Mismo patrón exacto que el fix de la sesión anterior para `_dividir_en_ordenes_por_tecnico()` (ahí era Community→Community al dividir; este es Community→Enterprise al sincronizar) - dos pasos distintos del mismo flujo, cada uno necesitaba su propio fix.
+
+Verificado con `odoo-bin shell`, simulando el flujo completo de punta a punta: Orden hija en Community con la línea corregida a mano → `_prepare_sync_vals()` → `create()` en un registro "receptor" simulando Enterprise (con `employee_enterprise_ref` forzado a no resolver, replicando "el empleado tampoco existe/tiene datos allá") - la línea recibida SÍ trae `cuenta_acreditar`/`tipo_cuenta` correctos. `-u` limpio en `construtec_test`, sin `ERROR`/`CRITICAL` nuevos.
+
 ## Common commands
 
 ```

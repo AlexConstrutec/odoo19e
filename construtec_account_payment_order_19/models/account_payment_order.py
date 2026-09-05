@@ -1054,6 +1054,19 @@ class AccountPaymentOrder(models.Model):
                     'puesto': line.puesto or '',
                     'cantidad': line.cantidad,
                     'costo_individual': line.costo_individual,
+                    # Bug real (2026-09-05): sin esto, la línea PROPIA ya en Enterprise volvía a
+                    # derivar cuenta_acreditar/banco/tipo_cuenta desde el `hr.employee` allá (ver
+                    # account_payment_order_viatico_line.py::create()) - si ese empleado tampoco
+                    # tiene esos datos cargados en Enterprise (el mismo caso por el que el jefe
+                    # tuvo que corregirlos A MANO en Community, ver `_dividir_en_ordenes_por_
+                    # tecnico()`), la línea llegaba vacía aunque el ENCABEZADO de esta misma
+                    # Orden sí los trajera bien (ese sí viajaba, ver `cuenta_acreditar`/`banco`/
+                    # `tipo_cuenta` unas líneas arriba). Mandarlos explícitos aquí hace que el
+                    # `create()` de la línea (que usa `vals.setdefault(...)`) los respete tal
+                    # cual, sin intentar derivarlos de nuevo.
+                    'cuenta_acreditar': line.cuenta_acreditar or '',
+                    'banco': line.banco or '',
+                    'tipo_cuenta': line.tipo_cuenta,
                 })
                 for line in self.viaticos_line_ids
             ],
