@@ -157,6 +157,7 @@ class AccountPaymentOrder(models.Model):
         ('aplicado', 'Aplicado'),
         ('liquidado', 'Liquidado'),
         ('cancelado', 'Cancelado'),
+        ('dividida', 'Dividida'),
     ], default='borrador', copy=False, tracking=True,
         help='`enviado`/`aprobado`/`rechazado` solo aplican a Anticipo/Anticipo Viáticos (el '
              'ciclo heredado de la antigua Solicitud de Pago, fusionada aquí). Pago Directo va '
@@ -165,7 +166,13 @@ class AccountPaymentOrder(models.Model):
              'desembolsado), pueden seguir agregando facturas/pagos sobre sí mismos y llamar a '
              '`action_conciliar()` para llegar también a `liquidado` - no existe un registro '
              '"Liquidación" aparte (ver "Fusión: Liquidación deja de ser un tipo aparte" en el '
-             'CLAUDE.md de este módulo).')
+             'CLAUDE.md de este módulo). `dividida` es exclusivo de Anticipo Viáticos con '
+             '"Depositar Directo a Técnicos" marcado - la Orden ORIGINAL nunca se envía ella '
+             'misma como dinero real, queda en este estado solo como referencia hacia las '
+             'Órdenes reales que sí se generaron (ver `ordenes_hijas_ids`/`lote_origen` y '
+             '`_dividir_en_ordenes_por_tecnico()`) - deliberadamente distinto de `cancelado` '
+             '(que significa "esto no va a pasar"), ya que aquí el pago SÍ ocurre, solo que en '
+             'otras Órdenes.')
 
     # --- Campos absorbidos de la antigua account.payment.order.request (fusión Solicitud+Anticipo) ---
     external_ref = fields.Char(
@@ -831,8 +838,10 @@ class AccountPaymentOrder(models.Model):
         False por default), lo que reutiliza sin cambios toda la validación/sincronización que
         ya existe - ninguna lógica nueva de sincronización, solo el paso previo de dividir.
 
-        La Orden original NUNCA se envía ella misma como una orden de dinero real - queda
-        `cancelado`, con una nota en el chatter y las hijas enlazadas vía
+        La Orden original NUNCA se envía ella misma como una orden de dinero real - queda en
+        `dividida` (2026-09-05: NO `cancelado` - decisión explícita del usuario, ya que
+        "cancelado" da a entender que el pago no va a ocurrir, y aquí sí ocurre, solo que en
+        otras Órdenes), con una nota en el chatter y las hijas enlazadas vía
         `orden_padre_id`/`ordenes_hijas_ids`. División en 1 sola hija incluida, incluso con un
         solo técnico en la lista - pedido explícito del usuario, por trazabilidad uniforme, sin
         un camino especial según cuántos técnicos haya.
@@ -853,10 +862,10 @@ class AccountPaymentOrder(models.Model):
         self.ensure_one()
         tiene_ticket_id = 'ticket_id' in self._fields
         ticket_id = self.ticket_id.id if tiene_ticket_id and self.ticket_id else False
-        cancelar_vals = {'state': 'cancelado'}
+        dividir_vals = {'state': 'dividida'}
         if ticket_id:
-            cancelar_vals['ticket_id'] = False
-        self.write(cancelar_vals)
+            dividir_vals['ticket_id'] = False
+        self.write(dividir_vals)
 
         nuevas = self.env['account.payment.order']
         for linea in self.viaticos_line_ids:

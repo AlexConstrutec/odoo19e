@@ -858,6 +858,19 @@ Pedido explícito del usuario: poder generar un Excel (nombre completo/banco/nú
 
 Verificado con `odoo-bin shell`: el botón del lote bloquea con `UserError` antes de dividir; tras dividir, `lote_origen` coincide exactamente con el `name` de la Orden original en las 2 hijas, y viaja correctamente en `_prepare_sync_vals()`; el Excel generado es un ZIP/xlsx real (firma `PK`, ~5.7KB) que contiene los nombres/bancos de ambos técnicos; la acción masiva (seleccionando las hijas a mano, sin pasar por el botón del padre) genera el mismo resultado. `-u` limpio en `construtec_test`, sin `ERROR`/`CRITICAL` nuevos.
 
+### Nuevo estado `dividida` - la Orden ORIGINAL ya no queda `cancelado` al dividirse (2026-09-05)
+
+Corrección explícita del usuario: `_dividir_en_ordenes_por_tecnico()` dejaba la Orden original en `state='cancelado'` - "cancelado" da a entender que el pago no va a ocurrir (un anticipo abortado, rechazado, etc.), pero aquí el dinero SÍ se paga, solo que a través de las Órdenes hijas. Se agrega `('dividida', 'Dividida')` al Selection de `state`, exclusivo de este camino.
+
+- `_dividir_en_ordenes_por_tecnico()` ahora escribe `state='dividida'` (antes `'cancelado'`) - todo lo demás sin cambios (chatter, `orden_padre_id`/`ordenes_hijas_ids`/`lote_origen`, desvinculación de `ticket_id`).
+- **`action_cancel()` (botón "Cancelar")** se oculta también para `state == 'dividida'` (antes solo cancelado/rechazado/aplicado/liquidado) - no tendría sentido "cancelar" una Orden que ya cumplió su propósito de dividirse.
+- **`viaticos_sin_liquidar_count`** (`account_payment_order_viatico_line.py`) agrega `'dividida'` a sus estados excluidos - sin esto, un técnico dividido se contaría DOS veces (la línea, ya obsoleta, de la Orden original + la línea real de su propia Orden hija). Verificado con un control directo: sin la exclusión el conteo da 2, con ella da 1 (solo la Orden hija real).
+- **Lista de Órdenes de Pago**: `'dividida'` no se agregó a ningún `decoration-*` existente a propósito - el badge de `state` cae en su estilo por defecto (ni el verde de aplicado/liquidado, ni el rojo de rechazado/cancelado), leyéndose correctamente como "un estado propio, no un error ni un cierre exitoso normal", sin inventar una clase de decoración nueva.
+- **`unlink()`** deliberadamente NO incluye `'dividida'` entre los estados eliminables (`'borrador', 'cancelado', 'rechazado'`) - una Orden dividida es el único rastro de que ese lote de depósitos existió, igual criterio que ya protege `'aplicado'`/`'liquidado'`.
+- **`_pull_payment_order_status()`** (`res_company.py`) no necesitó ningún cambio - la Orden original nunca llega a tener `sync_state='synced'` (se divide ANTES de sincronizarse ella misma, ver `action_submit()`), así que el filtro `sync_state='synced'` ya la excluye del todo, sin importar su `state`.
+
+Verificado con `odoo-bin shell`: la Orden original queda en `state='dividida'` tras dividirse (no `cancelado`); `viaticos_sin_liquidar_count` de un técnico ya dividido cuenta 1 (solo su Orden hija real), confirmado contra un control que reproduce el domain viejo (sin excluir `dividida`) y da 2, la duplicación real que este fix evita. `-u` limpio en `construtec_test`, sin `ERROR`/`CRITICAL` nuevos.
+
 ## Common commands
 
 ```

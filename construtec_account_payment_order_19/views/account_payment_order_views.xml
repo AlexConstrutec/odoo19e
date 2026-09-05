@@ -20,7 +20,7 @@
                     <button name="action_reset_to_draft" string="Volver a Borrador" type="object"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'rechazado'"/>
                     <button name="action_cancel" string="Cancelar" type="object"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state in ('cancelado', 'rechazado', 'aplicado', 'liquidado')"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state in ('cancelado', 'rechazado', 'aplicado', 'liquidado', 'dividida')"/>
                     <button name="action_aplicar" string="Aplicar" type="object" class="oe_highlight"
                             groups="account.group_account_manager"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'aprobado' or not es_procesador"/>

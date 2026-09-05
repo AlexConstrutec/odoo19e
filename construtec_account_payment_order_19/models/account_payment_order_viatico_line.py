@@ -68,7 +68,12 @@ class AccountPaymentOrderViaticoLine(models.Model):
             domain = [
                 ('employee_partner_id', '=', line.employee_partner_id.id),
                 ('order_id.tipo', '=', 'anticipo_viaticos'),
-                ('order_id.state', 'not in', ('rechazado', 'cancelado', 'liquidado')),
+                # 'dividida': la línea de la Orden ORIGINAL (ya obsoleta tras dividirse, ver
+                # _dividir_en_ordenes_por_tecnico()) no debe contar como "pendiente" - lo real
+                # y activo ahora vive en la Orden hija de ese mismo técnico, que sí cuenta por
+                # su cuenta. Sin esto, un técnico dividido se contaría dos veces (la línea de la
+                # Orden original Y la de su propia Orden hija).
+                ('order_id.state', 'not in', ('rechazado', 'cancelado', 'liquidado', 'dividida')),
             ]
             # order_id.id puede ser un NewId (formulario todavía sin guardar) - un NewId no es
             # un valor válido para un domain de search_count, y de todas formas una Orden nueva
