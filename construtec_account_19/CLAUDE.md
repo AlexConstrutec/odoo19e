@@ -590,11 +590,15 @@ especial), no quien recibe la retención en una venta propia.
   nueva línea `account.move.line` con `account_id=210203`, `credit=935.48`, `amount_residual`
   de la factura correctamente reducido en exactamente ese monto (`18709.63 → 17774.15`), y una
   segunda llamada manual/automática confirmada idempotente (no duplica la línea).
-- **Bot (Selenium) construido - `C:\Users\Alex\Documents\n8n\sat-bot\run_sat_download_retenciones_isr_emitidas.py`
-  - inspeccionado en vivo, pero NO verificado end-to-end todavía.** A diferencia de escribir
-  selectores a ciegas, el DOM real de esta pantalla se inspeccionó en vivo (2026-09-05, vía
-  Claude en Chrome contra la sesión real de Construtec, NIT 120360268) antes de escribir el
-  script, confirmando:
+- **Bot (Selenium) construido y VERIFICADO END-TO-END -
+  `C:\Users\Alex\Documents\n8n\sat-bot\run_sat_download_retenciones_isr_emitidas.py`.**
+  Corrida real completa contra producción (2026-09-05, sin filtros, rango de 45 días,
+  las 3 categorías): **6 constancias reales encontradas y descargadas sin ningún error**
+  (5 en Opcional Simplificado, 1 en Rentas de Capital Inmobiliario, 0 en Rentas de Capital
+  Mobiliario) - incluyendo las 2 constancias ya conocidas de sesiones anteriores
+  (`1787178826546.pdf`, `1788278827554.pdf`), confirmadas **byte-a-byte idénticas** a los PDF
+  originales ya usados para escribir el parser. El DOM real de esta pantalla se había
+  inspeccionado en vivo antes (vía Claude en Chrome, NIT 120360268), confirmando:
   - Ruta de menú real: Servicios Tributarios > **Retenciones Web** > "Consulta constancias de
     retención" (no "Constancias de Retenciones y Exenciones", esa es la pantalla hermana de
     Recibidas). La pantalla vive en un iframe cuyo `src` real es
@@ -624,18 +628,33 @@ especial), no quien recibe la retención en una venta propia.
     constancia). Todo selector del script ancla explícitamente en `linkDescargar` - nunca un
     selector genérico de "primer link de la fila" que pudiera calzar por error con
     `linkAnular`.
-  - **Advertencia real, sin resolver**: al hacer clic en `linkDescargar` usando automatización
-    basada en CDP (Claude en Chrome) durante esta inspección, el servidor respondió **503 de
-    forma consistente** - el mismo tipo de bloqueo a navegadores controlados por CDP que ya
-    causó que el resto de este proyecto pasara de n8n/CDP a Selenium puro (ver la nota sobre
-    Agencia Virtual más arriba en este archivo). Selenium (WebDriver, no CDP) es el mecanismo
-    que ya funciona para la pantalla hermana, así que es razonable esperar que funcione aquí
-    también - pero **no se pudo confirmar que la descarga concluye con éxito real** durante esta
-    inspección, solo que la estructura del DOM/selectores es correcta. El script incluye un
-    reintento con espera creciente alrededor del clic de descarga
-    (`_click_descargar_con_reintento`) por si el 503 reaparece en una corrida real - la primera
-    corrida real debe revisarse con cuidado (logs + contenido de
-    `RETENCIONES_EMITIDAS_DOWNLOAD_DIR`).
+  - **El 503 visto durante la inspección inicial fue una falsa alarma**: era del listado de
+    requests de Claude en Chrome (automatización CDP), no un bloqueo real del portal - los
+    clics de esa misma sesión sí habían descargado los PDF con éxito (confirmados después en
+    la carpeta de Descargas de Windows, con timestamps que coinciden exactamente con esos
+    clics). `_click_descargar_con_reintento()` se conserva de todas formas como resguardo
+    general ante cualquier error transitorio real del servidor.
+  - **3 bugs reales encontrados y corregidos en la primera corrida contra Selenium** (la
+    inspección visual por sí sola no los reveló):
+    1. Cambiar de categoría (`byRetenReg_input`) **sí dispara un round-trip AJAX real** (algo
+       que la inspección original solo había confirmado para `modoServe`) - sin esperar a que
+       asentara, tocar los campos de fecha justo después fallaba con
+       `StaleElementReferenceException`. Corregido esperando a que el propio select confirme
+       el nuevo valor antes de continuar (se salta la espera si el valor pedido ya es el
+       actual, ahí el navegador no dispara `change`).
+    2. El conteo de filas devolvía 0 aun con una fila real presente en la página - el bug
+       real: `formContent:tblConstancias` es el `id` del `<div>` contenedor de PrimeFaces, no
+       del propio `<table>`, así que un XPath anclado en `table[@id=...]` nunca calzaba con
+       nada. Corregido usando `*[@id=...]` (cualquier tag) más un filtro a filas que traigan
+       `linkDescargar`/`linkAnular`.
+    3. El PDF sí se descargaba, pero aterrizaba en la carpeta de Descargas de Windows por
+       defecto en vez de `RETENCIONES_EMITIDAS_DOWNLOAD_DIR`, pese a tener
+       `download.default_directory` configurado igual que el bot hermano (que sí respeta esa
+       carpeta) - sospecha: Chrome puede enrutar distinto una descarga iniciada desde un
+       iframe **cross-origin** (`farm3.sat.gob.gt` incrustando `svc.c.sat.gob.gt`). Corregido
+       navegando **directo** a la URL real del servicio tras el login (confirmado que hereda
+       la misma sesión/cookie sin pedir credenciales de nuevo), sin pasar por el iframe en
+       absoluto - `open_retenciones_web_menu()` se conserva solo como respaldo.
   - Variables de entorno: `RETENCIONES_EMITIDAS_DOWNLOAD_DIR`,
     `RETENCIONES_EMITIDAS_FECHA_DESDE`/`_HASTA` (default hoy-45 días, mismo valor que la
     pantalla hermana pero **sin backfill real medido específicamente para esta pantalla** que
@@ -645,8 +664,7 @@ especial), no quien recibe la retención en una venta propia.
   - Falta: el script de subida (`run_sat_upload_retenciones_isr_emitidas_to_odoo.py`, mismo
     patrón que `run_sat_upload_retenciones_to_odoo.py` pero llamando
     `construtec.sat.retention.emitida.create_from_pdf`) y el workflow de n8n que encadena
-    ambos - no construidos todavía, pendientes de que la primera corrida real del bot de
-    descarga confirme que el 503 no es un problema real antes de automatizar el resto.
+    ambos - no construidos todavía.
   - Pendiente también, explícitamente diferido por el usuario: un campo indicador en
     `res.company` de si la compañía es agente retenedor de IVA (no solo ISR), para poder
     repetir este mismo flujo con la otra opción de "Retenciones que declara" en esa misma
