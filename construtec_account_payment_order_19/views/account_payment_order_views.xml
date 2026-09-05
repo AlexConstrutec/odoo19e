@@ -42,7 +42,7 @@
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') or state != 'liquidado' or not es_procesador"/>
                     <button name="action_generar_excel_transferencia_lote"
                             string="Generar Excel de Transferencia" type="object" icon="fa-file-excel-o"
-                            invisible="not ordenes_hijas_count"/>
+                            invisible="not ordenes_hijas_count or not es_procesador"/>
                     <field name="es_procesador" invisible="1"/>
                     <field name="puede_conciliar" invisible="1"/>
                     <field name="state" widget="statusbar"
@@ -208,78 +208,80 @@
                         <field name="observaciones"/>
                     </group>
 
-                    <div class="oe_title" invisible="not es_procesador">
-                        <h2>Facturas</h2>
-                    </div>
-                    <p class="text-muted" invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or not es_procesador">
-                        Opcional en un Anticipo: si adjuntas una factura que el monto cubre al 100%,
-                        el sistema te avisará al Aplicar que probablemente corresponde usar "Pago
-                        Directo" en vez de un Anticipo pendiente de liquidar.
-                    </p>
-                    <p class="text-muted" invisible="tipo != 'pago_directo' or not es_procesador">
-                        Obligatorio en un Pago Directo: agrega al menos una factura. Al Conciliar, el
-                        monto del pago debe coincidir exactamente con el total de la(s) factura(s) - sin
-                        diferencia admitida (a diferencia de un Anticipo, no usa Cuenta de Ajuste).
-                    </p>
-                    <field name="factura_ids" widget="many2many" nolabel="1" invisible="not es_procesador">
-                        <list>
-                            <field name="made_sequence_gap" column_invisible="1"/>
-                            <field name="name" decoration-bf="1" decoration-danger="made_sequence_gap"/>
-                            <field name="date"/>
-                            <field name="partner_id" string="Proveedor"/>
-                            <field name="ref" string="Referencia Proveedor"/>
-                            <field name="amount_untaxed_signed"/>
-                            <field name="amount_total_signed" sum="Total"/>
-                            <field name="payment_state" widget="badge"
-                                   decoration-danger="payment_state == 'not_paid'"
-                                   decoration-warning="payment_state in ('partial', 'in_payment')"
-                                   decoration-success="payment_state in ('paid', 'reversed')"
-                                   optional="show"/>
-                            <field name="state" widget="badge" decoration-success="state == 'posted'"
-                                   decoration-info="state == 'draft'" optional="show"/>
-                        </list>
-                    </field>
+                    <notebook invisible="not es_procesador">
+                        <page string="Facturas y Pagos">
+                            <div class="oe_title">
+                                <h2>Facturas</h2>
+                            </div>
+                            <p class="text-muted" invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')">
+                                Opcional en un Anticipo: si adjuntas una factura que el monto cubre al 100%,
+                                el sistema te avisará al Aplicar que probablemente corresponde usar "Pago
+                                Directo" en vez de un Anticipo pendiente de liquidar.
+                            </p>
+                            <p class="text-muted" invisible="tipo != 'pago_directo'">
+                                Obligatorio en un Pago Directo: agrega al menos una factura. Al Conciliar, el
+                                monto del pago debe coincidir exactamente con el total de la(s) factura(s) - sin
+                                diferencia admitida (a diferencia de un Anticipo, no usa Cuenta de Ajuste).
+                            </p>
+                            <field name="factura_ids" widget="many2many" nolabel="1">
+                                <list>
+                                    <field name="made_sequence_gap" column_invisible="1"/>
+                                    <field name="name" decoration-bf="1" decoration-danger="made_sequence_gap"/>
+                                    <field name="date"/>
+                                    <field name="partner_id" string="Proveedor"/>
+                                    <field name="ref" string="Referencia Proveedor"/>
+                                    <field name="amount_untaxed_signed"/>
+                                    <field name="amount_total_signed" sum="Total"/>
+                                    <field name="payment_state" widget="badge"
+                                           decoration-danger="payment_state == 'not_paid'"
+                                           decoration-warning="payment_state in ('partial', 'in_payment')"
+                                           decoration-success="payment_state in ('paid', 'reversed')"
+                                           optional="show"/>
+                                    <field name="state" widget="badge" decoration-success="state == 'posted'"
+                                           decoration-info="state == 'draft'" optional="show"/>
+                                </list>
+                            </field>
 
-                    <div class="oe_title" invisible="not es_procesador">
-                        <h2>Pagos/Cheques</h2>
-                    </div>
-                    <field name="pago_ids" widget="many2many" nolabel="1" invisible="not es_procesador">
-                        <list>
-                            <field name="date"/>
-                            <field name="name"/>
-                            <field name="partner_id" string="Contacto"/>
-                            <field name="memo" string="Memo"/>
-                            <field name="amount" widget="monetary" sum="Total"/>
-                            <field name="state" widget="badge" decoration-info="state == 'draft'"
-                                   decoration-warning="state == 'in_process'"
-                                   decoration-success="state == 'paid'"
-                                   decoration-danger="state in ('canceled', 'rejected')"/>
-                        </list>
-                    </field>
-                    <button name="action_crear_pago" string="Crear Pago" type="object"
-                            groups="account.group_account_manager"
-                            invisible="not puede_conciliar or not es_procesador"/>
+                            <div class="oe_title">
+                                <h2>Pagos/Cheques</h2>
+                            </div>
+                            <field name="pago_ids" widget="many2many" nolabel="1">
+                                <list>
+                                    <field name="date"/>
+                                    <field name="name"/>
+                                    <field name="partner_id" string="Contacto"/>
+                                    <field name="memo" string="Memo"/>
+                                    <field name="amount" widget="monetary" sum="Total"/>
+                                    <field name="state" widget="badge" decoration-info="state == 'draft'"
+                                           decoration-warning="state == 'in_process'"
+                                           decoration-success="state == 'paid'"
+                                           decoration-danger="state in ('canceled', 'rejected')"/>
+                                </list>
+                            </field>
+                            <button name="action_crear_pago" string="Crear Pago" type="object"
+                                    groups="account.group_account_manager"
+                                    invisible="not puede_conciliar"/>
 
-                    <group invisible="not puede_conciliar or not es_procesador"
-                           class="oe_subtotal_footer oe_right">
-                        <field name="diferencia_conciliacion" class="oe_subtotal_footer_separator"/>
-                    </group>
-                    <p class="text-muted" invisible="not puede_conciliar or not es_procesador">
-                        Positivo: faltan pagos por cubrir (usa "Crear Pago" o agrega uno a mano). Negativo:
-                        faltan facturas, o hay pagos de más. En cero, Conciliar/Liquidar debería funcionar
-                        sin pedir Cuenta de Ajuste.
-                    </p>
-
-                    <div invisible="not es_procesador">
-                        <group>
-                            <group>
-                                <field name="cuenta_ajuste_id"/>
+                            <group invisible="not puede_conciliar"
+                                   class="oe_subtotal_footer oe_right">
+                                <field name="diferencia_conciliacion" class="oe_subtotal_footer_separator"/>
                             </group>
+                            <p class="text-muted" invisible="not puede_conciliar">
+                                Positivo: faltan pagos por cubrir (usa "Crear Pago" o agrega uno a mano). Negativo:
+                                faltan facturas, o hay pagos de más. En cero, Conciliar/Liquidar debería funcionar
+                                sin pedir Cuenta de Ajuste.
+                            </p>
+
                             <group>
-                                <field name="move_id" readonly="1"/>
+                                <group>
+                                    <field name="cuenta_ajuste_id"/>
+                                </group>
+                                <group>
+                                    <field name="move_id" readonly="1"/>
+                                </group>
                             </group>
-                        </group>
-                    </div>
+                        </page>
+                    </notebook>
                 </sheet>
                 <chatter/>
             </form>

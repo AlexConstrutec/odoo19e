@@ -881,6 +881,14 @@ Reportado por el usuario con una captura real de Enterprise: el ENCABEZADO de la
 
 Verificado con `odoo-bin shell`, simulando el flujo completo de punta a punta: Orden hija en Community con la línea corregida a mano → `_prepare_sync_vals()` → `create()` en un registro "receptor" simulando Enterprise (con `employee_enterprise_ref` forzado a no resolver, replicando "el empleado tampoco existe/tiene datos allá") - la línea recibida SÍ trae `cuenta_acreditar`/`tipo_cuenta` correctos. `-u` limpio en `construtec_test`, sin `ERROR`/`CRITICAL` nuevos.
 
+### Botón "Generar Excel de Transferencia" solo en Enterprise + pestaña "Facturas y Pagos" (2026-09-05)
+
+Pedido explícito del usuario: el botón de encabezado "Generar Excel de Transferencia" (`action_generar_excel_transferencia_lote()`) no tenía ninguna condición de rol - aparecía igual en Community y Enterprise en cuanto `ordenes_hijas_count > 0`. Como quien realmente hace los depósitos bancarios es el contable en **Enterprise** (`es_procesador`), el botón ahora también exige `es_procesador` en su `invisible=` (`views/account_payment_order_views.xml`) - mismo campo compute ya usado en el resto del formulario para todo lo demás que es exclusivo del lado Enterprise (Facturas/Pagos, `journal_id`, `cuenta_anticipo_id`, etc.). **Nota**: la acción de servidor equivalente del menú "Acciones ⚙" en la vista lista (`action_account_payment_order_generar_excel_transferencia`, `binding_model_id`) NO se tocó - queda fuera de alcance de este pedido, sigue visible en ambos lados (no hay precedente en este módulo de gatear un `ir.actions.server` con binding por rol, ya que `es_procesador` es un campo compute por compañía, no algo evaluable en un binding global).
+
+De paso, se agrupó todo el bloque de "Facturas"/"Pagos/Cheques"/"Crear Pago"/diferencia de conciliación/Cuenta de Ajuste - que antes vivía suelto directamente en el `<sheet>`, fuera de cualquier pestaña - dentro de una pestaña nueva y dedicada, "Facturas y Pagos" (un `<notebook>` independiente del que ya existía para Viáticos/Materiales/Sincronización/Información, ya que ESE notebook está oculto por completo para `tipo='pago_directo'` y este contenido sí debe verse ahí). La condición `invisible="not es_procesador"` se subió al nivel del `<notebook>`/`<page>` una sola vez - se quitó el `or not es_procesador` repetido de cada elemento hijo (título, campos, botón, grupo de diferencia, párrafos de ayuda) ya que quedaba redundante, conservando solo la parte de cada condición que sí variaba por `tipo`/`puede_conciliar`.
+
+Verificado con `-u` limpio en `construtec_test` en ambas ediciones (Enterprise y Community) - sin `ERROR`/`CRITICAL` nuevos en ningún `odoo.log`, y el XML validado como bien formado antes de instalar.
+
 ## Common commands
 
 ```
