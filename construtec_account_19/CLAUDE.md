@@ -590,17 +590,67 @@ especial), no quien recibe la retención en una venta propia.
   nueva línea `account.move.line` con `account_id=210203`, `credit=935.48`, `amount_residual`
   de la factura correctamente reducido en exactamente ese monto (`18709.63 → 17774.15`), y una
   segunda llamada manual/automática confirmada idempotente (no duplica la línea).
-- **No construido todavía**: el lado del bot (Selenium) para automatizar la descarga desde
-  "Retenciones Web > Consulta constancias de retención" - a diferencia del resto del bot SAT ya
-  construido (`run_sat_download_only.py`/`run_sat_download_retenciones.py`), esta pantalla
-  todavía no se ha inspeccionado en vivo (no hay un volcado real del HTML/DOM del formulario de
-  búsqueda ni de la tabla de resultados) - escribir selectores de Selenium sin eso sería
-  adivinar, el mismo riesgo que ya causó los 2 bugs reales (datepicker `changeMonth`/
-  `changeYear`, paginación PrimeFaces) documentados arriba para el bot de Retenciones Recibidas,
-  ambos encontrados solo probando contra el portal real. Pendiente también, explícitamente
-  diferido por el usuario: un campo indicador en `res.company` de si la compañía es agente
-  retenedor de IVA (no solo ISR), para poder repetir este mismo flujo con la otra opción de
-  "Retenciones que declara" en esa misma pantalla ("Eso lo vamos a ver después").
+- **Bot (Selenium) construido - `C:\Users\Alex\Documents\n8n\sat-bot\run_sat_download_retenciones_isr_emitidas.py`
+  - inspeccionado en vivo, pero NO verificado end-to-end todavía.** A diferencia de escribir
+  selectores a ciegas, el DOM real de esta pantalla se inspeccionó en vivo (2026-09-05, vía
+  Claude en Chrome contra la sesión real de Construtec, NIT 120360268) antes de escribir el
+  script, confirmando:
+  - Ruta de menú real: Servicios Tributarios > **Retenciones Web** > "Consulta constancias de
+    retención" (no "Constancias de Retenciones y Exenciones", esa es la pantalla hermana de
+    Recibidas). La pantalla vive en un iframe cuyo `src` real es
+    `https://svc.c.sat.gob.gt/reteniva/pages/priv/consulta.jsf` (mismo dominio/app "reteniva"
+    que la pantalla de Recibidas).
+  - El primer campo, "Retenciones que declara:" (`formContent:modoServe_input`, value="1" IVA /
+    "2" ISR), dispara un round-trip AJAX real que **cambia los ids** de los 2 campos
+    siguientes: en modo IVA son `itRegimen_input`/`itDesc_input`, en modo ISR son
+    `byRetenReg_input`/`itDescT_input` - el script siempre selecciona ISR primero y solo usa
+    los ids de ese modo de ahí en adelante.
+  - `byRetenReg_input` (la "Retenciones que Declara" real, en modo ISR) confirmó las 4
+    categorías exactas: value="1" Opcional Simplificado Sobre Ingresos, "2" Rentas de Capital
+    Inmobiliario, "3" Rentas de Capital Mobiliario, "4" Facturas Especiales - el script solo
+    itera 1-3, omitiendo la 4 a propósito (ver más arriba, redundante con el complemento FESP
+    del XML).
+  - `formContent:itPer_input`/`itAl_input` (Período del/Al) **NO son readonly aquí** -
+    diferencia real respecto a `itDel_input`/`itAl_input` en la pantalla de Recibidas (esos sí
+    lo son, y obligan a manejar el widget de calendario con `changeMonth`/`changeYear`, ver más
+    abajo) - `send_keys()` directo funciona sin tocar el datepicker, confirmado en vivo.
+  - La tabla de resultados es `formContent:tblConstancias` (no `tblRetenedor`), con el mismo
+    patrón de paginación PrimeFaces (`a.ui-paginator-next`, deshabilitado con
+    `ui-state-disabled` en la última página) ya usado en el otro bot.
+  - **Hallazgo de seguridad real, no anticipado**: cada fila trae DOS botones en "Opciones" -
+    `formContent:tblConstancias:{n}:linkDescargar` (PDF, lo único que el script toca) Y
+    `formContent:tblConstancias:{n}:linkAnular` (un ícono rojo "-" que **anula la constancia
+    ante la SAT** - acción real e irreversible, ya que aquí Construtec es quien EMITIÓ la
+    constancia). Todo selector del script ancla explícitamente en `linkDescargar` - nunca un
+    selector genérico de "primer link de la fila" que pudiera calzar por error con
+    `linkAnular`.
+  - **Advertencia real, sin resolver**: al hacer clic en `linkDescargar` usando automatización
+    basada en CDP (Claude en Chrome) durante esta inspección, el servidor respondió **503 de
+    forma consistente** - el mismo tipo de bloqueo a navegadores controlados por CDP que ya
+    causó que el resto de este proyecto pasara de n8n/CDP a Selenium puro (ver la nota sobre
+    Agencia Virtual más arriba en este archivo). Selenium (WebDriver, no CDP) es el mecanismo
+    que ya funciona para la pantalla hermana, así que es razonable esperar que funcione aquí
+    también - pero **no se pudo confirmar que la descarga concluye con éxito real** durante esta
+    inspección, solo que la estructura del DOM/selectores es correcta. El script incluye un
+    reintento con espera creciente alrededor del clic de descarga
+    (`_click_descargar_con_reintento`) por si el 503 reaparece en una corrida real - la primera
+    corrida real debe revisarse con cuidado (logs + contenido de
+    `RETENCIONES_EMITIDAS_DOWNLOAD_DIR`).
+  - Variables de entorno: `RETENCIONES_EMITIDAS_DOWNLOAD_DIR`,
+    `RETENCIONES_EMITIDAS_FECHA_DESDE`/`_HASTA` (default hoy-45 días, mismo valor que la
+    pantalla hermana pero **sin backfill real medido específicamente para esta pantalla** que
+    lo confirme - ajustar con datos reales si una corrida muestra constancias fuera de esa
+    ventana), `RETENCIONES_EMITIDAS_NIT_RETENIDO`, `RETENCIONES_EMITIDAS_NUMERO_CONSTANCIA`,
+    `RETENCIONES_EMITIDAS_SOLO_DIAGNOSTICO=1`.
+  - Falta: el script de subida (`run_sat_upload_retenciones_isr_emitidas_to_odoo.py`, mismo
+    patrón que `run_sat_upload_retenciones_to_odoo.py` pero llamando
+    `construtec.sat.retention.emitida.create_from_pdf`) y el workflow de n8n que encadena
+    ambos - no construidos todavía, pendientes de que la primera corrida real del bot de
+    descarga confirme que el 503 no es un problema real antes de automatizar el resto.
+  - Pendiente también, explícitamente diferido por el usuario: un campo indicador en
+    `res.company` de si la compañía es agente retenedor de IVA (no solo ISR), para poder
+    repetir este mismo flujo con la otra opción de "Retenciones que declara" en esa misma
+    pantalla ("Eso lo vamos a ver después").
 
 ## Common commands
 
