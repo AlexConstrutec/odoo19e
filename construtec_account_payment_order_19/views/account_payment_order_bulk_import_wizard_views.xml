@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_payment_order_bulk_import_wizard_form" model="ir.ui.view">
+        <field name="name">account.payment.order.bulk.import.wizard.form</field>
+        <field name="model">account.payment.order.bulk.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Importar Órdenes de Pago desde Excel">
+                <field name="state" invisible="1"/>
+
+                <group invisible="state != 'upload'">
+                    <p class="text-muted">
+                        Sube un Excel con las solicitudes de Viáticos o de Materiales - en el
+                        siguiente paso podrás indicar qué columna del archivo corresponde a cada
+                        dato (el formato puede variar cada vez, no hace falta que los
+                        encabezados coincidan exacto). Todavía no necesitan tener un Ticket
+                        vinculado - solo Cuenta Analítica.
+                    </p>
+                    <field name="tipo" widget="radio"/>
+                    <field name="excel_filename" invisible="1"/>
+                    <field name="excel_file" filename="excel_filename" required="1"/>
+                </group>
+
+                <group invisible="state != 'mapping'">
+                    <p class="text-muted">
+                        Columnas detectadas en el archivo: <field name="detected_headers" nolabel="1" readonly="1"/>
+                        Confirma o corrige, escribiendo el nombre EXACTO de la columna del
+                        archivo para cada dato. Deja en blanco lo que no aplique/no exista.
+                    </p>
+                    <group string="Comunes">
+                        <field name="col_grupo"/>
+                        <field name="col_solicitante"/>
+                        <field name="col_cuenta_analitica"/>
+                        <field name="col_fecha"/>
+                    </group>
+                    <group string="Viáticos" invisible="tipo != 'anticipo_viaticos'">
+                        <field name="col_periodo_del"/>
+                        <field name="col_periodo_al"/>
+                        <field name="col_depositar_directo"/>
+                        <field name="col_tecnico"/>
+                        <field name="col_cantidad"/>
+                        <field name="col_costo_individual"/>
+                        <field name="col_cuenta_acreditar"/>
+                        <field name="col_banco"/>
+                        <field name="col_tipo_cuenta"/>
+                    </group>
+                    <group string="Materiales" invisible="tipo != 'anticipo_materiales'">
+                        <field name="col_proveedor"/>
+                        <field name="col_material"/>
+                        <field name="col_unidad"/>
+                        <field name="col_cantidad_material"/>
+                        <field name="col_precio_estimado"/>
+                    </group>
+                </group>
+
+                <group invisible="state != 'review'">
+                    <field name="resumen"/>
+                    <p class="text-muted">
+                        Revisa cada fila antes de aplicar - las marcadas "Revisar" (Solicitante,
+                        Cuenta Analítica o Técnico sin resolver) bloquean Aplicar hasta que las
+                        corrijas aquí mismo o las desmarques de "Incluir". Cada "Grupo" se
+                        convierte en UNA Orden de Pago, en Borrador - revísala/Envíala desde ahí
+                        con el flujo normal.
+                    </p>
+                    <field name="line_ids" nolabel="1">
+                        <list editable="bottom" decoration-danger="estado == 'revisar'">
+                            <field name="incluir"/>
+                            <field name="fila_excel"/>
+                            <field name="grupo"/>
+                            <field name="solicitante_id"/>
+                            <field name="analytic_account_id"/>
+                            <field name="fecha" optional="show"/>
+                            <field name="employee_partner_id"
+                                   column_invisible="parent.tipo != 'anticipo_viaticos'"/>
+                            <field name="cantidad"
+                                   column_invisible="parent.tipo != 'anticipo_viaticos'"/>
+                            <field name="costo_individual"
+                                   column_invisible="parent.tipo != 'anticipo_viaticos'"/>
+                            <field name="total" sum="Total"
+                                   column_invisible="parent.tipo != 'anticipo_viaticos'"/>
+                            <field name="material_description"
+                                   column_invisible="parent.tipo != 'anticipo_materiales'"/>
+                            <field name="qty"
+                                   column_invisible="parent.tipo != 'anticipo_materiales'"/>
+                            <field name="estimated_price"
+                                   column_invisible="parent.tipo != 'anticipo_materiales'"/>
+                            <field name="subtotal" sum="Total"
+                                   column_invisible="parent.tipo != 'anticipo_materiales'"/>
+                            <field name="estado" widget="badge"
+                                   decoration-success="estado == 'ok'"
+                                   decoration-danger="estado == 'revisar'"/>
+                            <field name="motivo_revisar" optional="show"/>
+                        </list>
+                    </field>
+                </group>
+
+                <footer>
+                    <button name="action_leer_columnas" type="object" string="Continuar"
+                            class="btn-primary" invisible="state != 'upload'"/>
+                    <button name="action_analizar" type="object" string="Analizar"
+                            class="btn-primary" invisible="state != 'mapping'"/>
+                    <button name="action_aplicar" type="object" string="Aplicar"
+                            class="btn-primary" invisible="state != 'review'"/>
+                    <button name="action_volver" type="object" string="Volver al Mapeo"
+                            invisible="state != 'review'"/>
+                    <button string="Cancelar" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_account_payment_order_bulk_import_wizard" model="ir.actions.act_window">
+        <field name="name">Importar Órdenes de Pago desde Excel</field>
+        <field name="res_model">account.payment.order.bulk.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem action="action_account_payment_order_bulk_import_wizard"
+              id="menu_account_payment_order_bulk_import"
+              parent="account.menu_finance_payables" sequence="22"/>
+</odoo>

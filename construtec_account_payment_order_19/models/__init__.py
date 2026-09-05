@@ -14,3 +14,5 @@ from . import hr_employee
 from . import account_analytic_account
 from . import account_payment_order_quote_import_wizard
 from . import account_payment_order_export_transferencia_wizard
+from . import account_payment_order_bulk_import_wizard_line
+from . import account_payment_order_bulk_import_wizard

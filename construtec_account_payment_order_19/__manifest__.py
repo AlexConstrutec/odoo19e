@@ -1,6 +1,6 @@
 {
     'name': 'Construtec Orden de Pago',
-    'version': '19.0.1.9.0',
+    'version': '19.0.1.10.0',
     'category': 'Accounting/Accounting',
     'summary': 'Órdenes de pago (Anticipo / Pago Directo) para conciliar facturas de varios '
                'proveedores contra pagos que no coinciden 1 a 1',
@@ -24,6 +24,7 @@
         'data/employee_sync_cron.xml',
         'data/partner_auto_tag_cron.xml',
         'views/account_payment_order_quote_import_wizard_views.xml',
+        'views/account_payment_order_bulk_import_wizard_views.xml',
         'views/account_payment_order_views.xml',
         'views/sat_catalog_sync_menu_views.xml',
         'views/account_payment_order_viaticos_report_views.xml',
