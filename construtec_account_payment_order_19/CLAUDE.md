@@ -933,6 +933,10 @@ En la vista (`views/account_payment_order_views.xml`), el botón "Enviar" origin
 
 Verificado con `odoo-bin shell`: "Depositar a Mí" deja la Orden en `enviado` con `depositar_directo_tecnicos=False` y `partner_id` sin cambios (el jefe); "Depositar a Técnicos" deja la Orden original en `dividida` con una Orden hija real en `enviado`, cuyo `partner_id` es el técnico de la línea - mismo comportamiento exacto que antes con el checkbox marcado, solo que ahora se decide con un clic. `-u` limpio en ambas ediciones, sin `ERROR`/`CRITICAL` nuevos.
 
+### `departamento`/`cuenta_acreditar`/`tipo_cuenta` vuelven a `optional="hide"` en la lista de Viáticos (2026-09-05)
+
+Pedido explícito del usuario: estas 3 columnas de `viaticos_line_ids` (`views/account_payment_order_views.xml`) pasan de `optional="show"` a `optional="hide"` - siguen disponibles vía el selector de columnas (⚙ de la lista), solo dejan de ocupar espacio por defecto. `puesto`/`banco` no cambiaron (`puesto` sigue `optional="show"`, `banco` ya era `optional="hide"` desde antes). La decoración `decoration-danger="not cuenta_acreditar or not tipo_cuenta or not banco"` en el `<list>` sigue funcionando igual - es a nivel de fila, no depende de qué columnas estén visibles.
+
 ## Common commands
 
 ```

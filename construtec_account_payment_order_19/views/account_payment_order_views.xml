@@ -197,15 +197,15 @@
                                 <list editable="bottom"
                                       decoration-danger="not cuenta_acreditar or not tipo_cuenta or not banco">
                                     <field name="employee_partner_id" required="1"/>
-                                    <field name="departamento" optional="show"/>
+                                    <field name="departamento" optional="hide"/>
                                     <field name="puesto" optional="show"/>
                                     <field name="cantidad"/>
                                     <field name="costo_individual"/>
                                     <field name="total" sum="Total"/>
                                     <field name="viaticos_sin_liquidar_count" string="Sin Liquidar"
                                            decoration-warning="viaticos_sin_liquidar_count &gt; 0"/>
-                                    <field name="cuenta_acreditar" optional="show"/>
-                                    <field name="tipo_cuenta" optional="show"/>
+                                    <field name="cuenta_acreditar" optional="hide"/>
+                                    <field name="tipo_cuenta" optional="hide"/>
                                     <field name="banco" optional="hide"/>
                                 </list>
                             </field>
