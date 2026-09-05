@@ -688,41 +688,54 @@ otras 3 categorías, manejadas por `construtec.sat.retention.emitida`).
   clave real de esta tabla es **"Número de Autorización"** - el mismo UUID que ya es
   `construtec.sat.document.numero_autorizacion`.
 - **`construtec.sat.document.registrar_retencion_isr_facturas_especiales_web(numero_autorizacion,
-  monto_retencion)`** (`@api.model`, `sat_document.py`) es el punto de entrada: busca el
-  documento por `numero_autorizacion` y, si es una FESP (`tipo_dte in TIPOS_DTE_FACTURA_ESPECIAL`),
-  rellena `monto_retencion_isr_fesp` **solo si estaba en cero** (fills-blanks-only, mismo
-  criterio del resto del módulo) - si ya tenía un valor y coincide, no hace nada; si ya tenía
-  un valor y NO coincide, se registra el desacuerdo en `construtec.sat.import.log` para
-  revisión manual, nunca se sobreescribe adivinando cuál de las dos fuentes (XML vs.
-  Retenciones Web) es la correcta. Si no encuentra ningún documento con ese
-  `numero_autorizacion` (nuevo estado `no_encontrado` en `construtec.sat.import.log`), tampoco
-  crea nada - Retenciones Web puede correr antes de que el XML se haya importado. Si el
-  documento ya está `convertido_factura` y posteado, intenta `action_aplicar_retenciones_fesp()`
-  de una vez (ya idempotente, solo agrega impuestos que falten). Verificado vía `odoo-bin
-  shell` contra `construtec_test`: los 5 casos (no encontrado, rellena, ya coincide, no
-  coincide - no sobreescribe, documento que no es FESP) se comportan exactamente como se
-  diseñó.
+  monto_retencion, nit_retenido=None, serie=None, numero_factura=None)`** (`@api.model`,
+  `sat_document.py`) es el punto de entrada: busca el documento por `numero_autorizacion` y,
+  si es una FESP (`tipo_dte in TIPOS_DTE_FACTURA_ESPECIAL`), rellena `monto_retencion_isr_fesp`
+  **solo si estaba en cero** (fills-blanks-only, mismo criterio del resto del módulo) - si ya
+  tenía un valor y coincide, no hace nada; si ya tenía un valor y NO coincide, se registra el
+  desacuerdo en `construtec.sat.import.log` para revisión manual, nunca se sobreescribe
+  adivinando cuál de las dos fuentes (XML vs. Retenciones Web) es la correcta.
+  - **Respaldo por Serie + Número de Factura** (pedido explícito del usuario, "para poder
+    identificar qué documento SAT va a retener"): si `numero_autorizacion` no encuentra nada,
+    se busca de nuevo por `serie` + `numero_documento` + `tipo_dte in TIPOS_DTE_FACTURA_ESPECIAL`
+    - mismo criterio de "Serie + Número de Factura" que ya usa
+    `construtec.sat.retention.emitida.line._sat_buscar_documento()` para las otras 3 categorías.
+    Verificado vía `odoo-bin shell`: un documento con un `numero_autorizacion` que no coincide
+    con el que trae la fila de Retenciones Web sí se encuentra y se rellena correctamente por
+    este respaldo.
+  - Si NINGUNO de los dos (ni `numero_autorizacion` ni Serie+Número) encuentra nada (estado
+    `no_encontrado` en `construtec.sat.import.log`), el mensaje del log ahora incluye
+    `Serie/Número/NIT` en texto plano - para que una persona pueda identificar a simple vista
+    de qué factura se trata sin tener que buscar el UUID opaco de `numero_autorizacion`.
+  - Si el documento ya está `convertido_factura` y posteado, intenta
+    `action_aplicar_retenciones_fesp()` de una vez (ya idempotente, solo agrega impuestos que
+    falten). Verificado vía `odoo-bin shell`: los 5 casos originales (no encontrado, rellena,
+    ya coincide, no coincide - no sobreescribe, documento que no es FESP) más los 2 casos
+    nuevos (respaldo por Serie+Número, mensaje de no encontrado enriquecido) se comportan
+    exactamente como se diseñó.
 - **Bot**: `run_sat_download_retenciones_isr_emitidas.py` gana
   `escanear_y_registrar_facturas_especiales()` - a diferencia de las otras 3 categorías, no
-  descarga nada: escanea la tabla (paginada, mismo patrón PrimeFaces) y llama por **XML-RPC
-  directo** a `registrar_retencion_isr_facturas_especiales_web()` por cada fila
+  descarga nada: escanea la tabla (paginada, mismo patrón PrimeFaces), lee también NIT/Serie/
+  Número de Factura de cada fila (no solo Número de Autorización/Retención), y llama por
+  **XML-RPC directo** a `registrar_retencion_isr_facturas_especiales_web()` por cada fila
   (`OdooDocumentClient`, mismo patrón que `OdooClient` en `run_sat_upload_retenciones_to_odoo.py`
   - mismas credenciales `apiodoo`/`ODOO_URL`/`ODOO_DB`/`ODOO_USER` de `sat-bot/.env`), en vez
-  del ciclo descarga-a-carpeta-luego-script-de-subida usado para las otras 3. **Verificado
-  real**: encontró y parseó correctamente las 22 filas reales existentes (0 errores) - un
-  primer intento tenía un bug real (el XPath de filtro de filas usaba `td[2]`, la columna NIT,
-  en vez de `td[4]`, Número de Autorización, la que siempre trae guiones - con ese bug nunca
-  encontraba ninguna fila, sin importar el rango de fechas). **No verificado todavía contra
-  Odoo real**: `registrar_retencion_isr_facturas_especiales_web()` solo está commiteado en
-  git, pendiente de la misma actualización manual en Odoo.sh que el resto de este proyecto -
-  la primera corrida real (sin `RETENCIONES_EMITIDAS_SOLO_DIAGNOSTICO=1`) fallará con un error
-  de método no encontrado hasta que eso se haga.
-- **Rango de fechas por defecto no tiene sentido para esta categoría específicamente** - las
-  22 constancias reales encontradas están casi todas fuera de la ventana de 45 días por
-  defecto (compartida con las otras 3 categorías), ya que esta categoría se puede
+  del ciclo descarga-a-carpeta-luego-script-de-subida usado para las otras 3.
+- **VERIFICADO END-TO-END CONTRA ODOO REAL (2026-09-05)**, ya con el módulo actualizado en
+  Odoo.sh: backfill completo desde 01/01/2025 hasta hoy - las 3 categorías con PDF no traen
+  nada más antiguo que lo ya conocido (6 constancias en total, todas ya subidas), y Facturas
+  Especiales encontró 24 filas reales, **22 registradas/confirmadas** contra su documento SAT
+  correspondiente, 2 con estado `no_encontrado` (esas 2 facturas específicas todavía no tienen
+  su XML importado en Odoo - comportamiento esperado, quedan en el log con Serie/NIT/Número
+  para poder identificarlas y reconciliarlas después). Confirmado por separado que reintentar
+  con los mismos PDF ya subidos correctamente los detecta como `skipped_duplicate` (0
+  duplicados creados).
+- **Rango de fechas por defecto no tiene sentido para esta categoría específicamente** -
+  aunque las 3 categorías con PDF sí respetan una ventana relativamente angosta (nada más
+  antiguo que ~45 días encontrado ni buscando desde 2025), Facturas Especiales se puede
   reconciliar en cualquier momento (no depende de un plazo de declaración jurada como las
-  constancias reales) - si se necesita un backfill amplio, pasar
-  `RETENCIONES_EMITIDAS_FECHA_DESDE` explícito con un rango más amplio.
+  constancias reales) - si se necesita un backfill amplio, pasar `RETENCIONES_EMITIDAS_FECHA_DESDE`
+  explícito con un rango más amplio (ej. `01/01/2025`).
 
 ## Common commands
 

@@ -820,7 +820,9 @@ class ConstructecSatDocument(models.Model):
         }
 
     @api.model
-    def registrar_retencion_isr_facturas_especiales_web(self, numero_autorizacion, monto_retencion):
+    def registrar_retencion_isr_facturas_especiales_web(
+            self, numero_autorizacion, monto_retencion,
+            nit_retenido=None, serie=None, numero_factura=None):
         """Punto de entrada para el bot de "Retenciones Web > Consulta constancias de
         retención > Retenciones que Declara: Facturas Especiales" (ver
         construtec_account_19/CLAUDE.md) - a diferencia de las otras 3 categorías de esa
@@ -839,21 +841,46 @@ class ConstructecSatDocument(models.Model):
         ya estaba en cero, se rellena con el valor de Retenciones Web; si ya tenía un valor y
         coincide, no hace nada; si ya tenía un valor y NO coincide, se deja constancia del
         desacuerdo en construtec.sat.import.log para revisión manual - nunca se sobreescribe
-        adivinando cuál de las dos fuentes es la correcta. Si no hay ningún documento con ese
-        numero_autorizacion (el bot puede correr antes de que el XML se haya importado, o para
-        un NIT/rango que este Odoo no maneja), tampoco se crea nada - solo queda el registro en
-        el log para que se pueda reconciliar después."""
+        adivinando cuál de las dos fuentes es la correcta.
+
+        `nit_retenido`/`serie`/`numero_factura` (opcionales, también scrapeados de la misma
+        fila de Retenciones Web) sirven de RESPALDO para identificar el documento cuando
+        numero_autorizacion todavía no calza con ningún documento importado (mismo criterio
+        de "Serie + Número de Factura" que ya usa construtec.sat.retention.emitida.line para
+        las otras 3 categorías) - y, aunque el respaldo tampoco encuentre nada, quedan en el
+        mensaje del log para que una persona pueda identificar a simple vista de qué factura
+        se trata (Serie/NIT/Número), en vez de solo un UUID opaco. Si de plano no hay ningún
+        documento con ese numero_autorizacion NI con esa Serie+Número (el bot puede correr
+        antes de que el XML se haya importado, o para un NIT/rango que este Odoo no maneja),
+        tampoco se crea nada - solo queda el registro en el log para que se pueda reconciliar
+        después."""
         Log = self.env['construtec.sat.import.log']
         document = self.search([('numero_autorizacion', '=', numero_autorizacion)], limit=1)
 
+        if not document and serie and numero_factura:
+            # Respaldo: mismo criterio "Serie + Número de Factura" que
+            # construtec.sat.retention.emitida.line usa para las otras 3
+            # categorías - filtrado a FESP porque esta categoría específica
+            # solo aplica a esas.
+            document = self.search([
+                ('serie', '=', serie),
+                ('numero_documento', '=', numero_factura),
+                ('tipo_dte', 'in', TIPOS_DTE_FACTURA_ESPECIAL),
+            ], limit=1)
+
         if not document:
+            identificacion = self.env._(
+                'Serie %(serie)s / Número %(numero)s / NIT %(nit)s',
+                serie=serie or '?', numero=numero_factura or '?', nit=nit_retenido or '?',
+            )
             Log.create({
                 'numero_autorizacion': numero_autorizacion,
                 'state': 'no_encontrado',
                 'message': self.env._(
                     'Retención ISR de Q%(monto)s (Facturas Especiales, Retenciones Web) no se '
-                    'pudo vincular: no existe ningún documento SAT con este Número de '
-                    'Autorización todavía.', monto=monto_retencion),
+                    'pudo vincular ni por Número de Autorización ni por Serie+Número: no existe '
+                    'ningún documento SAT con esos datos todavía (%(id)s).',
+                    monto=monto_retencion, id=identificacion),
             })
             return {'state': 'no_encontrado', 'document_id': False}
 
