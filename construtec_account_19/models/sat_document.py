@@ -819,6 +819,90 @@ class ConstructecSatDocument(models.Model):
             },
         }
 
+    @api.model
+    def registrar_retencion_isr_facturas_especiales_web(self, numero_autorizacion, monto_retencion):
+        """Punto de entrada para el bot de "Retenciones Web > Consulta constancias de
+        retención > Retenciones que Declara: Facturas Especiales" (ver
+        construtec_account_19/CLAUDE.md) - a diferencia de las otras 3 categorías de esa
+        misma pantalla (Opcional Simplificado, Rentas de Capital Inmobiliario/Mobiliario,
+        manejadas por construtec.sat.retention.emitida vía PDF), esta categoría NO tiene
+        PDF descargable NI un número de constancia propio (confirmado en vivo: la tabla de
+        resultados ni siquiera trae esa columna para esta categoría) - la única clave real
+        es "Número de Autorización", que es EXACTAMENTE el mismo UUID ya usado como
+        numero_autorizacion en este modelo. Por eso esto no crea un registro nuevo tipo
+        "constancia": rellena directamente el campo monto_retencion_isr_fesp que YA existe
+        aquí (normalmente poblado desde el complemento RetencionesFacturaEspecial del propio
+        XML, ver _extraer_retencion_fesp) - Retenciones Web es una SEGUNDA fuente para el
+        mismo dato, útil para los casos (todavía no vistos) donde el XML no lo trajera.
+
+        Fills-blanks-only, mismo criterio que el resto del módulo: si monto_retencion_isr_fesp
+        ya estaba en cero, se rellena con el valor de Retenciones Web; si ya tenía un valor y
+        coincide, no hace nada; si ya tenía un valor y NO coincide, se deja constancia del
+        desacuerdo en construtec.sat.import.log para revisión manual - nunca se sobreescribe
+        adivinando cuál de las dos fuentes es la correcta. Si no hay ningún documento con ese
+        numero_autorizacion (el bot puede correr antes de que el XML se haya importado, o para
+        un NIT/rango que este Odoo no maneja), tampoco se crea nada - solo queda el registro en
+        el log para que se pueda reconciliar después."""
+        Log = self.env['construtec.sat.import.log']
+        document = self.search([('numero_autorizacion', '=', numero_autorizacion)], limit=1)
+
+        if not document:
+            Log.create({
+                'numero_autorizacion': numero_autorizacion,
+                'state': 'no_encontrado',
+                'message': self.env._(
+                    'Retención ISR de Q%(monto)s (Facturas Especiales, Retenciones Web) no se '
+                    'pudo vincular: no existe ningún documento SAT con este Número de '
+                    'Autorización todavía.', monto=monto_retencion),
+            })
+            return {'state': 'no_encontrado', 'document_id': False}
+
+        if document.tipo_dte not in TIPOS_DTE_FACTURA_ESPECIAL:
+            Log.create({
+                'numero_autorizacion': numero_autorizacion, 'direction': document.direction,
+                'document_id': document.id, 'state': 'error',
+                'message': self.env._(
+                    'El documento %(num)s no es una Factura Especial (tipo_dte=%(tipo)s) - se '
+                    'esperaba FESP.', num=numero_autorizacion, tipo=document.tipo_dte),
+            })
+            return {'state': 'error', 'document_id': document.id}
+
+        if float_is_zero(document.monto_retencion_isr_fesp, precision_digits=2):
+            document.monto_retencion_isr_fesp = monto_retencion
+            estado = 'success'
+            mensaje = self.env._(
+                'Retención ISR de Q%(monto)s (Facturas Especiales, Retenciones Web) rellenada - '
+                'el XML no la traía capturada.', monto=monto_retencion)
+        elif not float_is_zero(document.monto_retencion_isr_fesp - monto_retencion, precision_digits=2):
+            estado = 'error'
+            mensaje = self.env._(
+                'Retención ISR de Retenciones Web (Q%(web)s) no coincide con la ya capturada '
+                'del XML (Q%(xml)s) para %(num)s - revisar a mano, no se sobreescribió.',
+                web=monto_retencion, xml=document.monto_retencion_isr_fesp, num=numero_autorizacion)
+        else:
+            estado = 'success'
+            mensaje = self.env._(
+                'Retención ISR de Retenciones Web (Q%(monto)s) ya coincidía con la del XML - '
+                'sin cambios.', monto=monto_retencion)
+
+        Log.create({
+            'numero_autorizacion': numero_autorizacion, 'direction': document.direction,
+            'document_id': document.id, 'state': estado, 'message': mensaje,
+        })
+
+        if document.state == 'convertido_factura' and document.move_id \
+                and document.move_id.state == 'posted':
+            try:
+                if document._sat_get_retencion_taxes_fesp():
+                    document.action_aplicar_retenciones_fesp()
+            except Exception:
+                _logger.exception(
+                    'No se pudo aplicar automáticamente la retención FESP de %s tras '
+                    'registrar el dato de Retenciones Web.', numero_autorizacion,
+                )
+
+        return {'state': estado, 'document_id': document.id}
+
     def action_convertir_a_factura_masivo(self):
         """Versión en lote de action_convertir_a_factura(), para seleccionar varios
         documentos SAT en la vista lista (compras, ventas, notas de crédito/débito -

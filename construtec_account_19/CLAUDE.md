@@ -670,6 +670,60 @@ especial), no quien recibe la retención en una venta propia.
     repetir este mismo flujo con la otra opción de "Retenciones que declara" en esa misma
     pantalla ("Eso lo vamos a ver después").
 
+### Facturas Especiales (categoría 4 de "Retenciones que Declara") - sin PDF, se integra a los campos FESP ya existentes
+
+Pedido explícito del usuario tras confirmar que esta categoría específica de "Retenciones
+Web" no ofrece descarga de PDF por fila ("sí necesito que esos datos se suban a Odoo... esa
+retención se va a amarrar hacia una factura especial... que se integre a lo que en Odoo
+existe") - **deliberadamente NO se modela como una constancia nueva** (a diferencia de las
+otras 3 categorías, manejadas por `construtec.sat.retention.emitida`).
+
+- **Hallazgo real, inspección en vivo (2026-09-05)**: la tabla de "Facturas Especiales" ni
+  siquiera trae columna "Constancia" (confirmado: esa categoría tiene MENOS `<td>` por fila
+  que las otras 3, no es que la celda venga vacía - la columna entera no existe). Tiene
+  sentido: una retención de Factura Especial no es una constancia separada emitida por la
+  SAT - es un dato que la ley fija siempre igual (5% ISR / 100% IVA) dentro del propio DTE, ya
+  extraído automáticamente del complemento `RetencionesFacturaEspecial` del XML (ver
+  `_extraer_retencion_fesp`/`monto_retencion_isr_fesp` más arriba en este archivo). La única
+  clave real de esta tabla es **"Número de Autorización"** - el mismo UUID que ya es
+  `construtec.sat.document.numero_autorizacion`.
+- **`construtec.sat.document.registrar_retencion_isr_facturas_especiales_web(numero_autorizacion,
+  monto_retencion)`** (`@api.model`, `sat_document.py`) es el punto de entrada: busca el
+  documento por `numero_autorizacion` y, si es una FESP (`tipo_dte in TIPOS_DTE_FACTURA_ESPECIAL`),
+  rellena `monto_retencion_isr_fesp` **solo si estaba en cero** (fills-blanks-only, mismo
+  criterio del resto del módulo) - si ya tenía un valor y coincide, no hace nada; si ya tenía
+  un valor y NO coincide, se registra el desacuerdo en `construtec.sat.import.log` para
+  revisión manual, nunca se sobreescribe adivinando cuál de las dos fuentes (XML vs.
+  Retenciones Web) es la correcta. Si no encuentra ningún documento con ese
+  `numero_autorizacion` (nuevo estado `no_encontrado` en `construtec.sat.import.log`), tampoco
+  crea nada - Retenciones Web puede correr antes de que el XML se haya importado. Si el
+  documento ya está `convertido_factura` y posteado, intenta `action_aplicar_retenciones_fesp()`
+  de una vez (ya idempotente, solo agrega impuestos que falten). Verificado vía `odoo-bin
+  shell` contra `construtec_test`: los 5 casos (no encontrado, rellena, ya coincide, no
+  coincide - no sobreescribe, documento que no es FESP) se comportan exactamente como se
+  diseñó.
+- **Bot**: `run_sat_download_retenciones_isr_emitidas.py` gana
+  `escanear_y_registrar_facturas_especiales()` - a diferencia de las otras 3 categorías, no
+  descarga nada: escanea la tabla (paginada, mismo patrón PrimeFaces) y llama por **XML-RPC
+  directo** a `registrar_retencion_isr_facturas_especiales_web()` por cada fila
+  (`OdooDocumentClient`, mismo patrón que `OdooClient` en `run_sat_upload_retenciones_to_odoo.py`
+  - mismas credenciales `apiodoo`/`ODOO_URL`/`ODOO_DB`/`ODOO_USER` de `sat-bot/.env`), en vez
+  del ciclo descarga-a-carpeta-luego-script-de-subida usado para las otras 3. **Verificado
+  real**: encontró y parseó correctamente las 22 filas reales existentes (0 errores) - un
+  primer intento tenía un bug real (el XPath de filtro de filas usaba `td[2]`, la columna NIT,
+  en vez de `td[4]`, Número de Autorización, la que siempre trae guiones - con ese bug nunca
+  encontraba ninguna fila, sin importar el rango de fechas). **No verificado todavía contra
+  Odoo real**: `registrar_retencion_isr_facturas_especiales_web()` solo está commiteado en
+  git, pendiente de la misma actualización manual en Odoo.sh que el resto de este proyecto -
+  la primera corrida real (sin `RETENCIONES_EMITIDAS_SOLO_DIAGNOSTICO=1`) fallará con un error
+  de método no encontrado hasta que eso se haga.
+- **Rango de fechas por defecto no tiene sentido para esta categoría específicamente** - las
+  22 constancias reales encontradas están casi todas fuera de la ventana de 45 días por
+  defecto (compartida con las otras 3 categorías), ya que esta categoría se puede
+  reconciliar en cualquier momento (no depende de un plazo de declaración jurada como las
+  constancias reales) - si se necesita un backfill amplio, pasar
+  `RETENCIONES_EMITIDAS_FECHA_DESDE` explícito con un rango más amplio.
+
 ## Common commands
 
 ```
