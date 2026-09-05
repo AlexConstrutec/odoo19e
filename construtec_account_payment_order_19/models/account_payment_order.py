@@ -780,6 +780,22 @@ class AccountPaymentOrder(models.Model):
                 'Solo un Aprobador Nivel Medio (Jefe de Área) o superior puede aprobar '
                 'Órdenes de Pago.'))
 
+    def action_submit_depositar_a_mi(self):
+        """Botón "Depositar a Mí" (reemplaza el checkbox `depositar_directo_tecnicos` - pedido
+        explícito del usuario: la elección debe ser un botón, no una casilla que hay que marcar
+        antes de Enviar). Solo aplica a Anticipo Viáticos - fija el campo en False (el depósito
+        va a la cuenta del jefe que captura, camino normal) y reutiliza `action_submit()` sin
+        cambios."""
+        self.write({'depositar_directo_tecnicos': False})
+        self.action_submit()
+
+    def action_submit_depositar_a_tecnicos(self):
+        """Botón "Depositar a Técnicos" - mismo criterio que `action_submit_depositar_a_mi()`,
+        fija el campo en True (dispara `_dividir_en_ordenes_por_tecnico()` dentro de
+        `action_submit()`, sin cambios ahí)."""
+        self.write({'depositar_directo_tecnicos': True})
+        self.action_submit()
+
     def action_submit(self):
         for rec in self:
             if rec.tipo not in ANTICIPO_TIPOS:

@@ -921,6 +921,18 @@ Verificado con `odoo-bin shell` contra `construtec_community_0509` (base restaur
 
 **Restringido a Administrador en ambas ediciones (2026-09-05)**: pedido explícito del usuario - la importación masiva es una acción de Administrador, tanto en Community como en Enterprise. Se reutiliza `_check_es_administrador_contable()` (ya existente en `account_payment_order.py`, mismo grupo `account.group_account_manager` que gatea Aplicar/Conciliar/Cancelar) desde `default_get()` (bloquea incluso ABRIR el wizard) y de nuevo en `action_aplicar()` (defensa en profundidad) - más `groups="account.group_account_manager"` en el `<menuitem>` para que el menú ni siquiera aparezca en el UI de quien no sea Administrador. Verificado con `odoo-bin shell`: un usuario creado solo con `account.group_account_invoice` (Facturación básica, sin Administrador) recibe `AccessError` al intentar abrir el wizard; el usuario Administrador sí puede.
 
+### El checkbox "¿Depositar Directo a Técnicos?" se reemplaza por dos botones de Enviar (2026-09-05)
+
+Pedido explícito del usuario: antes, Anticipo Viáticos tenía un único botón "Enviar" (`action_submit()`) cuyo comportamiento dependía de una casilla (`depositar_directo_tecnicos`) que había que marcar ANTES de darle clic - fácil de olvidar, y no obvio desde el botón mismo qué iba a pasar. Ahora la elección es el propio botón.
+
+**El fix**: dos métodos nuevos en `account_payment_order.py`, cada uno fija `depositar_directo_tecnicos` y llama a `action_submit()` sin cambios ahí (la lógica de branching - enviar normal vs. `_dividir_en_ordenes_por_tecnico()` - sigue exactamente igual, solo cambia CÓMO se fija el campo):
+- `action_submit_depositar_a_mi()` → `depositar_directo_tecnicos = False` → el depósito va a la cuenta del jefe que captura (camino normal).
+- `action_submit_depositar_a_tecnicos()` → `depositar_directo_tecnicos = True` → dispara la división en una Orden por técnico.
+
+En la vista (`views/account_payment_order_views.xml`), el botón "Enviar" original ahora excluye `anticipo_viaticos` de su `invisible=` (sigue sirviendo tal cual para `anticipo`/`anticipo_materiales`, que nunca tuvieron este concepto). Para `anticipo_viaticos` aparecen en su lugar "Depositar a Mí" y "Depositar a Técnicos" (mismas condiciones de `state='borrador'`/`not orden_padre_id` que ya protegían al checkbox). El campo `depositar_directo_tecnicos` sigue existiendo en el modelo (lo sigue leyendo `action_submit()`, y el wizard de importación masiva de Excel lo sigue fijando por fila) - solo se le quitó el `<field>` visible/editable de la pestaña Viáticos, dejándolo `invisible="1"` (técnico, ya no una casilla que el usuario deba marcar a mano).
+
+Verificado con `odoo-bin shell`: "Depositar a Mí" deja la Orden en `enviado` con `depositar_directo_tecnicos=False` y `partner_id` sin cambios (el jefe); "Depositar a Técnicos" deja la Orden original en `dividida` con una Orden hija real en `enviado`, cuyo `partner_id` es el técnico de la línea - mismo comportamiento exacto que antes con el checkbox marcado, solo que ahora se decide con un clic. `-u` limpio en ambas ediciones, sin `ERROR`/`CRITICAL` nuevos.
+
 ## Common commands
 
 ```

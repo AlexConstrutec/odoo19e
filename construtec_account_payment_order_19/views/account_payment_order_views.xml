@@ -7,7 +7,13 @@
             <form string="Orden de Pago">
                 <header>
                     <button name="action_submit" string="Enviar" type="object" class="oe_highlight"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'borrador'"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_materiales') or state != 'borrador'"/>
+                    <button name="action_submit_depositar_a_mi" string="Depositar a Mí" type="object"
+                            class="oe_highlight"
+                            invisible="tipo != 'anticipo_viaticos' or state != 'borrador' or orden_padre_id"/>
+                    <button name="action_submit_depositar_a_tecnicos" string="Depositar a Técnicos"
+                            type="object" class="oe_highlight"
+                            invisible="tipo != 'anticipo_viaticos' or state != 'borrador' or orden_padre_id"/>
                     <button name="action_approve" string="Aprobar" type="object" class="oe_highlight"
                             groups="construtec_account_payment_order_19.group_payment_order_approver"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'enviado' or not es_procesador"/>
@@ -185,8 +191,7 @@
                             <group>
                                 <field name="orden_padre_id" invisible="not orden_padre_id" readonly="1"/>
                                 <field name="lote_origen" invisible="not lote_origen" readonly="1"/>
-                                <field name="depositar_directo_tecnicos" readonly="state != 'borrador'"
-                                       invisible="orden_padre_id"/>
+                                <field name="depositar_directo_tecnicos" invisible="1"/>
                             </group>
                             <field name="viaticos_line_ids" readonly="state != 'borrador'">
                                 <list editable="bottom"
