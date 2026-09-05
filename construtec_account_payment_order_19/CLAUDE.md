@@ -889,6 +889,14 @@ De paso, se agrupó todo el bloque de "Facturas"/"Pagos/Cheques"/"Crear Pago"/di
 
 Verificado con `-u` limpio en `construtec_test` en ambas ediciones (Enterprise y Community) - sin `ERROR`/`CRITICAL` nuevos en ningún `odoo.log`, y el XML validado como bien formado antes de instalar.
 
+### "Facturas y Pagos" debía ser la PRIMERA pestaña, no un segundo `<notebook>` aparte (2026-09-05)
+
+Corrección del usuario al fix anterior: quería "Facturas y Pagos" como la primera pestaña del mismo grupo de tabs, antes de "Viáticos" - no una segunda barra de pestañas independiente apareciendo debajo (que es lo que un segundo `<notebook>` realmente renderiza, aunque visualmente ambos parezcan "una pestaña más").
+
+**El fix**: se fusionan los dos `<notebook>` en uno solo, con "Facturas y Pagos" como primera `<page>` (antes de Viáticos/Materiales/Sincronización/Información). Esto obligó a quitar la condición `invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')"` que antes tenía el `<notebook>` que envolvía a Viáticos/Materiales/Sincronización/Información (esa condición ocultaba TODO el notebook para `pago_directo` - incompatible con que "Facturas y Pagos" sí deba verse para ese tipo). Cada página ya tenía su propia condición de `tipo` salvo "Sincronización" (`invisible="origin == 'synced' and not external_ref"`, sin filtro de `tipo`) - antes quedaba oculta para `pago_directo` solo porque el notebook entero lo estaba; al quitar esa protección de nivel superior, se le agrega explícitamente `or tipo == 'pago_directo'` para preservar el comportamiento exacto de antes (nunca se sincroniza un Pago Directo, `ANTICIPO_TIPOS` no lo incluye). El `<notebook>` ya no necesita su propio `invisible=` - si ninguna página aplica (ej. Community + `pago_directo`), el widget de Odoo no renderiza ninguna pestaña, mismo comportamiento que antes.
+
+Verificado con `odoo-bin shell` vía `get_view()`: el orden de pestañas devuelto es exactamente `['Facturas y Pagos', 'Viáticos', 'Materiales', 'Sincronización', 'Información']`, un solo `<notebook>` en el arch. `-u` limpio en `construtec_test` en ambas ediciones, sin `ERROR`/`CRITICAL` nuevos.
+
 ## Common commands
 
 ```

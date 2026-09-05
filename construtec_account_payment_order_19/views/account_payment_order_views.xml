@@ -108,108 +108,8 @@
                         </group>
                     </group>
 
-                    <notebook invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')">
-                        <page string="Viáticos" invisible="tipo != 'anticipo_viaticos'">
-                            <group>
-                                <field name="orden_padre_id" invisible="not orden_padre_id" readonly="1"/>
-                                <field name="lote_origen" invisible="not lote_origen" readonly="1"/>
-                                <field name="depositar_directo_tecnicos" readonly="state != 'borrador'"
-                                       invisible="orden_padre_id"/>
-                            </group>
-                            <field name="viaticos_line_ids" readonly="state != 'borrador'">
-                                <list editable="bottom"
-                                      decoration-danger="not cuenta_acreditar or not tipo_cuenta or not banco">
-                                    <field name="employee_partner_id" required="1"/>
-                                    <field name="departamento" optional="show"/>
-                                    <field name="puesto" optional="show"/>
-                                    <field name="cantidad"/>
-                                    <field name="costo_individual"/>
-                                    <field name="total" sum="Total"/>
-                                    <field name="viaticos_sin_liquidar_count" string="Sin Liquidar"
-                                           decoration-warning="viaticos_sin_liquidar_count &gt; 0"/>
-                                    <field name="cuenta_acreditar" optional="show"/>
-                                    <field name="tipo_cuenta" optional="show"/>
-                                    <field name="banco" optional="hide"/>
-                                </list>
-                            </field>
-                            <group class="oe_subtotal_footer oe_right">
-                                <field name="subtotal"/>
-                                <field name="anticipo_previo" readonly="state != 'borrador'"/>
-                                <field name="total_acreditar" class="oe_subtotal_footer_separator"/>
-                            </group>
-                        </page>
-                        <page string="Materiales" invisible="tipo != 'anticipo_materiales'">
-                            <field name="material_line_ids"
-                                   readonly="state not in ('borrador', 'aplicado')">
-                                <list editable="bottom">
-                                    <field name="catalogo_id" optional="show" string="Producto SAT"
-                                           context="{'vendor_hint': vendor_name}"
-                                           readonly="parent.state != 'borrador'"/>
-                                    <field name="product_name" required="1" optional="hide"
-                                           readonly="parent.state != 'borrador'"/>
-                                    <field name="description" optional="show" readonly="parent.state != 'borrador'"/>
-                                    <field name="uom_name" optional="show" readonly="parent.state != 'borrador'"/>
-                                    <field name="qty" readonly="parent.state != 'borrador'"/>
-                                    <field name="estimated_price" readonly="parent.state != 'borrador'"/>
-                                    <field name="subtotal" sum="Total"/>
-                                    <field name="vendor_name" optional="show"
-                                           column_invisible="not parent.es_procesador"
-                                           readonly="parent.state != 'borrador'"/>
-                                    <field name="product_id" optional="show"
-                                           column_invisible="not parent.es_procesador"
-                                           help="Se resuelve aquí en Enterprise, una vez Aplicada la Orden - antes de Generar Orden de Compra. Dejar vacío si el material ya está en bodega propia (no se compra)."/>
-                                </list>
-                            </field>
-                            <group class="oe_subtotal_footer oe_right">
-                                <field name="subtotal"/>
-                                <field name="anticipo_previo" readonly="state != 'borrador'"/>
-                                <field name="total_acreditar" class="oe_subtotal_footer_separator"/>
-                            </group>
-                        </page>
-                        <page string="Sincronización" invisible="origin == 'synced' and not external_ref">
-                            <group>
-                                <field name="origin"/>
-                                <field name="external_ref" invisible="not external_ref"/>
-                                <field name="sync_state" invisible="origin == 'synced'"/>
-                                <field name="sync_error" invisible="sync_state != 'error'"/>
-                                <field name="sync_date" invisible="not sync_date"/>
-                            </group>
-                            <button name="action_retry_sync" string="Reintentar Sincronización" type="object"
-                                    invisible="sync_state != 'error'"/>
-                        </page>
-                        <page string="Información"
-                              invisible="tipo not in ('anticipo_viaticos', 'anticipo_materiales')">
-                            <group>
-                                <field name="tipo_cuenta"/>
-                            </group>
-                            <group invisible="tipo != 'anticipo_viaticos'">
-                                <group>
-                                    <field name="departamento"/>
-                                    <field name="puesto"/>
-                                    <field name="telefono"/>
-                                    <field name="correo"/>
-                                </group>
-                                <group>
-                                    <field name="cuenta_acreditar"/>
-                                    <field name="banco"/>
-                                    <field name="user_id"/>
-                                </group>
-                            </group>
-                            <group string="Vínculo Community / Enterprise"
-                                   invisible="not community_url and not enterprise_url">
-                                <field name="community_url" widget="url" invisible="not community_url"
-                                       string="Ver Orden en Community"/>
-                                <field name="enterprise_url" widget="url" invisible="not enterprise_url"
-                                       string="Ver Orden en Enterprise"/>
-                            </group>
-                        </page>
-                    </notebook>
-                    <group invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')">
-                        <field name="observaciones"/>
-                    </group>
-
-                    <notebook invisible="not es_procesador">
-                        <page string="Facturas y Pagos">
+                    <notebook>
+                        <page string="Facturas y Pagos" invisible="not es_procesador">
                             <div class="oe_title">
                                 <h2>Facturas</h2>
                             </div>
@@ -281,7 +181,105 @@
                                 </group>
                             </group>
                         </page>
+                        <page string="Viáticos" invisible="tipo != 'anticipo_viaticos'">
+                            <group>
+                                <field name="orden_padre_id" invisible="not orden_padre_id" readonly="1"/>
+                                <field name="lote_origen" invisible="not lote_origen" readonly="1"/>
+                                <field name="depositar_directo_tecnicos" readonly="state != 'borrador'"
+                                       invisible="orden_padre_id"/>
+                            </group>
+                            <field name="viaticos_line_ids" readonly="state != 'borrador'">
+                                <list editable="bottom"
+                                      decoration-danger="not cuenta_acreditar or not tipo_cuenta or not banco">
+                                    <field name="employee_partner_id" required="1"/>
+                                    <field name="departamento" optional="show"/>
+                                    <field name="puesto" optional="show"/>
+                                    <field name="cantidad"/>
+                                    <field name="costo_individual"/>
+                                    <field name="total" sum="Total"/>
+                                    <field name="viaticos_sin_liquidar_count" string="Sin Liquidar"
+                                           decoration-warning="viaticos_sin_liquidar_count &gt; 0"/>
+                                    <field name="cuenta_acreditar" optional="show"/>
+                                    <field name="tipo_cuenta" optional="show"/>
+                                    <field name="banco" optional="hide"/>
+                                </list>
+                            </field>
+                            <group class="oe_subtotal_footer oe_right">
+                                <field name="subtotal"/>
+                                <field name="anticipo_previo" readonly="state != 'borrador'"/>
+                                <field name="total_acreditar" class="oe_subtotal_footer_separator"/>
+                            </group>
+                        </page>
+                        <page string="Materiales" invisible="tipo != 'anticipo_materiales'">
+                            <field name="material_line_ids"
+                                   readonly="state not in ('borrador', 'aplicado')">
+                                <list editable="bottom">
+                                    <field name="catalogo_id" optional="show" string="Producto SAT"
+                                           context="{'vendor_hint': vendor_name}"
+                                           readonly="parent.state != 'borrador'"/>
+                                    <field name="product_name" required="1" optional="hide"
+                                           readonly="parent.state != 'borrador'"/>
+                                    <field name="description" optional="show" readonly="parent.state != 'borrador'"/>
+                                    <field name="uom_name" optional="show" readonly="parent.state != 'borrador'"/>
+                                    <field name="qty" readonly="parent.state != 'borrador'"/>
+                                    <field name="estimated_price" readonly="parent.state != 'borrador'"/>
+                                    <field name="subtotal" sum="Total"/>
+                                    <field name="vendor_name" optional="show"
+                                           column_invisible="not parent.es_procesador"
+                                           readonly="parent.state != 'borrador'"/>
+                                    <field name="product_id" optional="show"
+                                           column_invisible="not parent.es_procesador"
+                                           help="Se resuelve aquí en Enterprise, una vez Aplicada la Orden - antes de Generar Orden de Compra. Dejar vacío si el material ya está en bodega propia (no se compra)."/>
+                                </list>
+                            </field>
+                            <group class="oe_subtotal_footer oe_right">
+                                <field name="subtotal"/>
+                                <field name="anticipo_previo" readonly="state != 'borrador'"/>
+                                <field name="total_acreditar" class="oe_subtotal_footer_separator"/>
+                            </group>
+                        </page>
+                        <page string="Sincronización"
+                              invisible="(origin == 'synced' and not external_ref) or tipo == 'pago_directo'">
+                            <group>
+                                <field name="origin"/>
+                                <field name="external_ref" invisible="not external_ref"/>
+                                <field name="sync_state" invisible="origin == 'synced'"/>
+                                <field name="sync_error" invisible="sync_state != 'error'"/>
+                                <field name="sync_date" invisible="not sync_date"/>
+                            </group>
+                            <button name="action_retry_sync" string="Reintentar Sincronización" type="object"
+                                    invisible="sync_state != 'error'"/>
+                        </page>
+                        <page string="Información"
+                              invisible="tipo not in ('anticipo_viaticos', 'anticipo_materiales')">
+                            <group>
+                                <field name="tipo_cuenta"/>
+                            </group>
+                            <group invisible="tipo != 'anticipo_viaticos'">
+                                <group>
+                                    <field name="departamento"/>
+                                    <field name="puesto"/>
+                                    <field name="telefono"/>
+                                    <field name="correo"/>
+                                </group>
+                                <group>
+                                    <field name="cuenta_acreditar"/>
+                                    <field name="banco"/>
+                                    <field name="user_id"/>
+                                </group>
+                            </group>
+                            <group string="Vínculo Community / Enterprise"
+                                   invisible="not community_url and not enterprise_url">
+                                <field name="community_url" widget="url" invisible="not community_url"
+                                       string="Ver Orden en Community"/>
+                                <field name="enterprise_url" widget="url" invisible="not enterprise_url"
+                                       string="Ver Orden en Enterprise"/>
+                            </group>
+                        </page>
                     </notebook>
+                    <group invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')">
+                        <field name="observaciones"/>
+                    </group>
                 </sheet>
                 <chatter/>
             </form>
