@@ -120,7 +120,11 @@ class AccountPaymentOrderBulkImportWizard(models.TransientModel):
         """Bloquea incluso ABRIR el wizard del lado Procesador (Enterprise) - ahí las Órdenes
         llegan por sincronización, nunca se crean directamente. El mismo chequeo se repite en
         `action_aplicar()` (defensa en profundidad, por si se llama por API/automatización sin
-        pasar por este `default_get()`)."""
+        pasar por este `default_get()`). También exige "Administrador" (`account.group_account_
+        manager`, mismo grupo que ya usa `_check_es_administrador_contable()` para Aplicar/
+        Conciliar/Cancelar en `account_payment_order.py`) - pedido explícito del usuario: la
+        importación masiva es una acción de Administrador, en ambas ediciones."""
+        self.env['account.payment.order']._check_es_administrador_contable()
         if self.env.company.payment_order_role == 'procesador':
             raise UserError(_(
                 'La importación masiva de Órdenes de Pago solo aplica del lado Solicitante '
@@ -322,6 +326,7 @@ class AccountPaymentOrderBulkImportWizard(models.TransientModel):
         Orden queda en 'borrador' (nunca se auto-envía) para que el Solicitante la revise antes
         de Enviar - mismo criterio que "Cargar Cotización"."""
         self.ensure_one()
+        self.env['account.payment.order']._check_es_administrador_contable()
         if self.env.company.payment_order_role == 'procesador':
             raise UserError(_(
                 'La importación masiva de Órdenes de Pago solo aplica del lado Solicitante '
