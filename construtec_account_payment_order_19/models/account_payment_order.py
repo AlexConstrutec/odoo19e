@@ -276,6 +276,15 @@ class AccountPaymentOrder(models.Model):
              'Órdenes independientes que se generaron, una por técnico.')
     ordenes_hijas_count = fields.Integer(
         string='Cantidad de Órdenes Generadas', compute='_compute_ordenes_hijas_count')
+    lote_origen = fields.Char(
+        string='Lote de Origen', copy=False, readonly=True,
+        help='`name` (nunca un id) de la Orden original que se dividió en Órdenes por técnico '
+             '("Depositar Directo a Técnicos") - viaja como TEXTO plano hacia Enterprise vía '
+             '`_prepare_sync_vals()`, igual que `external_ref` - la Orden original nunca se '
+             'sincroniza ella misma (queda `cancelado` en Community), así que sin esto no '
+             'habría forma de saber, del lado Enterprise, que varias Órdenes independientes '
+             'pertenecen al mismo lote de depósito masivo. Vacío para una Orden que nunca fue '
+             'generada por una división.')
     material_line_ids = fields.One2many(
         'account.payment.order.material.line', 'order_id', string='Líneas de Materiales')
     pagar_a = fields.Selection([
@@ -859,6 +868,7 @@ class AccountPaymentOrder(models.Model):
                 'periodo_del': self.periodo_del,
                 'periodo_al': self.periodo_al,
                 'orden_padre_id': self.id,
+                'lote_origen': self.name,
                 'cuenta_acreditar': linea.cuenta_acreditar,
                 'banco': linea.banco,
                 'tipo_cuenta': linea.tipo_cuenta,
@@ -866,6 +876,19 @@ class AccountPaymentOrder(models.Model):
                     'employee_partner_id': linea.employee_partner_id.id,
                     'cantidad': linea.cantidad,
                     'costo_individual': linea.costo_individual,
+                    # Bug real (2026-09-04): sin esto, la línea PROPIA de la Orden hija volvía
+                    # a derivar cuenta_acreditar/banco/tipo_cuenta desde el empleado sincronizado
+                    # (ver account_payment_order_viatico_line.py::create()) - si el técnico no
+                    # tenía esos datos sincronizados desde Enterprise (caso real, no raro) y el
+                    # jefe ya los había corregido A MANO en la línea original, la corrección se
+                    # perdía en la hija: el ENCABEZADO sí la heredaba bien (ver arriba), pero su
+                    # propia línea de viáticos (ahora visible, ver la sección de más arriba sobre
+                    # las columnas visibles) se quedaba en blanco - inconsistente con su propio
+                    # encabezado. Mandar estos 3 valores explícitos hace que `vals.setdefault(...)`
+                    # (en el create() de la línea) los respete tal cual, sin volver a derivarlos.
+                    'cuenta_acreditar': linea.cuenta_acreditar,
+                    'banco': linea.banco,
+                    'tipo_cuenta': linea.tipo_cuenta,
                 })],
             }
             if ticket_id:
@@ -1003,6 +1026,7 @@ class AccountPaymentOrder(models.Model):
             'cuenta_acreditar': self.cuenta_acreditar or '',
             'tipo_cuenta': self.tipo_cuenta,
             'banco': self.banco or '',
+            'lote_origen': self.lote_origen or '',
             'periodo_del': self.periodo_del and self.periodo_del.isoformat() or False,
             'periodo_al': self.periodo_al and self.periodo_al.isoformat() or False,
             'observaciones': self.observaciones or '',
@@ -1469,6 +1493,78 @@ class AccountPaymentOrder(models.Model):
                 'domain': [('id', 'in', self.ordenes_hijas_ids.ids)],
             })
         return action
+
+    def action_generar_excel_transferencia_lote(self):
+        """Botón en la Orden ORIGINAL (la que se dividió con "Depositar Directo a Técnicos")
+        - genera el Excel de transferencia bancaria masiva directo de sus propias
+        `ordenes_hijas_ids`, sin que el usuario tenga que ir a seleccionarlas a mano en la
+        lista."""
+        self.ensure_one()
+        if not self.ordenes_hijas_ids:
+            raise UserError(self.env._(
+                'Esta Orden todavía no se ha dividido en Órdenes por técnico - no hay nada '
+                'que exportar.'))
+        return self.ordenes_hijas_ids.action_generar_excel_transferencia()
+
+    def action_generar_excel_transferencia(self):
+        """Genera un Excel de transferencia bancaria masiva (Nombre Completo/Banco/Número de
+        Cuenta/Tipo de Cuenta/Monto) - una fila por Orden seleccionada. Pensado para el caso de
+        "Depositar Directo a Técnicos" (ver `_dividir_en_ordenes_por_tecnico()`/`lote_origen`) -
+        se puede llamar tanto desde el botón de la Orden original (`action_generar_excel_
+        transferencia_lote()`, que ya trae sus propias `ordenes_hijas_ids`) como seleccionando
+        cualquier grupo de Órdenes a mano en la lista (acción de servidor `binding_model_id`,
+        Acciones ⚙) - no asume que las Órdenes seleccionadas compartan `lote_origen`, el
+        contable puede armar su propia selección libremente.
+
+        Nunca valida `state`/completitud de datos bancarios aquí a propósito - una fila con
+        datos faltantes simplemente sale en blanco en el Excel, visible de inmediato para quien
+        lo revise antes de subirlo al banco (ya hay un aviso visual - fila roja - en la propia
+        lista de líneas de Viáticos, ver la vista, para detectarlo antes de llegar aquí)."""
+        if not self:
+            raise UserError(self.env._(
+                'Selecciona al menos una Orden de Pago antes de generar el Excel.'))
+        import base64
+        import io
+
+        import xlsxwriter
+
+        buffer = io.BytesIO()
+        workbook = xlsxwriter.Workbook(buffer, {'in_memory': True})
+        sheet = workbook.add_worksheet('Transferencias')
+        encabezado = workbook.add_format({'bold': True, 'bg_color': '#DCE7F1', 'border': 1})
+        sheet.write_row(0, 0, [
+            'Orden de Pago', 'Nombre Completo', 'Banco', 'Número de Cuenta',
+            'Tipo de Cuenta', 'Monto',
+        ], encabezado)
+        tipo_cuenta_labels = dict(self._fields['tipo_cuenta'].selection)
+        for fila, orden in enumerate(self, start=1):
+            sheet.write(fila, 0, orden.name or '')
+            sheet.write(fila, 1, orden.partner_id.name or '')
+            sheet.write(fila, 2, orden.banco or '')
+            sheet.write(fila, 3, orden.cuenta_acreditar or '')
+            sheet.write(fila, 4, tipo_cuenta_labels.get(orden.tipo_cuenta, '') or '')
+            sheet.write_number(fila, 5, orden.monto or 0.0)
+        sheet.set_column(0, 0, 16)
+        sheet.set_column(1, 1, 28)
+        sheet.set_column(2, 2, 20)
+        sheet.set_column(3, 3, 20)
+        sheet.set_column(4, 4, 14)
+        sheet.set_column(5, 5, 14)
+        workbook.close()
+
+        nombre_archivo = self.env._('Transferencia_Bancaria_%(fecha)s.xlsx', fecha=fields.Date.context_today(self))
+        wizard = self.env['account.payment.order.export.transferencia.wizard'].create({
+            'data': base64.b64encode(buffer.getvalue()),
+            'name': nombre_archivo,
+        })
+        return {
+            'type': 'ir.actions.act_url',
+            'url': (
+                f'/web/content/account.payment.order.export.transferencia.wizard/'
+                f'{wizard.id}/data/{nombre_archivo}?download=true'
+            ),
+            'target': 'self',
+        }
 
     @api.model
     def _find_anticipos_sin_liquidar(self, partner, exclude=None):

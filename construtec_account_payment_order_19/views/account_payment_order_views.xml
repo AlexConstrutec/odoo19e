@@ -40,6 +40,9 @@
                     <button name="action_cancelar" string="Cancelar" type="object"
                             groups="account.group_account_manager"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') or state != 'liquidado' or not es_procesador"/>
+                    <button name="action_generar_excel_transferencia_lote"
+                            string="Generar Excel de Transferencia" type="object" icon="fa-file-excel-o"
+                            invisible="not ordenes_hijas_count"/>
                     <field name="es_procesador" invisible="1"/>
                     <field name="puede_conciliar" invisible="1"/>
                     <field name="state" widget="statusbar"
@@ -109,6 +112,7 @@
                         <page string="Viáticos" invisible="tipo != 'anticipo_viaticos'">
                             <group>
                                 <field name="orden_padre_id" invisible="not orden_padre_id" readonly="1"/>
+                                <field name="lote_origen" invisible="not lote_origen" readonly="1"/>
                                 <field name="depositar_directo_tecnicos" readonly="state != 'borrador'"
                                        invisible="orden_padre_id"/>
                             </group>
@@ -292,6 +296,7 @@
                 <field name="tipo"/>
                 <field name="partner_id"/>
                 <field name="total_acreditar" sum="Total" optional="show"/>
+                <field name="lote_origen" optional="hide"/>
                 <field name="origin" optional="hide"/>
                 <field name="state" widget="badge" decoration-success="state in ('aplicado', 'liquidado')"
                        decoration-info="state == 'borrador'"
@@ -308,6 +313,7 @@
             <search string="Órdenes de Pago">
                 <field name="name"/>
                 <field name="partner_id"/>
+                <field name="lote_origen" string="Lote de Origen"/>
                 <filter string="Mis Órdenes" name="my_orders"
                         domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')), ('requested_by_id', '=', uid)]"/>
                 <filter string="Pendientes de Aprobar" name="pendientes"
@@ -321,6 +327,7 @@
                 <separator/>
                 <filter string="Tipo" name="group_tipo" context="{'group_by': 'tipo'}"/>
                 <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
+                <filter string="Lote de Origen" name="group_lote_origen" context="{'group_by': 'lote_origen'}"/>
             </search>
         </field>
     </record>
@@ -337,4 +344,13 @@
 
     <menuitem action="action_account_payment_order" id="menu_account_payment_order"
               parent="account.menu_finance_payables" sequence="21"/>
+
+    <record id="action_account_payment_order_generar_excel_transferencia" model="ir.actions.server">
+        <field name="name">Generar Excel de Transferencia</field>
+        <field name="model_id" ref="model_account_payment_order"/>
+        <field name="binding_model_id" ref="model_account_payment_order"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_generar_excel_transferencia()</field>
+    </record>
 </odoo>
