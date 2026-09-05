@@ -590,6 +590,23 @@ especial), no quien recibe la retención en una venta propia.
   nueva línea `account.move.line` con `account_id=210203`, `credit=935.48`, `amount_residual`
   de la factura correctamente reducido en exactamente ese monto (`18709.63 → 17774.15`), y una
   segunda llamada manual/automática confirmada idempotente (no duplica la línea).
+- **`action_revertir_vinculacion()`** (botón "Revertir Vinculación", visible solo cuando
+  `state == 'vinculada'`) - pedido explícito del usuario: sin esto, una constancia vinculada
+  al documento SAT equivocado (ej. una colisión real de Serie+Número entre dos proveedores
+  distintos - `_sat_buscar_documento()` ya filtra por compañía, pero no distingue dos facturas
+  de la MISMA compañía que compartan por coincidencia esa Serie+Número) no tenía forma de
+  "empezar de nuevo": `action_vincular_factura()` es fills-blanks-only, nunca vuelve a actuar
+  sobre una constancia que ya tiene `sat_document_id`. Si la retención ya se había aplicado
+  contablemente (línea con `move_line_id` seteado), primero DESHACE esa línea en la factura del
+  proveedor - mismo patrón borrador→editar→re-postear que `action_aplicar_retencion_contable()`,
+  pero al revés (quita la línea en vez de agregarla) - nunca deja una línea contable huérfana
+  apuntando a un documento ya no vinculado. Si la línea no se puede tocar (ej. conciliación real
+  encima que Odoo no deja deshacer con un simple `unlink()`), se detiene con `UserError`
+  explícito en vez de dejar el dato a medias. Confirma con el usuario antes de ejecutar
+  (`confirm=` en el botón, dado que modifica una factura ya posteada). Verificado vía
+  `odoo-bin shell`: vincular → aplicación automática (residual `18709.63 → 17774.15`) → revertir
+  → residual exactamente de vuelta a `18709.63`, línea contable eliminada, factura de vuelta a
+  su única línea original, `state` de vuelta a `pendiente`.
 - **Bot (Selenium) construido y VERIFICADO END-TO-END -
   `C:\Users\Alex\Documents\n8n\sat-bot\run_sat_download_retenciones_isr_emitidas.py`.**
   Corrida real completa contra producción (2026-09-05, sin filtros, rango de 45 días,

@@ -125,6 +125,54 @@ class ConstructecSatRetentionEmitida(models.Model):
             },
         }
 
+    def action_revertir_vinculacion(self):
+        """Deshace la vinculación de esta constancia con su documento SAT - para el caso en
+        que _sat_buscar_documento() (automática, o vía "Vincular Factura") haya empatado el
+        documento equivocado (ej. una colisión real de Serie+Número entre dos proveedores
+        distintos - _sat_buscar_documento ya filtra por compañía, pero no hay forma de
+        distinguir dos facturas de la MISMA compañía que compartan por coincidencia la misma
+        Serie+Número). Sin este botón, action_vincular_factura() nunca vuelve a intentar nada
+        porque solo actúa sobre constancias sin sat_document_id (fills-blanks-only) - no había
+        manera de "empezar de nuevo" una vez vinculada mal.
+
+        Si la retención YA se había aplicado contablemente (line_ids con move_line_id seteado),
+        primero DESHACE esa línea en la factura del proveedor - mismo patrón borrador -> editar
+        -> re-postear que action_aplicar_retencion_contable(), pero al revés (quita la línea en
+        vez de agregarla) - nunca deja una línea contable huérfana apuntando a un documento que
+        ya no está vinculado desde este lado. Si la línea ya no se puede tocar (ej. tiene una
+        conciliación real encima que Odoo no deja deshacer con un simple unlink), se detiene con
+        un UserError explícito en vez de dejar el dato a medias - revisar la factura a mano en
+        ese caso antes de reintentar."""
+        for retention in self:
+            for line in retention.line_ids.filtered(lambda l: l.move_line_id):
+                move = line.move_line_id.move_id
+                estaba_posted = move.state == 'posted'
+                try:
+                    if estaba_posted:
+                        move.button_draft()
+                    line.move_line_id.unlink()
+                    if estaba_posted:
+                        move.action_post()
+                except Exception as exc:
+                    raise UserError(self.env._(
+                        'No se pudo deshacer la línea contable ya aplicada en la factura '
+                        '%(factura)s (%(error)s) - revisa la factura a mano antes de '
+                        'reintentar revertir la vinculación.',
+                        factura=move.name or move.id, error=exc,
+                    ))
+                line.move_line_id = False
+            retention.sat_document_id = False
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': self.env._('Revertir Vinculación'),
+                'message': self.env._('%(n)s constancia(s) devuelta(s) a estado pendiente.', n=len(self)),
+                'type': 'success',
+                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
+            },
+        }
+
     def _sat_buscar_documento(self):
         self.ensure_one()
         if self.sat_document_id or not self.serie or not self.numero_factura:

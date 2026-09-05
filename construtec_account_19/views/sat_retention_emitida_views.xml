@@ -28,6 +28,9 @@
                     <button name="action_aplicar_retenciones_contables" type="object"
                             string="Aplicar Retención a Factura" class="btn-primary"
                             invisible="state != 'vinculada' or requiere_revision_manual"/>
+                    <button name="action_revertir_vinculacion" type="object" string="Revertir Vinculación"
+                            confirm="Esto desvincula la constancia de su documento SAT - si la retención ya se había aplicado a la factura, esa línea contable también se quita. ¿Continuar?"
+                            invisible="state != 'vinculada'"/>
                     <field name="state" widget="statusbar" statusbar_visible="pendiente,vinculada"/>
                 </header>
                 <sheet>
