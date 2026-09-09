@@ -9,6 +9,7 @@
                 <field name="employee_id"/>
                 <field name="employee_name" optional="hide"/>
                 <field name="mark_type"/>
+                <field name="ticket_mirror_id"/>
                 <field name="analytic_account_id"/>
                 <field name="latitude" optional="hide"/>
                 <field name="longitude" optional="hide"/>
@@ -25,10 +26,12 @@
             <search string="Marcajes de Asistencia (Community)">
                 <field name="employee_id"/>
                 <field name="employee_name"/>
+                <field name="ticket_mirror_id"/>
                 <field name="analytic_account_id"/>
                 <group>
                     <filter string="Empleado" name="groupby_employee" context="{'group_by': 'employee_id'}"/>
                     <filter string="Tipo de Marcaje" name="groupby_mark_type" context="{'group_by': 'mark_type'}"/>
+                    <filter string="Ticket" name="groupby_ticket" context="{'group_by': 'ticket_mirror_id'}"/>
                     <filter string="Fecha" name="groupby_date" context="{'group_by': 'received_date:day'}"/>
                 </group>
             </search>

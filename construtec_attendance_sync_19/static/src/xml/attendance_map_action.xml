@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+
+<t t-name="construtec_attendance_sync_19.AttendanceMapAction">
+    <div class="h-100 d-flex flex-column">
+        <div t-if="state.loading" class="p-3 text-muted">
+            Cargando mapa…
+        </div>
+        <div t-if="state.error" class="alert alert-danger m-2" t-esc="state.error"/>
+        <div t-if="!state.loading and !state.error" class="p-2 d-flex flex-wrap align-items-center gap-3 border-bottom">
+            <span class="text-muted small">
+                <t t-esc="state.pointCount"/> marcaje(s) con ubicación en el rango seleccionado
+            </span>
+            <span t-foreach="state.employees" t-as="emp" t-key="emp.id" class="d-flex align-items-center gap-1 small">
+                <span t-attf-style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{emp.color}};"/>
+                <t t-esc="emp.name"/>
+            </span>
+        </div>
+        <div t-ref="mapContainer" style="flex:1 1 auto;min-height:400px;"/>
+    </div>
+</t>
+
+</templates>

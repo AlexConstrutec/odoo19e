@@ -4,33 +4,43 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this module is
 
-Lado receptor, **solo Enterprise**, del push de marcajes de asistencia que `construtec_face_attendance_19` (el núcleo, instalable en ambas ediciones) dispara desde una instalación "Solicitante" (Community, `res.company.payment_order_role == 'solicitante'`). `depends: ['construtec_face_attendance_19']` únicamente — no depende de `construtec_account_payment_order_19` directamente (el lado que RECIBE nunca necesita el helper de JSON-RPC ni los campos de configuración de sync, solo el modelo/vistas del núcleo que extiende).
+Lado receptor, **solo Enterprise**, del push de marcajes de asistencia que `construtec_face_attendance_19` (Community) dispara desde una instalación "Solicitante". `depends: ['hr', 'analytic', 'construtec_ticket_billing_19']` — **completamente independiente de `construtec_face_attendance_19` y de `hr_attendance`** (ver "Por qué es independiente" abajo). Enterprise nunca marca asistencia, solo recibe y muestra.
 
-## Modelo: `construtec.attendance.mark.mirror` — create-only, igual que `helpdesk.material.requisition.mirror`
+## Por qué es independiente del núcleo (2026-09-09)
 
-Un marcaje es un evento que nunca cambia después de creado (a diferencia de `construtec.helpdesk.ticket.mirror`, que hace upsert por número porque un ticket SÍ cambia de estado con el tiempo) — por eso este mirror es **create-only puro**: `sync_from_community(vals)` busca primero por `source_record_id` (el id del marcaje en Community, nunca tratado como relación real — solo como llave de idempotencia, mismo criterio "nunca ids entre bases" de todo el proyecto) y si ya existe simplemente devuelve ese id sin crear un duplicado; si no, lo crea.
+Hasta el 2026-09-09 este módulo dependía de `construtec_face_attendance_19` únicamente para reusar 3 cosas suyas: la clase del controlador (`map_data()`), el diccionario `MARK_TYPE_LABELS`, y el wizard+mapa Leaflet ("Mapa de Marcajes"). Ese módulo trae `hr_attendance` como dependencia dura (lo necesita para el systray/enrolamiento, que Enterprise nunca usa) — así que instalar este receptor arrastraba `hr_attendance` a Enterprise sin ninguna necesidad real.
 
-`employee_id` (Many2one real a `hr.employee`) se resuelve por `employee_enterprise_ref` — el mismo id que `hr.employee.enterprise_employee_ref` ya guarda en Community para el pull de catálogo de empleados (`construtec_account_payment_order_19`). `employee_name` (Char) es el respaldo de texto siempre presente, por si ese id no resuelve (empleado no sincronizado, o de una compañía distinta). `analytic_account_id` se resuelve igual, vía `analytic_enterprise_ref` (mismo mecanismo que `account.analytic.account.enterprise_analytic_ref`).
+El usuario fue explícito: "no veo la necesidad de usar asistencias en Odoo Enterprise, a mí no me sirven de nada" — y pidió que el mapa se **adapte** (duplicado) en vez de compartirse, mismo criterio que ya usa el resto del proyecto para integraciones ("cada integración copia su propio cliente/UI" — ver `construtec_account_payment_order_19`, `construtec_ticket_billing_19`, etc.).
 
-**Sin `sudo()`** en `sync_from_community()` — las reglas de permisos del propio usuario de integración son las que de verdad gatean esto (mismo criterio que `construtec.helpdesk.ticket.mirror`).
+Por eso este módulo ahora tiene TODO lo que necesita por su cuenta:
+- **`controllers/main.py`** — `ConstrutecAttendanceSyncController`, clase nueva (ya NO hereda de `ConstrutecFaceAttendanceController`), con su propia ruta `/construtec_attendance_sync/map_data` y su propia copia de `MARK_TYPE_LABELS`. Si el núcleo agrega/cambia un tipo de marcaje, hay que reflejarlo acá a mano (no hay ninguna comprobación automática).
+- **`models/construtec_attendance_map_wizard.py`** — modelo `construtec.attendance.sync.map.wizard` (nombre distinto al del núcleo, `construtec.attendance.map.wizard`, para que no haya ninguna ambigüedad de que son cosas separadas).
+- **`static/src/js/attendance_map_action.js` + `.xml`** — copia adaptada del Leaflet del núcleo (mismo tag ya no aplica: `construtec_attendance_sync_map`, ruta propia).
+- **`static/src/lib/leaflet/`** — copia vendored de Leaflet.js (BSD-2-Clause), duplicada del núcleo (no hay ningún mecanismo de assets compartidos entre módulos de ediciones distintas).
+
+Como consecuencia: aunque `construtec_face_attendance_19` técnicamente pueda instalarse en cualquier edición (no tiene dependencias Community-only en su código), la intención desde ahora es que **solo se instale en Community** — ver su propio CLAUDE.md ("Es un módulo de Community").
+
+## Modelo: `construtec.attendance.mark.mirror` — upsert por `source_record_id` (ya NO create-only puro)
+
+Antes del 2026-09-09 era create-only puro (un marcaje es un evento que nunca cambia después de creado). Ahora hace **upsert**: si el `source_record_id` ya existe, actualiza en vez de ignorar. La razón es el ticket (ver abajo) — sigue siendo cierto que un marcaje en sí no cambia, pero el vínculo a un ticket sí puede llegar en un segundo envío, después del primero.
+
+`employee_id` (Many2one real a `hr.employee`) se resuelve por `employee_enterprise_ref`. `analytic_account_id` se resuelve por `analytic_enterprise_ref`. `ticket_mirror_id` (Many2one a `construtec.helpdesk.ticket.mirror`, de `construtec_ticket_billing_19` — el mismo espejo que ya usan para facturación) se resuelve por `ticket_number`, buscando por el campo `number` de ese modelo — nunca un id local de Community, mismo criterio "nunca ids entre bases" del proyecto.
+
+## Por qué el ticket llega en un segundo envío (no en el primero)
+
+En Community, `ticket_id` (agregado por `construtec_face_attendance_helpdesk_19`) se completa en un **segundo** `write()`, después de que `create()` del marcaje ya disparó el primer push (sin ticket, porque `_prepare_sync_vals()` corre en el momento del `create()`, antes de ese write). `construtec_face_attendance_helpdesk_19` sobreescribe `write()` para volver a llamar `_sync_to_enterprise()` cuando `ticket_id` cambia — eso es lo que llega acá como un segundo `sync_from_community(vals)` con el mismo `source_record_id` de antes.
 
 ## Seguridad
 
-`group_construtec_attendance_sync_integration` — grupo nuevo, dedicado, con **lectura + creación** sobre este modelo (`security/ir.model.access.csv`), nada más. Se prefirió un grupo dedicado en vez de reutilizar uno existente (a diferencia de `construtec_ticket_billing_19`, que reutilizó `account.group_account_manager` a pedido explícito del usuario en esa ocasión) — sigue el patrón mayoritario de este proyecto (`construtec_materials_sync_19`, `construtec_sat_catalog_sync_19`, `construtec_whatsapp_19`: cada integración con su propio grupo mínimo, defensa en profundidad). **No agregar `base.group_user` ni ningún otro grupo al usuario de integración**.
+`group_construtec_attendance_sync_integration` — lectura + creación sobre `construtec.attendance.mark.mirror` a nivel ORM/UI (`perm_write=0`, `perm_unlink=0`). La actualización del segundo envío (ticket) pasa por `sudo()` DENTRO de `sync_from_community()` — una excepción puntual y acotada (nunca abre edición libre por ORM/UI con este grupo), documentada en el propio `security/construtec_attendance_sync_security.xml`.
 
-**Bug real encontrado verificando esto de punta a punta (no solo con `odoo-bin shell`, con un push HTTP real entre dos instancias locales)**: el diseño original de este grupo era **solo creación** (`perm_read=0`), calcando el criterio de `construtec_materials_sync_19`/`construtec_sat_catalog_sync_19`. Un `create()` directo probado con `with_user()` funcionaba perfecto, pero el push REAL vía `/jsonrpc` (`execute_kw`) fallaba con `AccessError` incluso con `sync_from_community()` usando `sudo()` en sus lecturas internas (la búsqueda de deduplicación por `source_record_id`, la resolución de `employee_id`/`analytic_account_id`). Causa real: Odoo exige que el usuario que llama a `execute_kw` tenga al menos **permiso de lectura** sobre el modelo para poder invocar **cualquier** método sobre él — incluido un método propio que nunca devuelve datos de lectura al llamador — porque el framework no puede saber de antemano qué hace un método arbitrario. Esta exigencia es un chequeo ANTERIOR a que el método siquiera empiece a ejecutarse, así que ningún `sudo()` interno lo evita. **Por eso el grupo terminó con `perm_read=1`** — la alternativa (llamar directo al `create()` estándar en vez de un método propio) habría evitado el problema, pero mover la lógica de deduplicación/resolución al `create()` override del modelo mismo era más cambio de diseño del que ameritaba esta corrección puntual.
+**Bug real encontrado verificando el diseño anterior de punta a punta** (antes de este cambio, con un push HTTP real entre dos instancias locales): el grupo original era solo-creación (`perm_read=0`), pero un `create()` real vía `/jsonrpc` (`execute_kw`) exige que el usuario que llama tenga al menos permiso de **lectura** sobre el modelo para poder invocar *cualquier* método sobre él, incluso uno que nunca devuelve datos de lectura — chequeo anterior a que el método siquiera empiece a ejecutarse, ningún `sudo()` interno lo evita. Por eso el grupo tiene `perm_read=1`.
 
-`hr.group_hr_manager` (el mismo grupo que ya gatea todo lo sensible en el núcleo) tiene lectura sobre el mirror, para poder revisarlo desde el menú "Marcajes de Asistencia (Community)" (`hr.menu_hr_root`).
-
-## Mapa consolidado: extiende el del núcleo, sin que el núcleo sepa de este módulo
-
-`controllers/main.py` — misma convención de "controller inheritance" ya documentada en `construtec_face_attendance_helpdesk_19` (heredar con el MISMO nombre de clase). Sobreescribe `map_data` (mismo `@http.route()` bare que ya usa `systray_attendance` en el núcleo para este caso — "misma ruta, sin params nuevos, solo redefinir el cuerpo"): llama a `super()` (que ya valida `hr.group_hr_manager` y arma los puntos propios de Enterprise) y le agrega, como pines adicionales, los `construtec.attendance.mark.mirror` que calcen con el mismo filtro de fecha/empleado/ubicación-real — así el mapa de Enterprise muestra en un solo lugar tanto sus propios marcajes como los recibidos de Community, sin que `construtec_face_attendance_19` necesite saber que este módulo existe.
-
-Los `id`/`employee_id` de los puntos del mirror se prefijan/marcan como `'mirror-<id>'` cuando no hay un `employee_id` real resuelto (para no colisionar con los ids reales del núcleo, que son enteros) y el nombre del empleado se sufija con " (Community)" para distinguir el origen a simple vista en el popup del mapa.
+`hr.group_hr_manager` tiene lectura sobre el mirror y accede al wizard/mapa propio de este módulo (menú "Mapa de Marcajes (Community)", separado del "Marcajes de Asistencia (Community)").
 
 ## Qué NO hace este módulo
 
-No sincroniza nada de vuelta hacia Community (mismo criterio que el resto de syncs de este proyecto salvo el pull explícito de estado de Órdenes de Pago) — si un marcaje recibido necesita corregirse, se hace aquí mismo en Enterprise, directo sobre el mirror (de solo lectura para `hr.group_hr_manager` en la vista, pero no hay ninguna restricción de modelo que lo impida a nivel de shell/script si hiciera falta).
+No sincroniza nada de vuelta hacia Community (salvo la actualización interna que ya se explicó arriba, que nunca sale de Enterprise) — si un marcaje recibido necesita corregirse más allá de eso, se hace acá mismo, directo sobre el mirror.
 
 ## Common commands
 
@@ -39,3 +49,7 @@ No sincroniza nada de vuelta hacia Community (mismo criterio que el resto de syn
 ```
 
 See `..\CLAUDE.md` for the disposable-test-DB verification workflow.
+
+## Migración de una instalación existente
+
+Si `construtec_attendance_sync_19` ya estaba instalado dependiendo del núcleo (versión anterior a 2026-09-09), actualizar el módulo (`-u construtec_attendance_sync_19`) NO desinstala `construtec_face_attendance_19`/`hr_attendance` automáticamente — eso hay que hacerlo a mano (Ajustes > Aplicaciones) si ya no hacen falta para nada más en esa base.

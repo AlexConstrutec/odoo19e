@@ -1,25 +1,29 @@
 # -*- coding: utf-8 -*-
-from odoo import fields, http
+from odoo import fields, http, _
 from odoo.http import request
 
-# Mismo nombre de clase que el padre (convención de Odoo para "controller
-# inheritance", ver el CLAUDE.md de construtec_face_attendance_helpdesk_19
-# para la explicación completa del mecanismo).
-from odoo.addons.construtec_face_attendance_19.controllers.main import (
-    ConstrutecFaceAttendanceController, MARK_TYPE_LABELS,
-)
+ADMIN_GROUP_XMLID = 'hr.group_hr_manager'
+
+# Copia deliberada de construtec_face_attendance_19::MARK_TYPE_LABELS - este
+# módulo ya no depende del núcleo (Enterprise nunca marca asistencia), así
+# que no hay de dónde importarla. Si el núcleo agrega/cambia un tipo de
+# marcaje, hay que reflejarlo acá a mano.
+MARK_TYPE_LABELS = {
+    'inicio_labores': 'Inicio de Labores / Hora Extra',
+    'inicio_alimentacion': 'Inicio de Alimentación',
+    'fin_alimentacion': 'Fin de Alimentación',
+    'fin_labores': 'Fin de Labores / Hora Extra',
+}
 
 
-class ConstrutecFaceAttendanceController(ConstrutecFaceAttendanceController):
+class ConstrutecAttendanceSyncController(http.Controller):
 
-    @http.route()
+    @http.route('/construtec_attendance_sync/map_data', type='jsonrpc', auth='user', readonly=True)
     def map_data(self, date_from=None, date_to=None, employee_ids=None):
-        # El núcleo ya valida el permiso (hr.group_hr_manager) y arma los
-        # puntos propios de esta base - acá solo se agregan, como pines
-        # adicionales, los marcajes recibidos de Community.
-        result = super().map_data(date_from=date_from, date_to=date_to, employee_ids=employee_ids)
-        if 'error' in result:
-            return result
+        """Datos para el wizard de mapa de marcajes recibidos de Community -
+        reservado a Administrador (RRHH), mismo criterio que el núcleo."""
+        if not request.env.user.has_group(ADMIN_GROUP_XMLID):
+            return {'error': _("No tenés permiso para ver el mapa de marcajes.")}
 
         domain = ['|', ('latitude', '!=', 0.0), ('longitude', '!=', 0.0)]
         if employee_ids:
@@ -32,14 +36,13 @@ class ConstrutecFaceAttendanceController(ConstrutecFaceAttendanceController):
         mirrors = request.env['construtec.attendance.mark.mirror'].sudo().search(
             domain, order='received_date desc', limit=2000,
         )
-        result['points'] += [{
-            'id': 'mirror-%s' % mirror.id,
-            'employee_id': mirror.employee_id.id or 'mirror-%s' % mirror.id,
-            'employee_name': '%s (Community)' % (mirror.employee_id.name or mirror.employee_name),
+        return {'points': [{
+            'id': mirror.id,
+            'employee_id': mirror.employee_id.id or mirror.id,
+            'employee_name': mirror.employee_id.name or mirror.employee_name,
             'mark_type': mirror.mark_type,
             'label': MARK_TYPE_LABELS.get(mirror.mark_type, mirror.mark_type),
             'datetime': fields.Datetime.to_string(mirror.received_date),
             'latitude': mirror.latitude,
             'longitude': mirror.longitude,
-        } for mirror in mirrors]
-        return result
+        } for mirror in mirrors]}
