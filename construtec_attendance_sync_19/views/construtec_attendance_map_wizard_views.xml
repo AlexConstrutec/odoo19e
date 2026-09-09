@@ -28,7 +28,7 @@
     <menuitem id="menu_construtec_attendance_sync_map_wizard"
               name="Mapa de Marcajes (Community)"
               action="action_construtec_attendance_sync_map_wizard"
-              parent="hr.menu_hr_root"
+              parent="hr.hr_menu_hr_reports"
               groups="hr.group_hr_manager"
               sequence="97"/>
 </odoo>

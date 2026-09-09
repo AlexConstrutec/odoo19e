@@ -48,7 +48,7 @@
     <menuitem id="menu_construtec_attendance_mark_mirror"
               name="Marcajes de Asistencia (Community)"
               action="action_construtec_attendance_mark_mirror"
-              parent="hr.menu_hr_root"
+              parent="hr.hr_menu_hr_reports"
               groups="hr.group_hr_manager"
               sequence="98"/>
 </odoo>
