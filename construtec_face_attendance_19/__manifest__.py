@@ -22,13 +22,13 @@ fichaje, debe mostrar su rostro a la cámara de su propio dispositivo.
 * Ubicación y hora ya las captura el propio `hr_attendance` de Odoo.
 * Enrolamiento (carga de las 3 fotos de referencia) reservado a
   Administrador (RRHH), desde la ficha del empleado.
-* Núcleo instalable en Community y Enterprise por igual - sin depender de
-  ningún módulo de ticketing/roles de Community. El vínculo opcional a un
+* Módulo de Community: acá es donde el colaborador realmente marca
+  asistencia (cámara, ubicación, reporte, mapa). El vínculo opcional a un
   ticket de `construtec_helpdesk_mgmt` vive en el módulo aparte
   `construtec_face_attendance_helpdesk_19` (solo Community).
-* Los marcajes capturados en una instalación "Solicitante" (Community) se
-  sincronizan hacia la instalación "Procesadora" (Enterprise) - ver
-  `construtec_attendance_sync_19` del lado Enterprise.
+* Los marcajes se sincronizan hacia Enterprise (push, solo lectura del otro
+  lado) - ver `construtec_attendance_sync_19`, que es 100% independiente de
+  este módulo (no lo instala ni depende de `hr_attendance`).
 """,
     'author': 'Construtec',
     'company': 'Construtec',

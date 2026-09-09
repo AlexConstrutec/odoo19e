@@ -4,25 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this module is
 
-`construtec_face_attendance_19` replaces the single Check in/Check out button in `hr_attendance`'s systray widget with **4 marcajes** — Inicio de Labores/Hora Extra, Inicio de Alimentación, Fin de Alimentación, Fin de Labores/Hora Extra — each gated by real face recognition, done entirely with free/local tooling (no paid AI service, no API key, no third-party account). `depends: hr_attendance, mail, analytic, construtec_account_payment_order_19` (the last one purely to reuse the already-built Community↔Enterprise sync channel/credentials — see "Instalable en Community y Enterprise" below).
+`construtec_face_attendance_19` replaces the single Check in/Check out button in `hr_attendance`'s systray widget with **4 marcajes** — Inicio de Labores/Hora Extra, Inicio de Alimentación, Fin de Alimentación, Fin de Labores/Hora Extra — each gated by real face recognition, done entirely with free/local tooling (no paid AI service, no API key, no third-party account). `depends: hr_attendance, mail, analytic, construtec_account_payment_order_19` (the last one purely to reuse the already-built Community→Enterprise sync channel/credentials — see "Sincronización de marcajes" below).
 
 Built for técnicos who log into Odoo from their own phone (not the public kiosk) — the goal was to stop buddy-punching without depending on any external face-recognition vendor. See memory `construtec_face_attendance_project` (if present) for the full back-and-forth that led to this design; the short version is below.
 
-## Instalable en Community y Enterprise (2026-09-08)
+## Es un módulo de Community (2026-09-09)
 
-Este módulo **es el núcleo**, sin ninguna dependencia de módulos Community-only — se instala verbatim en ambas ediciones (mismo patrón ya usado por `construtec_account_payment_order_19`). Dos piezas que antes vivían aquí se movieron/agregaron:
+Entre 2026-09-08 y 2026-09-09 este módulo pasó por dos diseños: primero se lo hizo instalable "por igual" en Community y Enterprise (sin depender de nada Community-only), y un día después el usuario pidió revertir esa posición: **Enterprise nunca marca asistencia** (no tiene sentido arrastrar `hr_attendance` ahí solo para reusar 3 cosas del mapa/reporte), así que este módulo vuelve a pensarse como **de Community**, aunque el código en sí no tenga ninguna dependencia Community-only (nada le impide técnicamente instalarse en otro lado, pero no es la intención).
 
-- **El vínculo a `helpdesk.ticket`** (campo `ticket_id` en `hr.attendance` y en `construtec.attendance.mark`, la ruta `/my_open_tickets`, el selector de ticket en el widget de asistencia) se movió por completo a **`construtec_face_attendance_helpdesk_19`** (nuevo módulo, solo Odoo19C) — Enterprise no administra tickets, así que este núcleo no puede depender de `construtec_helpdesk_mgmt`. Ver el CLAUDE.md de ese módulo para el mecanismo de extensión (controlador que hereda y encadena `super()`, en vez de duplicar los métodos completos donde fue posible).
-- **El gating a Administrador** dejó de usar `construtec_roles_permisos_19.group_construtec_administrador` (módulo que tampoco existe en Enterprise) — ahora usa **`hr.group_hr_manager`** (grupo nativo de `hr`), en los mismos 7 puntos de siempre (3 filas de `ir.model.access.csv`, 2 menús, la pestaña de enrolamiento facial, el chequeo manual `has_group()` en `/map_data`).
-- **Sincronización de marcajes hacia Enterprise** (nueva, ver abajo) - reutiliza el canal ya construido en `construtec_account_payment_order_19` (`res.company.payment_order_role`/`payment_order_sync_*`), no crea credenciales propias.
+`construtec_attendance_sync_19` (Enterprise) dejó de depender de este módulo por completo - tiene su propio modelo espejo, su propio mapa (Leaflet duplicado, no compartido) y su propio controlador, sin `hr_attendance` en ningún lado de esa cadena. Ver su CLAUDE.md.
 
-## Sincronización de marcajes: Community → Enterprise (push, un solo sentido)
+El gating a Administrador usa **`hr.group_hr_manager`** (grupo nativo de `hr`, no de `construtec_roles_permisos_19`) en los mismos 7 puntos de siempre (3 filas de `ir.model.access.csv`, 2 menús, la pestaña de enrolamiento facial, el chequeo manual `has_group()` en `/map_data`) - esto se mantiene igual que antes, es independiente de la decisión de dónde se instala el módulo.
 
-Mismo patrón que `construtec_helpdesk_field_service`→`construtec_ticket_billing_19`: se dispara en `create()` (un marcaje es un evento que nunca cambia después - no hace falta engancharse a `write()`), solo si `company.payment_order_role == 'solicitante'` y `payment_order_sync_enabled` - en cualquier otra compañía (incluida cualquier Enterprise ya instalada, `payment_order_role` default `'procesador'`) es un no-op silencioso.
+## Sincronización de marcajes: Community → Enterprise (push, con upsert para el ticket)
+
+Mismo patrón que `construtec_helpdesk_field_service`→`construtec_ticket_billing_19`: se dispara en `create()` (solo si `company.payment_order_role == 'solicitante'` y `payment_order_sync_enabled` - en cualquier otra compañía es un no-op silencioso).
 
 - `construtec_attendance_mark.py`: `sync_state`/`sync_error`/`sync_date`, `_prepare_sync_vals()` (payload plano - `employee_enterprise_ref` del empleado, nunca su id local; `analytic_enterprise_ref` de la cuenta analítica si aplica; `source_record_id=self.id`, usado del lado receptor solo para idempotencia, nunca como llave de negocio), `_sync_to_enterprise()`, `action_retry_sync()`, `_cron_retry_sync()` (cron nuevo, `data/attendance_mark_sync_cron.xml`, cada 30 min).
 - El helper JSON-RPC (`_jsonrpc`/`authenticate`) se importa directo de `construtec_account_payment_order_19.tools.enterprise_sync_api` (de ahí la nueva dependencia de módulo) - una excepción deliberada a la convención de "cada integración copia su propio cliente HTTP" ya documentada en ese módulo: aquí se quiere reutilizar la MISMA URL/credencial que ya usan las Órdenes de Pago (mismo Enterprise, mismo usuario de integración), no una integración independiente revocable por separado.
-- **Receptor**: `construtec_attendance_sync_19` (Enterprise-only) - ver su propio CLAUDE.md.
+- **El núcleo NO manda `ticket_id`** en el payload (no sabe que ese campo existe - lo agrega `construtec_face_attendance_helpdesk_19` sobreescribiendo `_prepare_sync_vals()`). Como ese campo se completa en un `write()` DESPUÉS del `create()` que ya disparó el primer envío, el receptor tiene que aceptar una actualización posterior por `source_record_id` - ver el CLAUDE.md de ese módulo y el de `construtec_attendance_sync_19`.
+- **Receptor**: `construtec_attendance_sync_19` (Enterprise-only, independiente de este módulo) - ver su propio CLAUDE.md.
 
 ## Architecture: client recognizes, server decides
 
