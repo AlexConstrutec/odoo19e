@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <data>
+        <record id="group_construtec_attendance_sync_integration" model="res.groups">
+            <field name="name">Integración: Sincronización de Marcajes (solo creación)</field>
+            <field name="comment">
+                Grupo mínimo para el usuario técnico que recibe el push de marcajes desde
+                Community - lectura + creación sobre construtec.attendance.mark.mirror
+                únicamente, nunca editar/eliminar, y ningún otro modelo. Confirmado
+                empíricamente (no solo en teoría) que Odoo exige al menos permiso de LECTURA
+                para poder invocar cualquier método vía /jsonrpc (execute_kw), incluido un
+                método propio como sync_from_community() que internamente nunca expone datos
+                de lectura al llamador - un grupo verdaderamente "solo creación" (perm_read=0)
+                no puede ni siquiera llamar al método, sin importar lo que ese método haga por
+                dentro. Aun así, si esta API Key se filtra, lo peor que puede hacer es crear
+                marcajes falsos y leer los marcajes ya recibidos - nunca editarlos/eliminarlos
+                ni tocar ningún otro modelo. No agregar base.group_user ni ningún otro grupo a
+                este usuario.
+            </field>
+        </record>
+    </data>
+</odoo>

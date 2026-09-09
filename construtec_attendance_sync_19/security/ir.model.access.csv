@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_construtec_attendance_mark_mirror_integration,construtec.attendance.mark.mirror.integration,model_construtec_attendance_mark_mirror,group_construtec_attendance_sync_integration,1,0,1,0
+access_construtec_attendance_mark_mirror_admin,construtec.attendance.mark.mirror.admin,model_construtec_attendance_mark_mirror,hr.group_hr_manager,1,0,0,1

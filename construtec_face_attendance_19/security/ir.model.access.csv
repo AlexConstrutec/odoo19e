@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_hr_employee_construtec_face_admin,hr.employee.construtec.face.admin,hr.model_hr_employee,hr.group_hr_manager,1,1,1,0
+access_construtec_attendance_mark_admin,construtec.attendance.mark.admin,model_construtec_attendance_mark,hr.group_hr_manager,1,0,0,0
+access_construtec_attendance_map_wizard_admin,construtec.attendance.map.wizard.admin,model_construtec_attendance_map_wizard,hr.group_hr_manager,1,1,1,1
+access_construtec_attendance_location_ping_admin,construtec.attendance.location_ping.admin,model_construtec_attendance_location_ping,hr.group_hr_manager,1,0,0,0

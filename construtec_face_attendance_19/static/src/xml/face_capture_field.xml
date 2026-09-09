@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+
+<t t-name="construtec_face_attendance_19.FaceCaptureField">
+    <div class="d-flex flex-column align-items-center gap-2 text-center" style="width:120px;">
+        <img t-if="imageSrc" t-att-src="imageSrc"
+             style="width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid #dee2e6;"/>
+        <div t-else="" class="d-flex align-items-center justify-content-center bg-light text-muted"
+             style="width:96px;height:96px;border-radius:8px;border:1px dashed #ccc;">
+            <i class="fa fa-user fa-2x"/>
+        </div>
+        <button type="button" class="btn btn-sm w-100"
+                t-attf-class="btn-{{ isCaptured ? 'outline-success' : 'primary' }}"
+                t-on-click="openCapture">
+            <i t-if="isCaptured" class="fa fa-check me-1"/>
+            <t t-esc="isCaptured ? 'Recapturar' : 'Capturar'"/>
+        </button>
+    </div>
+</t>
+
+<t t-name="construtec_face_attendance_19.FaceCaptureDialog">
+    <Dialog title="'Capturar rostro — ' + props.poseLabel" size="'md'">
+        <div class="text-center">
+            <p t-if="state.error" class="text-danger small" t-esc="state.error"/>
+            <div style="position:relative;height:320px;overflow:hidden;background:#000;border-radius:4px;">
+                <video t-ref="video" autoplay="autoplay" muted="muted"
+                       style="width:100%;height:100%;object-fit:cover;"/>
+            </div>
+            <button type="button" class="btn btn-primary mt-3" t-on-click="() => this.capture()"
+                    t-att-disabled="state.loading">
+                Capturar con cámara
+            </button>
+
+            <div class="text-muted small my-2">— o —</div>
+
+            <input t-ref="fileInput" type="file" accept="image/*" class="d-none"
+                   t-on-change="(ev) => this.onFileSelected(ev)"/>
+            <button type="button" class="btn btn-outline-secondary" t-on-click="() => this.triggerFileUpload()"
+                    t-att-disabled="state.processingFile">
+                <i class="fa fa-upload me-1"/>
+                <t t-esc="state.processingFile ? 'Procesando...' : 'Subir una foto'"/>
+            </button>
+        </div>
+    </Dialog>
+</t>
+
+</templates>
