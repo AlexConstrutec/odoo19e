@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Reglas de multi-compañía para los modelos SAT de este módulo.
+
+        Motivo real: este módulo nunca tuvo reglas de multi-compañía porque hasta ahora
+        solo lo usaba Construtec (una sola compañía en la base de datos). Al agregar un
+        segundo cliente/NIT DENTRO DE LA MISMA base de Odoo (en vez de una base separada),
+        se descubrió que ninguna búsqueda estaba realmente restringida por compañía a nivel
+        de ir.rule - varios métodos (create_from_dte, registrar_retencion_isr_facturas_especiales_web,
+        etc.) ya comparan self.env.company.vat contra el NIT del documento antes de CREAR
+        algo, pero eso no protege las búsquedas de duplicados/vinculación en sí: sin estas
+        reglas, un usuario de integración de la compañía nueva podría, en teoría, encontrar
+        (o cruzar retenciones contra) documentos de Construtec si alguna vez coincidieran
+        Serie+Número entre dos proveedores de compañías distintas - poco probable, pero real
+        mientras no hubiera ninguna barrera a nivel de motor.
+
+        Sin "groups" (regla global) para que aplique siempre, sin depender de qué grupo
+        tenga el usuario - mismo patrón que usa el propio Odoo para sus modelos
+        multi-compañía (ej. account.move). Esto NO afecta al superusuario ni a llamadas con
+        sudo() (las reglas de ir.rule nunca aplican ahí), que es donde ya viven las
+        validaciones explícitas de NIT que sí seguían protegiendo la creación de datos.
+    -->
+
+    <record id="construtec_sat_document_comp_rule" model="ir.rule">
+        <field name="name">construtec.sat.document: multi-compañía</field>
+        <field name="model_id" ref="model_construtec_sat_document"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="construtec_sat_document_line_comp_rule" model="ir.rule">
+        <field name="name">construtec.sat.document.line: multi-compañía</field>
+        <field name="model_id" ref="model_construtec_sat_document_line"/>
+        <field name="domain_force">[('document_id.company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="construtec_sat_retention_comp_rule" model="ir.rule">
+        <field name="name">construtec.sat.retention: multi-compañía</field>
+        <field name="model_id" ref="model_construtec_sat_retention"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="construtec_sat_retention_line_comp_rule" model="ir.rule">
+        <field name="name">construtec.sat.retention.line: multi-compañía</field>
+        <field name="model_id" ref="model_construtec_sat_retention_line"/>
+        <field name="domain_force">[('retention_id.company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="construtec_sat_retention_emitida_comp_rule" model="ir.rule">
+        <field name="name">construtec.sat.retention.emitida: multi-compañía</field>
+        <field name="model_id" ref="model_construtec_sat_retention_emitida"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="construtec_sat_retention_emitida_line_comp_rule" model="ir.rule">
+        <field name="name">construtec.sat.retention.emitida.line: multi-compañía</field>
+        <field name="model_id" ref="model_construtec_sat_retention_emitida_line"/>
+        <field name="domain_force">[('retention_id.company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="construtec_sat_product_catalog_comp_rule" model="ir.rule">
+        <field name="name">construtec.sat.product.catalog: multi-compañía</field>
+        <field name="model_id" ref="model_construtec_sat_product_catalog"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="construtec_sat_categorization_rule_comp_rule" model="ir.rule">
+        <field name="name">construtec.sat.categorization.rule: multi-compañía</field>
+        <field name="model_id" ref="model_construtec_sat_categorization_rule"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="construtec_sat_import_log_comp_rule" model="ir.rule">
+        <field name="name">construtec.sat.import.log: multi-compañía</field>
+        <field name="model_id" ref="model_construtec_sat_import_log"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+</odoo>

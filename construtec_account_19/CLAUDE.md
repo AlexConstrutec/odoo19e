@@ -754,6 +754,57 @@ otras 3 categorías, manejadas por `construtec.sat.retention.emitida`).
   constancias reales) - si se necesita un backfill amplio, pasar `RETENCIONES_EMITIDAS_FECHA_DESDE`
   explícito con un rango más amplio (ej. `01/01/2025`).
 
+## Multi-compañía (`security/sat_multicompany_rules.xml`) - varios NITs en la MISMA base de Odoo
+
+Hasta ahora este módulo solo lo usaba Construtec (una sola compañía en la base de datos), así
+que ninguna búsqueda estaba realmente restringida por compañía a nivel de `ir.rule` - varios
+métodos (`create_from_dte`, `registrar_retencion_isr_facturas_especiales_web`, etc.) ya
+comparaban `self.env.company.vat` contra el NIT del documento antes de **crear** algo, pero eso
+no protegía las **búsquedas** de duplicados/vinculación en sí. Al agregar un segundo cliente/NIT
+dentro de la MISMA base (en vez de una base de Odoo separada - ver `envs/README.md` en
+`n8n/sat-bot` para esa otra opción, la recomendada cuando es posible), esto se volvió un riesgo
+real: sin ninguna barrera a nivel de motor, un usuario de integración del cliente nuevo podría,
+en teoría, cruzar retenciones contra documentos de Construtec si alguna vez coincidiera
+Serie+Número entre dos proveedores de compañías distintas (Serie+Número solo es único dentro
+del propio esquema de numeración de cada proveedor, a diferencia de `numero_autorizacion`, que
+es un UUID de la SAT globalmente único).
+
+- **`security/sat_multicompany_rules.xml`** agrega una `ir.rule` **global** (sin `groups`, para
+  que aplique siempre sin depender de qué grupo tenga el usuario - mismo patrón que usa el
+  propio Odoo para sus modelos multi-compañía, ej. `account.move`) por cada modelo de este
+  módulo que tiene `company_id` propio (`construtec.sat.document`, `construtec.sat.retention`,
+  `construtec.sat.retention.emitida`, `construtec.sat.product.catalog`,
+  `construtec.sat.categorization.rule`) o que lo hereda de su encabezado vía relación
+  (`construtec.sat.document.line`, `construtec.sat.retention.line`,
+  `construtec.sat.retention.emitida.line`) - `domain_force: [('company_id', 'in', company_ids)]`
+  (o el equivalente `('<parent>_id.company_id', 'in', company_ids)` para las líneas).
+  `construtec.sat.import.log` ganó un campo `company_id` propio (antes no lo tenía, ya que solo
+  es una bitácora de auditoría) específicamente para poder aplicarle la misma regla - sin
+  cambios en los `Log.create()` existentes, el `default=lambda self: self.env.company.id` del
+  campo lo resuelve solo.
+- **Esto NO afecta al superusuario ni a llamadas con `sudo()`** (las reglas de `ir.rule` nunca
+  aplican ahí) - que es exactamente donde ya vivían las validaciones explícitas de NIT
+  (`_sat_nits_permitidos()`, etc.), así que ambas capas de protección siguen complementándose,
+  no se duplican ni se reemplazan entre sí.
+- El respaldo por Serie+Número de `registrar_retencion_isr_facturas_especiales_web()` (ver
+  arriba) además agrega el filtro `company_id` **explícito** en su propio dominio de búsqueda -
+  redundante con la `ir.rule` para una llamada normal, pero es la única protección real para una
+  llamada `sudo()` (donde la regla no aplicaría) contra esa colisión específica.
+- **Verificado real vía `odoo-bin shell`**: se creó una "Empresa B Prueba" (compañía nueva,
+  NIT distinto) con un documento que comparte a propósito la misma Serie+Número que uno de
+  Construtec (colisión simulada), y un usuario restringido con acceso únicamente a esa Empresa
+  B. Confirmado: (1) el respaldo Serie+Número de Facturas Especiales, llamado como ese usuario,
+  encuentra ÚNICAMENTE el documento de Empresa B pese a la colisión; (2) un `search()` plano
+  como ese usuario nunca devuelve el documento de Construtec, aunque se busque explícitamente
+  por su `numero_autorizacion`.
+- **Qué falta para dar de alta un cliente nuevo en la MISMA base de Odoo** (código ya no
+  requerido, esto es 100% configuración): crear su `res.company` (con su propio `vat`/NIT),
+  crear un usuario de integración cuya compañía por defecto/permitida sea ÚNICAMENTE esa
+  compañía nueva (nunca Construtec), generar su API key, y armar su `.env` en
+  `n8n/sat-bot/envs/nit_<NIT>.env` apuntando `ODOO_URL`/`ODOO_DB`/`ODOO_USER`/`apiodoo` a esa
+  base y usuario (ver `envs/README.md`) - las reglas de este archivo ya garantizan que ese
+  usuario nunca vea ni cruce datos de Construtec.
+
 ## Common commands
 
 ```

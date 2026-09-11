@@ -6,6 +6,12 @@ class ConstructecSatImportLog(models.Model):
     _description = 'Bitácora de Importación SAT (n8n)'
     _order = 'create_date desc'
 
+    company_id = fields.Many2one(
+        'res.company', string='Compañía', default=lambda self: self.env.company.id,
+        help='Igual que el resto del módulo (construtec.sat.document, etc.) - fija la '
+             'compañía activa al crear el registro, para que un cliente nuevo que comparta '
+             'esta misma base de Odoo (varias compañías) no vea la bitácora de otro (ver '
+             'security/sat_multicompany_rules.xml).')
     numero_autorizacion = fields.Char(string='No. Autorización SAT')
     direction = fields.Selection([
         ('recibida', 'Recibida'),

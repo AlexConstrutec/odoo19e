@@ -1,6 +1,6 @@
 {
     'name': 'Construtec Contabilidad',
-    'version': '19.0.1.9.0',
+    'version': '19.0.1.10.0',
     'category': 'Accounting/Accounting',
     'summary': 'Régimen fiscal y datos legales de la compañía (GT)',
     'author': 'Alex Martínez',
@@ -17,6 +17,7 @@
     ],
     'data': [
         'security/ir.model.access.csv',
+        'security/sat_multicompany_rules.xml',
         'data/decimal_precision_data.xml',
         'views/res_company_views.xml',
         'views/account_move_views.xml',

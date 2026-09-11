@@ -861,11 +861,19 @@ class ConstructecSatDocument(models.Model):
             # Respaldo: mismo criterio "Serie + Número de Factura" que
             # construtec.sat.retention.emitida.line usa para las otras 3
             # categorías - filtrado a FESP porque esta categoría específica
-            # solo aplica a esas.
+            # solo aplica a esas, y a la compañía activa (mismo resguardo que
+            # ese otro _sat_buscar_documento) - Serie+Número solo es único
+            # dentro del propio esquema de numeración de cada proveedor, así
+            # que sin este filtro una base con más de una compañía podría
+            # cruzar por error la Serie+Número de un proveedor de OTRA
+            # compañía. Además de la protección de ir.rule (ver
+            # security/sat_multicompany_rules.xml), este filtro explícito
+            # también protege una llamada sudo() donde ir.rule no aplicaría.
             document = self.search([
                 ('serie', '=', serie),
                 ('numero_documento', '=', numero_factura),
                 ('tipo_dte', 'in', TIPOS_DTE_FACTURA_ESPECIAL),
+                ('company_id', '=', self.env.company.id),
             ], limit=1)
 
         if not document:
