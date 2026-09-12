@@ -805,6 +805,50 @@ es un UUID de la SAT globalmente único).
   base y usuario (ver `envs/README.md`) - las reglas de este archivo ya garantizan que ese
   usuario nunca vea ni cruce datos de Construtec.
 
+### `numero_autorizacion` único POR COMPAÑÍA, no globalmente (2026-09-12)
+
+Bug real encontrado al cargar el primer backfill de MYR (Q1 2026, ~100 documentos):
+**24 fallaron con un error crudo de PostgreSQL**
+(`psycopg2.errors.UniqueViolation: ... construtec_sat_document_numero_autorizacion_uniq`),
+no un `skipped_duplicate` limpio. Causa confirmada contra producción real (3 casos
+verificados vía `search_read`): Construtec y MYR **se facturan entre sí** - la misma
+factura (mismo `numero_autorizacion`, el UUID que certifica la SAT) es simultáneamente
+`emitida` para quien la vende y `recibida` para quien la compra, y **cada compañía
+necesita su PROPIO registro** de esa misma transacción (es su propio libro contable, no
+un duplicado). La restricción original, `unique(numero_autorizacion)` (sin
+`company_id`), asumía una sola compañía usando este módulo - correcta hasta que una
+segunda compañía relacionada empezó a sincronizar sus propios documentos en la MISMA
+base.
+
+Por qué esto no se detectó como "ya existe" antes de llegar a la base de datos: el
+chequeo de duplicados en `create_from_dte()` (`self.search([('numero_autorizacion', '=',
+...)])`, línea ~291) SÍ funciona bien - pero corre bajo el contexto/`ir.rule` de quien
+llama (`allowed_company_ids` forzado a la compañía de MYR, ver sección "Multi-compañía"
+arriba), así que correctamente NO ve el registro ya existente de Construtec - desde el
+punto de vista de MYR, no hay duplicado. El problema era puramente la restricción SQL,
+que sí es global e ignora `ir.rule`.
+
+**Fix**: `_numero_autorizacion_uniq` cambió a `unique(numero_autorizacion, company_id)` -
+permite un registro por compañía, sigue bloqueando un duplicado real dentro de la MISMA
+compañía. Migración segura por construcción (relajar una restricción única de una sola
+columna a dos columnas nunca puede romper con datos ya existentes - cualquier fila que ya
+cumplía la restricción vieja automáticamente cumple la nueva). Ningún otro `search()` de
+`numero_autorizacion` en el módulo necesitó cambios - todos ya corren bajo el `ir.rule`
+correcto o (el respaldo de Facturas Especiales) ya filtraban `company_id` explícitamente.
+
+**No se pudo verificar localmente contra `construtec_test`** - correr `odoo-bin` en modo
+servidor desde esta sesión de Claude Code no produjo ninguna salida ni tocó `odoo.log`
+(ver memoria `odoo-bin-local-verification-broken`, un problema de entorno preexistente,
+no de este cambio en particular). Verificado en su lugar por: (1) razonamiento matemático
+de que la migración no puede fallar con datos existentes, (2) los 3 casos reales de
+colisión confirmados contra producción vía `search_read` antes del cambio, y (3) `grep`
+confirmando que es el único lugar del módulo que menciona esa restricción.
+
+**Pendiente tras el próximo deploy a Odoo.sh**: los 24 documentos de MYR que fallaron
+siguen intactos en `n8n/sat-bot/data_myr/outbox/` (nunca se borran en un error) - correr
+`run_sat_upload_to_odoo.py` de nuevo con `SAT_ENV_FILE` de MYR una vez actualizado el
+módulo en producción, deberían subir limpio.
+
 ## Common commands
 
 ```

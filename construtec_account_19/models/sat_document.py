@@ -203,8 +203,8 @@ class ConstructecSatDocument(models.Model):
         'sale.order', string='Pedido de Venta Generado', readonly=True, copy=False)
 
     _numero_autorizacion_uniq = models.Constraint(
-        'unique(numero_autorizacion)',
-        'Ya existe un documento SAT importado con este número de autorización.',
+        'unique(numero_autorizacion, company_id)',
+        'Ya existe un documento SAT importado con este número de autorización para esta compañía.',
     )
 
     @api.depends('xml_attachment_id')
