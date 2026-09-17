@@ -4,24 +4,70 @@ from odoo import fields, models
 
 _logger = logging.getLogger(__name__)
 
+# Verificado 2026-09-18 contra "Formato_Informe Empleados.xlsx" (el archivo real descargado de
+# MITRAB), hoja "Nivel_Educativo" (13 códigos: 1=Ninguno...13=Doctorado). `certificate` en
+# `construtec_hr_employee_19` (Enterprise) y en `construtec_account_payment_order_19`
+# (Community) YA está sobrescrito con esos 13 niveles exactos (`NIVEL_ACADEMICO`,
+# `hr_employee_selections.py`), reutilizando a propósito las claves nativas de Odoo
+# ('other'/'graduate'/'bachelor'/'master'/'doctor') donde coinciden con un nivel MITRAB y usando
+# el código MITRAB tal cual como clave para los niveles que Odoo no tenía (ej. '3' = Primaria
+# Completa = código MITRAB 3). Por eso este diccionario solo necesita traducir las 5 claves
+# nativas reutilizadas - cualquier otro valor de `certificate` (ej. '3', '8', '11') YA ES el
+# código MITRAB, se manda tal cual (ver el `.get(employee.certificate, employee.certificate or '')`
+# en `_employee_row()`).
 CERTIFICATE_CODE = {
     'other': '1', 'graduate': '7', 'bachelor': '10', 'master': '12', 'doctor': '13',
 }
 MARITAL_CODE = {'single': '1', 'divorced': '1', 'widower': '1', 'married': '2', 'cohabitant': '3'}
 SEX_CODE = {'male': '1', 'female': '2'}
 
-# País por defecto (Guatemala) si `country_id`/`country_of_birth` está vacío - antes de esta
-# pasada, "Nacionalidad" y "País de origen" SIEMPRE mandaban 'GTM' fijo, sin leer ningún dato
-# real del empleado (ver CLAUDE.md, "Bug real: el popup del mapa..." no, ver la sección de
-# 2026-09-16 sobre este mismo wizard). `res.country` no tiene un campo alpha-3 nativo en este
-# Odoo (solo el `code` ISO alpha-2) - este diccionario cubre Guatemala y los países de origen
-# más realistas para el personal de esta empresa; agregar más códigos aquí si aparece un
-# empleado de un país no listado (el resultado no truena, cae al `code` alpha-2 tal cual, que
-# no es el formato exacto que MITRAB espera pero es mejor que el 'GTM' fijo de antes).
+# Catálogo "Nacionalidad_país" real de MITRAB (verificado 2026-09-18 contra
+# "Formato_Informe Empleados.xlsx"): son códigos ISO 3166-1 alpha-3 estándar (AFG, ALB, DEU...),
+# confirmando que el enfoque ya usado aquí (alpha-3) era correcto - lo que faltaba era cobertura
+# completa (antes solo ~20 países). `res.country` no tiene un campo alpha-3 nativo en este Odoo
+# (solo el `code` ISO alpha-2) - esta es la tabla ISO 3166-1 alpha-2→alpha-3 completa, no
+# depende de traducciones de nombre de país. Un código no listado aquí (territorio/entidad rara
+# que Odoo sí tenga pero no esté en este estándar) cae a su `code` alpha-2 tal cual.
 COUNTRY_ALPHA3 = {
-    'GT': 'GTM', 'MX': 'MEX', 'SV': 'SLV', 'HN': 'HND', 'NI': 'NIC', 'CR': 'CRI', 'PA': 'PAN',
-    'BZ': 'BLZ', 'CO': 'COL', 'VE': 'VEN', 'US': 'USA', 'CA': 'CAN', 'ES': 'ESP', 'AR': 'ARG',
-    'PE': 'PER', 'EC': 'ECU', 'CU': 'CUB', 'DO': 'DOM', 'CN': 'CHN', 'BR': 'BRA',
+    'AD': 'AND', 'AE': 'ARE', 'AF': 'AFG', 'AG': 'ATG', 'AI': 'AIA', 'AL': 'ALB', 'AM': 'ARM',
+    'AO': 'AGO', 'AQ': 'ATA', 'AR': 'ARG', 'AS': 'ASM', 'AT': 'AUT', 'AU': 'AUS', 'AW': 'ABW',
+    'AX': 'ALA', 'AZ': 'AZE', 'BA': 'BIH', 'BB': 'BRB', 'BD': 'BGD', 'BE': 'BEL', 'BF': 'BFA',
+    'BG': 'BGR', 'BH': 'BHR', 'BI': 'BDI', 'BJ': 'BEN', 'BL': 'BLM', 'BM': 'BMU', 'BN': 'BRN',
+    'BO': 'BOL', 'BQ': 'BES', 'BR': 'BRA', 'BS': 'BHS', 'BT': 'BTN', 'BV': 'BVT', 'BW': 'BWA',
+    'BY': 'BLR', 'BZ': 'BLZ', 'CA': 'CAN', 'CC': 'CCK', 'CD': 'COD', 'CF': 'CAF', 'CG': 'COG',
+    'CH': 'CHE', 'CI': 'CIV', 'CK': 'COK', 'CL': 'CHL', 'CM': 'CMR', 'CN': 'CHN', 'CO': 'COL',
+    'CR': 'CRI', 'CU': 'CUB', 'CV': 'CPV', 'CW': 'CUW', 'CX': 'CXR', 'CY': 'CYP', 'CZ': 'CZE',
+    'DE': 'DEU', 'DJ': 'DJI', 'DK': 'DNK', 'DM': 'DMA', 'DO': 'DOM', 'DZ': 'DZA', 'EC': 'ECU',
+    'EE': 'EST', 'EG': 'EGY', 'EH': 'ESH', 'ER': 'ERI', 'ES': 'ESP', 'ET': 'ETH', 'FI': 'FIN',
+    'FJ': 'FJI', 'FK': 'FLK', 'FM': 'FSM', 'FO': 'FRO', 'FR': 'FRA', 'GA': 'GAB', 'GB': 'GBR',
+    'GD': 'GRD', 'GE': 'GEO', 'GF': 'GUF', 'GG': 'GGY', 'GH': 'GHA', 'GI': 'GIB', 'GL': 'GRL',
+    'GM': 'GMB', 'GN': 'GIN', 'GP': 'GLP', 'GQ': 'GNQ', 'GR': 'GRC', 'GS': 'SGS', 'GT': 'GTM',
+    'GU': 'GUM', 'GW': 'GNB', 'GY': 'GUY', 'HK': 'HKG', 'HM': 'HMD', 'HN': 'HND', 'HR': 'HRV',
+    'HT': 'HTI', 'HU': 'HUN', 'ID': 'IDN', 'IE': 'IRL', 'IL': 'ISR', 'IM': 'IMN', 'IN': 'IND',
+    'IO': 'IOT', 'IQ': 'IRQ', 'IR': 'IRN', 'IS': 'ISL', 'IT': 'ITA', 'JE': 'JEY', 'JM': 'JAM',
+    'JO': 'JOR', 'JP': 'JPN', 'KE': 'KEN', 'KG': 'KGZ', 'KH': 'KHM', 'KI': 'KIR', 'KM': 'COM',
+    'KN': 'KNA', 'KP': 'PRK', 'KR': 'KOR', 'KW': 'KWT', 'KY': 'CYM', 'KZ': 'KAZ', 'LA': 'LAO',
+    'LB': 'LBN', 'LC': 'LCA', 'LI': 'LIE', 'LK': 'LKA', 'LR': 'LBR', 'LS': 'LSO', 'LT': 'LTU',
+    'LU': 'LUX', 'LV': 'LVA', 'LY': 'LBY', 'MA': 'MAR', 'MC': 'MCO', 'MD': 'MDA', 'ME': 'MNE',
+    'MF': 'MAF', 'MG': 'MDG', 'MH': 'MHL', 'MK': 'MKD', 'ML': 'MLI', 'MM': 'MMR', 'MN': 'MNG',
+    'MO': 'MAC', 'MP': 'MNP', 'MQ': 'MTQ', 'MR': 'MRT', 'MS': 'MSR', 'MT': 'MLT', 'MU': 'MUS',
+    'MV': 'MDV', 'MW': 'MWI', 'MX': 'MEX', 'MY': 'MYS', 'MZ': 'MOZ', 'NA': 'NAM', 'NC': 'NCL',
+    'NE': 'NER', 'NF': 'NFK', 'NG': 'NGA', 'NI': 'NIC', 'NL': 'NLD', 'NO': 'NOR', 'NP': 'NPL',
+    'NR': 'NRU', 'NU': 'NIU', 'NZ': 'NZL', 'OM': 'OMN', 'PA': 'PAN', 'PE': 'PER', 'PF': 'PYF',
+    'PG': 'PNG', 'PH': 'PHL', 'PK': 'PAK', 'PL': 'POL', 'PM': 'SPM', 'PN': 'PCN', 'PR': 'PRI',
+    'PS': 'PSE', 'PT': 'PRT', 'PW': 'PLW', 'PY': 'PRY', 'QA': 'QAT', 'RE': 'REU',
+    # 'ROM', no 'ROU': el catálogo de MITRAB usa el código alpha-3 viejo (pre-2002) para Rumania,
+    # no el estándar ISO 3166-1 actual - confirmado contra la hoja "Nacionalidad_país" real.
+    'RO': 'ROM',
+    'RS': 'SRB', 'RU': 'RUS', 'RW': 'RWA', 'SA': 'SAU', 'SB': 'SLB', 'SC': 'SYC', 'SD': 'SDN',
+    'SE': 'SWE', 'SG': 'SGP', 'SH': 'SHN', 'SI': 'SVN', 'SJ': 'SJM', 'SK': 'SVK', 'SL': 'SLE',
+    'SM': 'SMR', 'SN': 'SEN', 'SO': 'SOM', 'SR': 'SUR', 'SS': 'SSD', 'ST': 'STP', 'SV': 'SLV',
+    'SX': 'SXM', 'SY': 'SYR', 'SZ': 'SWZ', 'TC': 'TCA', 'TD': 'TCD', 'TF': 'ATF', 'TG': 'TGO',
+    'TH': 'THA', 'TJ': 'TJK', 'TK': 'TKL', 'TL': 'TLS', 'TM': 'TKM', 'TN': 'TUN', 'TO': 'TON',
+    'TR': 'TUR', 'TT': 'TTO', 'TV': 'TUV', 'TW': 'TWN', 'TZ': 'TZA', 'UA': 'UKR', 'UG': 'UGA',
+    'UM': 'UMI', 'US': 'USA', 'UY': 'URY', 'UZ': 'UZB', 'VA': 'VAT', 'VC': 'VCT', 'VE': 'VEN',
+    'VG': 'VGB', 'VI': 'VIR', 'VN': 'VNM', 'VU': 'VUT', 'WF': 'WLF', 'WS': 'WSM', 'YE': 'YEM',
+    'YT': 'MYT', 'ZA': 'ZAF', 'ZM': 'ZMB', 'ZW': 'ZWE',
 }
 
 
