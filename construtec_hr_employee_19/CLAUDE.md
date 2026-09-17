@@ -37,7 +37,13 @@ Pedido explícito del usuario: hay personas sin cuenta en Enterprise (y sin priv
 
 Antes de esta pasada, el Informe del Empleador mandaba **siempre el mismo valor fijo** (`1`/`10`) para TODOS los empleados en estas dos columnas - no eran campos reales, estaban hardcodeados dentro del wizard del reporte (`construtec_hr_reports_19/wizard/report_informe_empleador.py`). Se agregaron como Selections reales aquí (`hr_employee_selections.py`: `PUEBLO_PERTENENCIA`/`COMUNIDAD_LINGUISTICA`).
 
-**⚠️ Advertencia real, sin resolver todavía**: los **códigos numéricos** de estos dos catálogos (no las etiquetas en español, esas sí están bien) son una aproximación mía basada en las categorías oficiales de Guatemala (Ley de Idiomas Nacionales, Decreto 19-2003) - **NO se verificaron contra el catálogo numérico exacto que MITRAB espera** en el archivo del Informe del Empleador. Aun así, cualquier valor real por empleado ya es una mejora sobre el `1`/`10` fijo de antes. Verificar los códigos con el catálogo oficial de MITRAB antes de confiar un filing real en ellos - ver el comentario extendido en `hr_employee_selections.py`.
+**Actualización 2026-09-17 - ambos catálogos verificados contra el archivo oficial real**: el usuario descargó `Formato_Informe Empleados.xlsx` directamente del sistema electrónico de MITRAB (`informeynomina2989.mintrabajo.gob.gt`) y lo compartió. Ese Excel trae, además de la hoja "Empleados", una hoja de catálogo por cada campo codificado (con validación de datos apuntando a ellas) - se transcribieron exactamente las hojas `Pueblo_pertenencia` y `Comunidad_linguistica`. Esto reemplaza DOS intentos previos sin esta fuente (uno basado en Decreto 19-2003 sin catálogo numérico real, otro basado en un catálogo de ZOLIC que resultó ser para un trámite distinto - ninguno de los dos coincidía con el archivo real). Códigos finales, ya reflejados en `hr_employee_selections.py`:
+- `PUEBLO_PERTENENCIA`: 1=Maya, 2=Garífuna, 3=Xinka, 4=Afrodescendiente/creole/afromestizo, 5=Ladino, 6=Extranjero.
+- `COMUNIDAD_LINGUISTICA`: solo los 22 idiomas mayas (1-22) + 99=No aplica - **no** hay código propio para español/garífuna/xinka/extranjero en este catálogo (a diferencia de lo que se había asumido antes de ver el archivo real). El default del wizard se corrigió a `'99'`.
+
+Verificado con `odoo-bin shell` contra `construtec_test` (savepoint, rollback): ambos catálogos devuelven el código esperado end-to-end desde `_employee_row()`.
+
+**De paso, revisando el archivo real se encontraron 2 problemas más en el wizard de `construtec_hr_reports_19` (Temporalidad del contrato / Tipo de contrato) - ver la sección "Bug real" de su propio CLAUDE.md.** No se corrigieron en esta pasada porque requieren una decisión del usuario (mapear qué `hr.contract.type` de Odoo corresponde a cada código MITRAB), no una simple transcripción de catálogo.
 
 ### Otros 3 campos que "faltaban" en el reporte en realidad ya existían - el wizard no los leía
 

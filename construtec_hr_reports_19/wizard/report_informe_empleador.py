@@ -26,6 +26,20 @@ def _country_code_3(country):
         return 'GTM'
     return COUNTRY_ALPHA3.get(country.code, country.code or 'GTM')
 
+
+# Catálogo real "Doc_identificación" del formato de MITRAB: 1=DPI, 2=Certificado de
+# Nacimiento, 3=Pasaporte. Antes de esta pasada, el wizard nunca mandaba el código 3
+# (Pasaporte) - solo distinguía DPI presente (1) vs ausente (2, "Certificado de
+# Nacimiento" a secas, aunque el empleado tuviera pasaporte). `passport_id` es un
+# campo nativo de `hr.version` (delegado a `hr.employee`) - se usa aquí como segunda
+# opción antes de caer al último recurso.
+def _doc_identificacion_code(employee):
+    if employee.identification_id:
+        return '1'
+    if employee.passport_id:
+        return '3'
+    return '2'
+
 COLUMNS = [
     'Número de empleado', 'Primer nombre', 'Segundo nombre', 'Tercer nombre', 'Primer apellido',
     'Segundo apellido', 'Apellido de Casada', 'Nacionalidad', 'Tipo de discapacidad', 'Estado civil',
@@ -128,7 +142,7 @@ class WizardInformeEmpleador(models.TransientModel):
             _country_code_3(employee.country_id),
             employee.discapacidad or '1',
             MARITAL_CODE.get(employee.marital, '1'),
-            '1' if employee.identification_id else '2',
+            _doc_identificacion_code(employee),
             employee.identification_id or '',
             _country_code_3(employee.country_of_birth),
             employee.permit_no or '',
@@ -140,7 +154,7 @@ class WizardInformeEmpleador(models.TransientModel):
             CERTIFICATE_CODE.get(employee.certificate, employee.certificate or ''),
             employee.study_field or '',
             employee.pueblo_pertenencia or '1',
-            employee.comunidad_linguistica or '10',
+            employee.comunidad_linguistica or '99',
             employee.children or 0,
             version.contract_type_id.id or '',
             2,
