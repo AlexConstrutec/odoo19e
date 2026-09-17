@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**⚠️ Este módulo YA NO es verbatim-idéntico entre Community y Enterprise (desde 2026-09-16/17)**: la copia de Community agregó campos de "Datos Personales" (`primer_nombre`/`nit`/`igss`/`pueblo_pertenencia`/etc.) a `hr_employee.py`/las vistas/la seguridad - deliberadamente NO portados aquí, porque esos mismos campos ya existen en `construtec_hr_employee_19` (este árbol) con los mismos nombres técnicos. Ver "Datos Personales cargados desde Community" en el CLAUDE.md de `construtec_hr_employee_19` para el mecanismo receptor, y la sección equivalente en el CLAUDE.md de la copia de Community para el detalle completo del lado que empuja. **Antes de correr `sync-to-enterprise.ps1` de nuevo**, hay que excluir este módulo de la lista (o excluir específicamente esos archivos) - copiarlo tal cual duplicaría/pisaría esos campos.
+
 ## What this module is
 
 `account.payment.order` — a header model with a `tipo` field (`anticipo` / `anticipo_viaticos` / `pago_directo`) representing flavors of a real Construtec accounting flow: money moves through an intermediary (an advance to a contact, or an employee reimbursement) and later has to be reconciled against vendor bills that belong to a **different partner** than the payment. Native Odoo reconciliation works per-partner/account and can't do this on its own. Migrated from the Odoo 16 module `bolson` (`..\Odoo16\bolson\`, "Manejo de cajas chicas y liquidaciones").

@@ -6,6 +6,26 @@ CERTIFICATE_CODE = {
 MARITAL_CODE = {'single': '1', 'divorced': '1', 'widower': '1', 'married': '2', 'cohabitant': '3'}
 SEX_CODE = {'male': '1', 'female': '2'}
 
+# País por defecto (Guatemala) si `country_id`/`country_of_birth` está vacío - antes de esta
+# pasada, "Nacionalidad" y "País de origen" SIEMPRE mandaban 'GTM' fijo, sin leer ningún dato
+# real del empleado (ver CLAUDE.md, "Bug real: el popup del mapa..." no, ver la sección de
+# 2026-09-16 sobre este mismo wizard). `res.country` no tiene un campo alpha-3 nativo en este
+# Odoo (solo el `code` ISO alpha-2) - este diccionario cubre Guatemala y los países de origen
+# más realistas para el personal de esta empresa; agregar más códigos aquí si aparece un
+# empleado de un país no listado (el resultado no truena, cae al `code` alpha-2 tal cual, que
+# no es el formato exacto que MITRAB espera pero es mejor que el 'GTM' fijo de antes).
+COUNTRY_ALPHA3 = {
+    'GT': 'GTM', 'MX': 'MEX', 'SV': 'SLV', 'HN': 'HND', 'NI': 'NIC', 'CR': 'CRI', 'PA': 'PAN',
+    'BZ': 'BLZ', 'CO': 'COL', 'VE': 'VEN', 'US': 'USA', 'CA': 'CAN', 'ES': 'ESP', 'AR': 'ARG',
+    'PE': 'PER', 'EC': 'ECU', 'CU': 'CUB', 'DO': 'DOM', 'CN': 'CHN', 'BR': 'BRA',
+}
+
+
+def _country_code_3(country):
+    if not country:
+        return 'GTM'
+    return COUNTRY_ALPHA3.get(country.code, country.code or 'GTM')
+
 COLUMNS = [
     'Número de empleado', 'Primer nombre', 'Segundo nombre', 'Tercer nombre', 'Primer apellido',
     'Segundo apellido', 'Apellido de Casada', 'Nacionalidad', 'Tipo de discapacidad', 'Estado civil',
@@ -100,19 +120,18 @@ class WizardInformeEmpleador(models.TransientModel):
 
         dias_laborados = self.env['hr.dias.laborados.mes'].get_dias_laborados(
             version.contract_date_start, version.contract_date_end)
-        pais = 'GTM'
 
         return [
             employee.registration_number or '',
             employee.primer_nombre or '', employee.segundo_nombre or '', employee.tercer_nombre or '',
             employee.primer_apellido or '', employee.segundo_apellido or '', employee.apellido_casada or '',
-            pais,
+            _country_code_3(employee.country_id),
             employee.discapacidad or '1',
             MARITAL_CODE.get(employee.marital, '1'),
             '1' if employee.identification_id else '2',
             employee.identification_id or '',
-            pais,
-            '',
+            _country_code_3(employee.country_of_birth),
+            employee.permit_no or '',
             employee.municipio_id.code or '',
             employee.nit or '',
             employee.igss or '',
@@ -120,8 +139,8 @@ class WizardInformeEmpleador(models.TransientModel):
             employee.birthday.strftime('%d-%m-%Y') if employee.birthday else '',
             CERTIFICATE_CODE.get(employee.certificate, employee.certificate or ''),
             employee.study_field or '',
-            1,
-            10,
+            employee.pueblo_pertenencia or '1',
+            employee.comunidad_linguistica or '10',
             employee.children or 0,
             version.contract_type_id.id or '',
             2,

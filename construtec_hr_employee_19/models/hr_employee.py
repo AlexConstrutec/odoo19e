@@ -3,7 +3,19 @@ import datetime
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
-from .hr_employee_selections import DISCAPACIDAD, NIVEL_ACADEMICO
+from .hr_employee_selections import COMUNIDAD_LINGUISTICA, DISCAPACIDAD, NIVEL_ACADEMICO, PUEBLO_PERTENENCIA
+
+# Campos de "datos personales" editables desde Community (construtec_account_payment_order_19,
+# hr_employee.py) - ver `sync_personal_data_from_community()` más abajo. Lista blanca explícita:
+# nunca se acepta un `write()` genérico desde afuera, solo estos campos, sean cuales sean los que
+# venga en el payload - así una credencial de integración filtrada nunca puede escribir salario,
+# banco, ni ningún otro campo de hr.employee que no sea este set acordado.
+PERSONAL_DATA_FIELDS = (
+    'primer_nombre', 'segundo_nombre', 'tercer_nombre', 'primer_apellido', 'segundo_apellido',
+    'apellido_casada', 'discapacidad', 'nit', 'igss', 'pueblo_pertenencia', 'comunidad_linguistica',
+    'marital', 'sex', 'birthday', 'children', 'identification_id', 'permit_no', 'certificate',
+    'study_field',
+)
 
 
 class HrEmployee(models.Model):
@@ -31,6 +43,14 @@ class HrEmployee(models.Model):
         ('5', 'Tiempo Parcial'),
     ], string='Jornada de trabajo', default='1')
     discapacidad = fields.Selection(DISCAPACIDAD, string='Discapacidad', default='1')
+    pueblo_pertenencia = fields.Selection(
+        PUEBLO_PERTENENCIA, string='Pueblo de pertenencia',
+        help='Antes de esta pasada, el Informe del Empleador mandaba siempre el mismo valor fijo '
+             'para todos los empleados - ver la nota en hr_employee_selections.py sobre los '
+             'códigos numéricos de este catálogo, no verificados aún contra el oficial de MITRAB.')
+    comunidad_linguistica = fields.Selection(
+        COMUNIDAD_LINGUISTICA, string='Comunidad Lingüística',
+        help='Mismo caso que Pueblo de pertenencia - ver la nota en hr_employee_selections.py.')
     certificate = fields.Selection(NIVEL_ACADEMICO, string='Nivel de certificado', default='other',
                                     groups='hr.group_hr_user', tracking=True)
     employee_family = fields.One2many('hr.employee.family', 'employee_id', string='Círculo Familiar')
@@ -186,3 +206,47 @@ class HrEmployee(models.Model):
             'context': {'default_identification_employee_id': self.identification_id},
             'target': 'new',
         }
+
+    def sync_personal_data_from_community(self, vals):
+        """Recibe una actualización de "datos personales" empujada desde Community
+        (construtec_account_payment_order_19, hr_employee.py::write()) - Community es la
+        fuente para ESTOS campos (personas sin acceso a nómina cargan la info ahí), Enterprise
+        sigue siendo la fuente para todo lo demás (estado laboral, salario, banco, etc.).
+
+        Llamado vía XML-RPC por el mismo usuario de integración ya usado para Órdenes de
+        Pago/Marcajes de Asistencia (`group_payment_order_sync_integration`) - ese usuario NO
+        necesita permiso de escritura real sobre hr.employee para esto: el `sudo()` de abajo
+        resuelve la escritura, el permiso que sí necesita es poder LEER hr.employee para que
+        Odoo le deje invocar el método en absoluto (ver ir.model.access.csv).
+
+        Lista blanca explícita (`PERSONAL_DATA_FIELDS`) - cualquier clave fuera de esa lista
+        en `vals` se ignora en silencio, nunca se escribe. `nacionalidad_code`/`pais_origen_code`
+        (código ISO alpha-2, ej. 'GT') y `municipio_nombre` (texto libre) llegan aparte y se
+        resuelven aquí mismo, nunca como ids directos - son los únicos 3 campos de este set que
+        son relaciones en vez de texto/selección plana."""
+        self.ensure_one()
+        vals_filtrados = {k: v for k, v in vals.items() if k in PERSONAL_DATA_FIELDS}
+
+        nacionalidad_code = vals.get('nacionalidad_code')
+        if nacionalidad_code:
+            country = self.env['res.country'].search([('code', '=', nacionalidad_code.upper())], limit=1)
+            if country:
+                vals_filtrados['country_id'] = country.id
+
+        pais_origen_code = vals.get('pais_origen_code')
+        if pais_origen_code:
+            country = self.env['res.country'].search([('code', '=', pais_origen_code.upper())], limit=1)
+            if country:
+                vals_filtrados['country_of_birth'] = country.id
+
+        municipio_nombre = vals.get('municipio_nombre')
+        if municipio_nombre:
+            municipio = self.env['hr.municipio'].search([('name', '=ilike', municipio_nombre)], limit=1)
+            if municipio:
+                vals_filtrados['municipio_id'] = municipio.id
+            # Sin match exacto: no se adivina (mismo criterio ya usado en este proyecto para
+            # proveedores/materiales "parecidos" - solo autoresuelve con un único candidato
+            # claro) - `municipio_id` queda como estaba, alguien de RR.HH. lo resuelve a mano.
+
+        if vals_filtrados:
+            self.sudo().write(vals_filtrados)

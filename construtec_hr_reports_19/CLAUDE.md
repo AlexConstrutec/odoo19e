@@ -48,6 +48,21 @@ Pedido del usuario (2026-08-31): mientras se resuelve una integración WhatsApp 
 
 Reportado por el usuario en la misma conversación: al pasar una nómina a Borrador y volver a validarla, el PDF que Odoo adjunta automáticamente al chatter (vía `_generate_pdf()`, core `hr_payroll`) **no se actualiza** - `_generate_pdf()` solo AGREGA un adjunto nuevo cada vez que se valida, nunca borra el anterior, y `action_payslip_draft()` (también core) solo limpia el adjunto de `payment_report`, no estos. **Explícitamente no se tocó código para esto** - el usuario pidió una solución operativa (borrar el adjunto viejo a mano desde el chatter de esa nómina), no un cambio en el repositorio. El wizard "Exportar Vouchers (PDF)" de arriba es, de paso, inmune a este problema: renderiza en vivo cada vez, nunca depende de un adjunto guardado.
 
+## Bug real: 5 de las ~25 columnas de "Informe del Empleador" eran valores fijos, no datos reales (2026-09-16/17)
+
+Reportado por el usuario mientras armaba un Excel de actualización de datos de colaboradores para llenar este mismo reporte. Investigado campo por campo antes de tocar nada - de las columnas que "faltaban", solo 5 estaban genuinamente ausentes; las otras 3 ya existían como campos nativos de `hr.employee`/`hr.version` (`country_id`/`country_of_birth`/`permit_no`) y el wizard simplemente nunca los leía.
+
+**`_employee_row()` mandaba fijo para TODOS los empleados**: `pais = 'GTM'` (usado tanto para "Nacionalidad" como para "País de origen"), `''` para "Número de expediente del permiso de extranjero", `1` para "Pueblo de pertenencia", `10` para "Comunidad Lingüística".
+
+**El fix**:
+- Nacionalidad/País de origen → `employee.country_id`/`employee.country_of_birth` (campos nativos), convertidos a código alpha-3 vía un diccionario chico (`COUNTRY_ALPHA3`) - `res.country` no tiene un campo alpha-3 nativo en este Odoo, solo el `code` ISO alpha-2. Cubre Guatemala y los países de origen más realistas para el personal de esta empresa; un país no listado cae a su `code` alpha-2 tal cual (no es el formato exacto que MITRAB espera, pero es mejor que `'GTM'` fijo).
+- Número de expediente → `employee.permit_no` (nativo).
+- Pueblo de pertenencia/Comunidad Lingüística → dos campos NUEVOS en `construtec_hr_employee_19` (`pueblo_pertenencia`/`comunidad_linguistica`) - **ver la advertencia sobre los códigos numéricos no verificados contra el catálogo oficial de MITRAB en el CLAUDE.md de ese módulo**, sección "Datos Personales cargados desde Community".
+
+Estos 5 campos, junto con los que ya eran reales, ahora también son editables desde **Community** (personas sin cuenta en Enterprise cargan estos datos) y se sincronizan hacia acá - ver la misma sección del CLAUDE.md de `construtec_hr_employee_19` para el mecanismo completo (`sync_personal_data_from_community()`).
+
+Verificado: los 3 módulos involucrados (`construtec_hr_employee_19`, este módulo, `construtec_account_payment_order_19`) instalan limpio en `construtec_test`, sin `ERROR`/`CRITICAL` nuevos. No se generó un Informe del Empleador real de punta a punta en esta pasada (requiere nóminas validadas de por medio) - la lectura de los campos correctos sí se confirmó línea por línea contra el código.
+
 ## Known gaps (by design)
 
 None currently — all 10 wizards + 6 PDF reports were built and smoke-tested. If a future report is added to this module, follow the existing pattern (inherit the mixin, use `hr.version`/`hr.employee` fields already established in the two dependency modules, don't reintroduce `hr.contract`).

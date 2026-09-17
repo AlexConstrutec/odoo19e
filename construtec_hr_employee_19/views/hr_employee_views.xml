@@ -41,6 +41,8 @@
             <xpath expr="//group[@name='hr_education_group']" position="inside">
                 <field name="study_school"/>
                 <field name="discapacidad"/>
+                <field name="pueblo_pertenencia"/>
+                <field name="comunidad_linguistica"/>
             </xpath>
             <xpath expr="//group[@name='hr_family_group']" position="inside">
                 <field name="imprimir_nombre_conyuge" invisible="marital not in ('married', 'cohabitant')"/>
