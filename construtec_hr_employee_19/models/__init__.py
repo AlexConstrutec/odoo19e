@@ -1,4 +1,5 @@
 from . import hr_geo
+from . import hr_ocupacion
 from . import hr_employee_history
 from . import hr_codigo_employee
 from . import hr_employee_family

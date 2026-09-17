@@ -71,6 +71,16 @@ Pedido explícito del usuario: la puerta de entrada para dar de alta un colabora
 
 Verificado con `odoo-bin shell`, usando un usuario de prueba con SOLO `group_payment_order_sync_integration` (no superusuario): creación exitosa con país/municipio/departamento resueltos correctamente bajo esos permisos restringidos; intentar colar `wage`/`contract_type_id` en el payload nunca se escribió (el `hr.version` implícito quedó con sus valores por defecto).
 
+## `hr.ocupacion`: catálogo CIUO-08 real de MITRAB para "Ocupación (puesto)" (2026-09-18)
+
+Al agregar la columna "Ocupación (puesto)" que faltaba en el Informe del Empleador (ver CLAUDE.md de `construtec_hr_reports_19`), el primer intento reusó `job_title` (el "puesto" nativo de Odoo, texto libre) - el usuario pidió explícitamente que fuera OTRO campo, separado de `job_title`, "debido a que es para reporte de MITRAB y debe empatar [con su catálogo]". `job_title` sigue siendo el nativo de Odoo, sin tocar, para todo lo demás.
+
+**`hr.ocupacion`** (`models/hr_ocupacion.py`, nuevo modelo simple: `name`/`code`, ambos `Char`) - cargado con las **~1554 ocupaciones reales** de la hoja `Ocupación` de `Formato_Informe Empleados.xlsx` (códigos CIUO-08 de 7 dígitos, ej. `2611001` = Abogado) vía `data/hr.ocupacion.csv`. Nuevo campo `ocupacion_id` (Many2one) en `hr_employee.py`, agregado a la vista junto a `departamento_id`/`municipio_id`. El wizard de `construtec_hr_reports_19` manda `employee.ocupacion_id.code`, nunca `job_title`.
+
+**Trampa real al cargar el CSV**: un archivo de datos CSV en Odoo (`data/algo.csv` en el manifest) tiene que llamarse **exactamente igual al nombre técnico del modelo, con los puntos literales** (`hr.ocupacion.csv`, no `hr_ocupacion_data.csv`) - el loader deriva el modelo destino del NOMBRE DEL ARCHIVO, no de ninguna cabecera dentro del CSV. Un nombre de archivo equivocado no da un error obvio de inmediato: la instalación truena más tarde, al cargar los `data` del manifest, con `KeyError: 'hr_ocupacion_data'` (el nombre mal derivado) - y como cualquier `-u`/`-i` que falla a mitad de carga de datos, el proceso termina con exit code 127 y sin traceback visible en consola en este entorno (mismo patrón de "muerte silenciosa" ya documentado en `construtec_account_payment_order_19::CLAUDE.md` para el bug del xmlid `base.model_hr_employee` - revisar `odoo.log` directamente, no la consola). El primer intento aquí sí cayó en esto (`hr_ocupacion_data.csv` → Odoo buscó un modelo llamado `hr_ocupacion_data`, que no existe) - corregido renombrando el archivo.
+
+Verificado con `odoo-bin shell`: `hr.ocupacion` tiene exactamente 1554 registros tras el `-u`; buscar por código (`'2611001'`) devuelve "Abogado"; el wizard manda el código de `ocupacion_id`, nunca el texto de `job_title` (probado con ambos campos con valores distintos a la vez, para descartar que el wizard leyera el campo equivocado por coincidencia).
+
 ## Known gaps (by design)
 
 - `_onchange_identification_id`'s duplicate-DPI check now excludes `self._origin.id` — the original didn't, so editing an existing employee could self-match as a "duplicate." Confirmed fixed via the module's own smoke test; don't remove that exclusion.

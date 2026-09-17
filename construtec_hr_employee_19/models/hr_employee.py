@@ -35,6 +35,14 @@ class HrEmployee(models.Model):
                                                              'nómina.')
     departamento_id = fields.Many2one('hr.departamento', string='Departamento')
     municipio_id = fields.Many2one('hr.municipio', string='Municipio')
+    # Deliberadamente SEPARADO de `job_title` (nativo de Odoo, texto libre - sigue siendo el
+    # "puesto" que se usa para todo lo demás: organigrama, nómina, etc.). `job_title` no puede
+    # servir para la columna "Ocupación (puesto)" del Informe del Empleador porque MITRAB exige
+    # un código exacto de su propio catálogo CIUO-08 (~1554 ocupaciones, `hr.ocupacion` -
+    # ver hr_ocupacion.py y data/hr_ocupacion_data.csv, cargado desde "Formato_Informe
+    # Empleados.xlsx"), no cualquier texto - decisión explícita del usuario 2026-09-18: "que sea
+    # otro campo, debido que es para reporte de mintrab y debe empatar [con su catálogo]".
+    ocupacion_id = fields.Many2one('hr.ocupacion', string='Ocupación (MITRAB)')
     jornada_trabajo = fields.Selection([
         ('1', 'Diurna'),
         ('2', 'Mixta'),

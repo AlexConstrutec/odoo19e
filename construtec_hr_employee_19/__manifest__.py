@@ -17,6 +17,7 @@
         'security/ir.model.access.csv',
         'data/departamento_data.xml',
         'data/municipio_data.xml',
+        'data/hr.ocupacion.csv',
         'views/hr_version_views.xml',
         'views/hr_employee_views.xml',
         'views/hr_employee_history_views.xml',

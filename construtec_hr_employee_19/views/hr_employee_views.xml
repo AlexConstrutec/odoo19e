@@ -33,6 +33,10 @@
             <xpath expr="//group[@name='citizenship']" position="inside">
                 <field name="departamento_id"/>
                 <field name="municipio_id"/>
+                <field name="ocupacion_id"
+                       help="Catálogo CIUO-08 de MITRAB para el Informe del Empleador - distinto
+                             del 'Puesto de trabajo' de arriba (ese sigue siendo el nativo de
+                             Odoo, de texto libre)."/>
             </xpath>
             <xpath expr="//group[@name='hr_birth_group']" position="inside">
                 <field name="edad"/>

@@ -251,7 +251,7 @@ class WizardInformeEmpleador(models.TransientModel):
             primera,
             segunda,
             tercera,
-            employee.job_title or '',
+            employee.ocupacion_id.code or '',
             employee.jornada_trabajo or '',
             dias_laborados,
             version.wage or '',
