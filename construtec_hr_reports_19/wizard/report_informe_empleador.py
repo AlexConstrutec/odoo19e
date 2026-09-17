@@ -1,4 +1,8 @@
+import logging
+
 from odoo import fields, models
+
+_logger = logging.getLogger(__name__)
 
 CERTIFICATE_CODE = {
     'other': '1', 'graduate': '7', 'bachelor': '10', 'master': '12', 'doctor': '13',
@@ -39,6 +43,44 @@ def _doc_identificacion_code(employee):
     if employee.passport_id:
         return '3'
     return '2'
+
+
+# Catálogo real "Temporalidad_contrato" de MITRAB: 1=Indefinido, 2=Definido, 3=Por obra
+# determinada, 4=Aprendiz (tiempo indefinido), 5=Aprendiz (tiempo definido). Antes de esta
+# pasada, el wizard mandaba `contract_type_id.id` - el ID interno de base de datos del
+# registro `hr.contract.type` de Odoo, no un código MITRAB (ver CLAUDE.md, "Bugs reales sin
+# corregir" del 2026-09-17). Mapeo por NOMBRE (`hr.contract.type.name`), no por id - el
+# nombre de este catálogo no participa en ninguna condición de Odoo para esta empresa (las
+# únicas localizaciones stock que leen `contract_type_id.name`/`.code` son l10n_ch/l10n_mx,
+# ninguna instalada aquí), así que es seguro priorizar que el código refleje lo que MITRAB
+# espera. Cubre los nombres de catálogo estándar de Odoo (de fábrica, en inglés) y sus
+# equivalentes en español, por si la empresa los tradujo/renombró - un nombre que no
+# aparezca aquí cae a '1' (Indefinido, el caso más común en Guatemala) y queda registrado
+# en el log para revisión manual, en vez de adivinar en silencio.
+CONTRACT_TEMPORALIDAD_APRENDIZ_KEYWORDS = ('aprendiz', 'apprentice')
+CONTRACT_TEMPORALIDAD_CODE = {
+    'permanent': '1', 'indefinido': '1', 'fijo': '1',
+    'temporary': '2', 'temporal': '2', 'definido': '2',
+    'interim': '3', 'seasonal': '3', 'eventual': '3',
+    'por obra determinada': '3', 'obra determinada': '3', 'determinado': '3',
+}
+
+
+def _temporalidad_contrato_code(version):
+    contract_type = version.contract_type_id
+    if not contract_type:
+        return '1'
+    name = (contract_type.name or '').strip().lower()
+    if any(keyword in name for keyword in CONTRACT_TEMPORALIDAD_APRENDIZ_KEYWORDS):
+        return '5' if version.contract_date_end else '4'
+    code = CONTRACT_TEMPORALIDAD_CODE.get(name)
+    if code:
+        return code
+    _logger.warning(
+        "Informe del Empleador: el tipo de contrato %r no tiene mapeo a un código MITRAB "
+        "de Temporalidad del contrato - se usó '1' (Indefinido) por default. Agregarlo a "
+        "CONTRACT_TEMPORALIDAD_CODE en report_informe_empleador.py.", contract_type.name)
+    return '1'
 
 COLUMNS = [
     'Número de empleado', 'Primer nombre', 'Segundo nombre', 'Tercer nombre', 'Primer apellido',
@@ -156,7 +198,9 @@ class WizardInformeEmpleador(models.TransientModel):
             employee.pueblo_pertenencia or '1',
             employee.comunidad_linguistica or '99',
             employee.children or 0,
-            version.contract_type_id.id or '',
+            _temporalidad_contrato_code(version),
+            # Tipo de contrato (1=Verbal, 2=Escrito): fijo en 2 a propósito - el usuario
+            # confirmó 2026-09-17 que en esta empresa todos los contratos son escritos.
             2,
             primera,
             segunda,
