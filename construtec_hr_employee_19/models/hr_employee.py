@@ -207,6 +207,46 @@ class HrEmployee(models.Model):
             'target': 'new',
         }
 
+    @api.model
+    def _resolve_personal_data_vals(self, vals):
+        """Filtra `vals` contra la lista blanca `PERSONAL_DATA_FIELDS` y resuelve los 3 campos
+        que llegan como texto/código en vez de id directo (`nacionalidad_code`/
+        `pais_origen_code`/`municipio_nombre`) - compartido por `sync_personal_data_from_community()`
+        (actualiza un empleado existente) y `create_employee_from_community()` (crea uno nuevo),
+        2026-09-18. Cualquier clave de `vals` fuera de la lista blanca se ignora en silencio.
+
+        Bug real encontrado al probar esto con el usuario de integración REAL (solo
+        `group_payment_order_sync_integration`, sin `base.group_user`) en vez de como superusuario
+        (que las pruebas anteriores hacían sin querer, ocultando el problema): las búsquedas de
+        `res.country`/`hr.municipio` de aquí abajo NO tenían `.sudo()` - cualquier edición real
+        que tocara nacionalidad/país de origen/municipio habría tronado con `AccessError` en
+        producción. `sudo()` es seguro aquí: solo se usa para RESOLVER un id a partir de un
+        código/nombre ya filtrado por la lista blanca, nunca para escribir campos fuera de ella."""
+        vals_filtrados = {k: v for k, v in vals.items() if k in PERSONAL_DATA_FIELDS}
+
+        nacionalidad_code = vals.get('nacionalidad_code')
+        if nacionalidad_code:
+            country = self.env['res.country'].sudo().search([('code', '=', nacionalidad_code.upper())], limit=1)
+            if country:
+                vals_filtrados['country_id'] = country.id
+
+        pais_origen_code = vals.get('pais_origen_code')
+        if pais_origen_code:
+            country = self.env['res.country'].sudo().search([('code', '=', pais_origen_code.upper())], limit=1)
+            if country:
+                vals_filtrados['country_of_birth'] = country.id
+
+        municipio_nombre = vals.get('municipio_nombre')
+        if municipio_nombre:
+            municipio = self.env['hr.municipio'].sudo().search([('name', '=ilike', municipio_nombre)], limit=1)
+            if municipio:
+                vals_filtrados['municipio_id'] = municipio.id
+            # Sin match exacto: no se adivina (mismo criterio ya usado en este proyecto para
+            # proveedores/materiales "parecidos" - solo autoresuelve con un único candidato
+            # claro) - `municipio_id` queda como estaba, alguien de RR.HH. lo resuelve a mano.
+
+        return vals_filtrados
+
     def sync_personal_data_from_community(self, vals):
         """Recibe una actualización de "datos personales" empujada desde Community
         (construtec_account_payment_order_19, hr_employee.py::write()) - Community es la
@@ -217,36 +257,58 @@ class HrEmployee(models.Model):
         Pago/Marcajes de Asistencia (`group_payment_order_sync_integration`) - ese usuario NO
         necesita permiso de escritura real sobre hr.employee para esto: el `sudo()` de abajo
         resuelve la escritura, el permiso que sí necesita es poder LEER hr.employee para que
-        Odoo le deje invocar el método en absoluto (ver ir.model.access.csv).
-
-        Lista blanca explícita (`PERSONAL_DATA_FIELDS`) - cualquier clave fuera de esa lista
-        en `vals` se ignora en silencio, nunca se escribe. `nacionalidad_code`/`pais_origen_code`
-        (código ISO alpha-2, ej. 'GT') y `municipio_nombre` (texto libre) llegan aparte y se
-        resuelven aquí mismo, nunca como ids directos - son los únicos 3 campos de este set que
-        son relaciones en vez de texto/selección plana."""
+        Odoo le deje invocar el método en absoluto (ver ir.model.access.csv)."""
         self.ensure_one()
-        vals_filtrados = {k: v for k, v in vals.items() if k in PERSONAL_DATA_FIELDS}
-
-        nacionalidad_code = vals.get('nacionalidad_code')
-        if nacionalidad_code:
-            country = self.env['res.country'].search([('code', '=', nacionalidad_code.upper())], limit=1)
-            if country:
-                vals_filtrados['country_id'] = country.id
-
-        pais_origen_code = vals.get('pais_origen_code')
-        if pais_origen_code:
-            country = self.env['res.country'].search([('code', '=', pais_origen_code.upper())], limit=1)
-            if country:
-                vals_filtrados['country_of_birth'] = country.id
-
-        municipio_nombre = vals.get('municipio_nombre')
-        if municipio_nombre:
-            municipio = self.env['hr.municipio'].search([('name', '=ilike', municipio_nombre)], limit=1)
-            if municipio:
-                vals_filtrados['municipio_id'] = municipio.id
-            # Sin match exacto: no se adivina (mismo criterio ya usado en este proyecto para
-            # proveedores/materiales "parecidos" - solo autoresuelve con un único candidato
-            # claro) - `municipio_id` queda como estaba, alguien de RR.HH. lo resuelve a mano.
-
+        vals_filtrados = self._resolve_personal_data_vals(vals)
         if vals_filtrados:
             self.sudo().write(vals_filtrados)
+
+    @api.model
+    def create_employee_from_community(self, vals):
+        """Crea un hr.employee NUEVO a partir de un alta hecha en Community por alguien con
+        `group_construtec_employee_data_entry` (sin cuenta/privilegios de nómina aquí) -
+        decisión explícita del usuario 2026-09-18: la puerta de entrada para dar de alta
+        colaboradores puede ser Community, no solo Enterprise. Ver
+        construtec_account_payment_order_19::hr_employee.py `create()`/
+        `_create_employee_in_enterprise()`.
+
+        Llamado vía XML-RPC con una lista de ids VACÍA (no hay ningún empleado existente que
+        resolver todavía) - mismo usuario de integración, mismo criterio de `sudo()` para la
+        escritura real que `sync_personal_data_from_community()`.
+
+        Reutiliza `_resolve_personal_data_vals()` (misma lista blanca/resolución de país-
+        municipio) más `department_name` (find-or-create por nombre - Community no tiene los
+        ids de `hr.department` de Enterprise, solo el nombre, mismo criterio que ya usa
+        Community en la dirección contraria) y `company_ref` (el id real, aquí, de la compañía
+        - ya resuelto del lado Community contra su propio catálogo, ver
+        `account.payment.order.enterprise.company`). `name` no está en `PERSONAL_DATA_FIELDS`
+        (normalmente Enterprise es quien manda el nombre hacia Community, no al revés) - para
+        una creación sí hace falta, se toma tal cual de `vals['name']`.
+
+        Devuelve el id del empleado recién creado - Community lo guarda como
+        `enterprise_employee_ref` y, desde ese momento, se comporta como cualquier otro
+        empleado ya sincronizado (toda futura edición de Datos Personales usa
+        `sync_personal_data_from_community()` normalmente)."""
+        vals_filtrados = self._resolve_personal_data_vals(vals)
+        vals_filtrados['name'] = vals.get('name') or 'Sin nombre'
+
+        company_ref = vals.get('company_ref')
+        if company_ref:
+            vals_filtrados['company_id'] = int(company_ref)
+
+        if vals.get('job_title'):
+            vals_filtrados['job_title'] = vals['job_title']
+
+        department_name = vals.get('department_name')
+        if department_name:
+            domain = [('name', '=', department_name)]
+            if vals_filtrados.get('company_id'):
+                domain.append(('company_id', '=', vals_filtrados['company_id']))
+            department = self.env['hr.department'].sudo().search(domain, limit=1)
+            if not department:
+                department = self.env['hr.department'].sudo().create(
+                    {'name': department_name, 'company_id': vals_filtrados.get('company_id', False)})
+            vals_filtrados['department_id'] = department.id
+
+        employee = self.sudo().create(vals_filtrados)
+        return employee.id
