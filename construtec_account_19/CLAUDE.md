@@ -914,20 +914,41 @@ verlo directamente parado en la factura.
   nuevas de la factura, pero también cualquier referencia previa en el resto de la UI) mostraba
   un `display_name` genérico en vez del número real de la constancia. Fix de una sola línea por
   modelo, beneficia a toda la app, no solo a esta vista nueva.
-- **No verificado con `odoo-bin shell`** - se reintentó (`-u construtec_account_19 --stop-after-init`
-  contra `construtec_test`) específicamente para diagnosticar el "Test: Failed" de Odoo.sh de este
-  cambio, y sigue exactamente igual de roto que documenta `odoo-bin-local-verification-broken`
-  (`ExitCode: -1`, 0 bytes en stdout/stderr, ni siquiera un traceback) - confirmado que no es algo
-  que haya mejorado con el tiempo. El primer build de este cambio en Odoo.sh (commit `096551f`) y
-  un rebuild vacío de re-intento (`ecd4be6`) salieron ambos "Test: Failed" **sin log accesible**
-  desde la UI de Odoo.sh disponible en ese momento - diagnosticado en su lugar por revisión manual
-  exhaustiva del código y, más útil, leyendo directamente el código fuente de Odoo
-  (`odoo/orm/fields_relational.py::One2many.__get__`) para confirmar una sospecha real (ver la nota
-  de diseño arriba, "compute=, NO inverse_name") - no hay 100% de certeza de que ESO fuera la causa
-  raíz exacta del build fallido, pero es una mejora real y de menor riesgo de todos modos. Cuando
-  se pueda confirmar el próximo build en Odoo.sh como exitoso, actualizar esta nota; si sigue
-  fallando, el siguiente paso es conseguir el traceback real (Odoo.sh > Builds > el build
-  específico > su propio log, no el log de producción de la rama).
+- **Causa raíz REAL del "Test: Failed"/instalación rota en Odoo.sh, confirmada con el traceback
+  real (2026-09-18, obtenido corriendo `-u construtec_account_19 --stop-after-init` a mano en la
+  Shell de Odoo.sh, ya que `odoo-bin` en modo servidor sigue completamente roto en el entorno local
+  de esta sesión - ver `odoo-bin-local-verification-broken`, `ExitCode: -1`, cero bytes de salida)**:
+  ```
+  odoo.tools.convert.ParseError: while parsing .../account_move_views.xml:3
+  Error while validating view near: ...
+  The "editable" attribute of list views must be "top" or "bottom", received false
+  ```
+  Las dos listas embebidas (`sat_retencion_iva_recibida_ids`/`sat_retencion_isr_emitida_ids`) tenían
+  `editable="false"` - a diferencia de `create`/`delete` (que sí aceptan "true"/"false" como booleanos
+  flexibles), Odoo 19 valida `editable` estrictamente contra los dos únicos valores reales que tiene
+  sentido ("top"/"bottom", la posición de la fila editable) y **rechaza cualquier otro valor con un
+  `ParseError` real al cargar la vista** - no es un atributo booleano de "activar/desactivar". Fix:
+  simplemente se quitó el atributo por completo (omitirlo ya significa "no editable", que era la
+  intención desde el principio). Este error rompía la carga de la vista en CUALQUIER intento de
+  `-u`/instalación real contra una base con datos de verdad - explica los 3 "Test: Failed" seguidos
+  en Odoo.sh (`096551f`, `ecd4be6`, `fbf49e7`) sin necesidad de invocar nada más exótico.
+  - **El rediseño del `One2many` (`compute=` en vez de `inverse_name` related+store, ver la nota de
+    diseño arriba) NO era la causa raíz** - se confirmó con un experimento real: revertir todo a
+    `3f999f6` (Success), reintroducir solo los `.py` (dio "Warning", no "Failed" - la vista rota
+    todavía no estaba en juego), y reintroducir también la vista con el `editable="false"` (volvió
+    a fallar - de hecho el build de Odoo.sh en sí reportó "Success" para ese commit exacto, un caso
+    real de falso positivo del CI: la actualización de MÓDULO contra los DATOS REALES de producción,
+    corrida a mano en Shell, sí lo detectó y el build automático de Odoo.sh no). El rediseño del
+    `One2many` sigue siendo una mejora real (evita el recompute-todo-el-modelo documentado en
+    `odoo/orm/fields_relational.py::One2many.__get__`) y se queda, pero por sí solo nunca iba a
+    arreglar esto.
+  - **Lección para el futuro**: cuando un build de Odoo.sh reporte "Success" pero el módulo no
+    parezca haberse actualizado de verdad en producción (campos nuevos existen vía API pero la vista
+    no aparece en la UI), verificar el `arch_db` real del `ir.ui.view` en cuestión vía XML-RPC antes
+    de asumir que es solo caché del navegador - y si no coincide con lo esperado, correr el `-u` a
+    mano en la Shell de Odoo.sh (no confiar únicamente en el estado "Success" del build automático)
+    para obtener el traceback real, que es mucho más confiable que el status de build o el log de
+    producción de la rama.
 
 ## Common commands
 

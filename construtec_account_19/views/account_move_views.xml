@@ -34,7 +34,7 @@
                       invisible="not sat_retencion_total_count">
                     <field name="sat_retencion_iva_recibida_ids"
                            invisible="not sat_retencion_iva_recibida_ids" readonly="1">
-                        <list string="Retenciones de IVA Recibidas" editable="false" create="false" delete="false">
+                        <list string="Retenciones de IVA Recibidas" create="false" delete="false">
                             <field name="retention_id" string="Constancia"/>
                             <field name="retention_fecha_emision" string="Fecha de Emisión"/>
                             <field name="retention_agente_retenedor" string="Cliente Retenedor"/>
@@ -48,7 +48,7 @@
                     </field>
                     <field name="sat_retencion_isr_emitida_ids"
                            invisible="not sat_retencion_isr_emitida_ids" readonly="1">
-                        <list string="Retenciones de ISR Emitidas" editable="false" create="false" delete="false">
+                        <list string="Retenciones de ISR Emitidas" create="false" delete="false">
                             <field name="retention_id" string="Constancia"/>
                             <field name="retention_fecha_emision" string="Fecha de Emisión"/>
                             <field name="regimen" string="Régimen"/>
