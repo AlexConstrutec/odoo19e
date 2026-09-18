@@ -10,6 +10,14 @@
                 <field name="sat_tipo_dte" invisible="not sat_document_id" readonly="1"/>
                 <field name="sat_tipo_compra" invisible="not sat_document_id" readonly="1"/>
             </field>
+            <xpath expr="//div[@name='button_box']" position="before">
+                <div class="alert alert-warning" role="alert" invisible="not sat_retencion_pendiente_count">
+                    Esta factura tiene
+                    <field name="sat_retencion_pendiente_count" readonly="1" nolabel="1" class="oe_inline"/>
+                    retención(es) SAT vinculada(s) todavía <strong>pendiente(s) de aplicar</strong>
+                    contablemente - ver la pestaña "Retenciones SAT" más abajo.
+                </div>
+            </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button name="action_view_sat_document" type="object" class="oe_stat_button"
                         icon="fa-file-text-o" invisible="not sat_document_id">
@@ -21,6 +29,38 @@
             <xpath expr="//field[@name='invoice_line_ids']/list/field[@name='product_id']" position="after">
                 <field name="sat_bien_o_servicio" optional="hide"/>
             </xpath>
+            <notebook position="inside">
+                <page string="Retenciones SAT" name="sat_retenciones"
+                      invisible="not sat_retencion_total_count">
+                    <field name="sat_retencion_iva_recibida_ids"
+                           invisible="not sat_retencion_iva_recibida_ids" readonly="1">
+                        <list string="Retenciones de IVA Recibidas" editable="false" create="false" delete="false">
+                            <field name="retention_id" string="Constancia"/>
+                            <field name="retention_fecha_emision" string="Fecha de Emisión"/>
+                            <field name="retention_agente_retenedor" string="Cliente Retenedor"/>
+                            <field name="monto_retencion" string="Retención"/>
+                            <field name="payment_id" string="Pago Aplicado"/>
+                            <field name="estado_aplicacion" widget="badge"
+                                   decoration-success="estado_aplicacion == 'aplicada'"
+                                   decoration-warning="estado_aplicacion == 'pendiente'"
+                                   decoration-danger="estado_aplicacion == 'anulada'"/>
+                        </list>
+                    </field>
+                    <field name="sat_retencion_isr_emitida_ids"
+                           invisible="not sat_retencion_isr_emitida_ids" readonly="1">
+                        <list string="Retenciones de ISR Emitidas" editable="false" create="false" delete="false">
+                            <field name="retention_id" string="Constancia"/>
+                            <field name="retention_fecha_emision" string="Fecha de Emisión"/>
+                            <field name="regimen" string="Régimen"/>
+                            <field name="monto_retencion" string="Retención"/>
+                            <field name="move_line_id" string="Línea Aplicada"/>
+                            <field name="estado_aplicacion" widget="badge"
+                                   decoration-success="estado_aplicacion == 'aplicada'"
+                                   decoration-warning="estado_aplicacion == 'pendiente'"/>
+                        </list>
+                    </field>
+                </page>
+            </notebook>
         </field>
     </record>
 </odoo>

@@ -23,6 +23,9 @@ class ConstructecSatRetentionEmitida(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _description = 'Constancia de Retención de ISR Emitida (Agencia Virtual SAT)'
     _order = 'fecha_emision desc'
+    # Ver la misma nota en construtec.sat.retention - sin esto, un Many2one a este
+    # modelo muestra un display_name genérico en vez del número real de constancia.
+    _rec_name = 'numero_constancia'
 
     numero_constancia = fields.Char(
         string='No. Constancia', required=True, copy=False, index=True,
@@ -344,6 +347,10 @@ class ConstructecSatRetentionEmitidaLine(models.Model):
              'a partir de un porcentaje fijo.')
     concepto = fields.Char(string='Concepto')
     currency_id = fields.Many2one(related='retention_id.currency_id', string='Moneda', store=True)
+    # Aplanado desde retention_id para la lista embebida en account.move
+    # (sat_retencion_isr_emitida_ids) - mismo criterio de "campo related explícito,
+    # no ruta punteada directa en la vista" que construtec.sat.retention.line.
+    retention_fecha_emision = fields.Date(related='retention_id.fecha_emision', string='Fecha de Emisión')
     monto_renta_imponible = fields.Monetary(string='Renta Imponible', currency_field='currency_id')
     monto_retencion = fields.Monetary(string='Retención', currency_field='currency_id')
     move_line_id = fields.Many2one(
@@ -351,6 +358,23 @@ class ConstructecSatRetentionEmitidaLine(models.Model):
         help='Línea negativa agregada a la factura del proveedor con el monto de esta retención - ver '
              'action_aplicar_retencion_contable(). Vacío mientras la retención solo está archivada/vinculada '
              'pero no se ha reflejado contablemente todavía.')
+    move_id = fields.Many2one(
+        related='retention_id.move_id', string='Factura del Proveedor', store=True,
+        help='Mismo dato que retention_id.move_id, expuesto también a nivel de línea (igual que '
+             'construtec.sat.retention.line.move_id en el modelo hermano de Recibidas) para que '
+             'account.move.sat_retencion_isr_emitida_ids pueda usarlo como inverso de un One2many.')
+    estado_aplicacion = fields.Selection([
+        ('pendiente', 'Pendiente de Aplicar'),
+        ('aplicada', 'Aplicada'),
+    ], string='Estado', compute='_compute_estado_aplicacion',
+        help='Para revisar de un vistazo, desde la propia factura del proveedor (ver account.move.'
+             'sat_retencion_isr_emitida_ids), si esta línea ya se reflejó contablemente '
+             '(move_line_id) o todavía está solo vinculada/archivada.')
+
+    @api.depends('move_line_id')
+    def _compute_estado_aplicacion(self):
+        for line in self:
+            line.estado_aplicacion = 'aplicada' if line.move_line_id else 'pendiente'
 
     def _sat_get_retencion_isr_account(self, company):
         account = self.env['account.account'].search([

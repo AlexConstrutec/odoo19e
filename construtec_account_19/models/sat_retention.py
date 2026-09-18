@@ -21,6 +21,11 @@ class ConstructecSatRetention(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _description = 'Constancia de Retención de IVA (Agencia Virtual SAT)'
     _order = 'fecha_emision desc'
+    # Sin esto, un Many2one a este modelo (ej. account.move.sat_retencion_iva_recibida_ids.
+    # retention_id) muestra un display_name genérico en vez del número real de la
+    # constancia - el modelo no tiene un campo 'name' propio que Odoo pudiera
+    # autodetectar.
+    _rec_name = 'numero_constancia'
 
     numero_constancia = fields.Char(
         string='No. de Constancia', required=True, copy=False, index=True,
@@ -269,6 +274,14 @@ class ConstructecSatRetentionLine(models.Model):
     concepto = fields.Char(string='Concepto')
     tarifa = fields.Float(string='Tarifa (%)')
     currency_id = fields.Many2one(related='retention_id.currency_id', string='Moneda', store=True)
+    # Aplanados desde retention_id para la lista embebida en account.move
+    # (sat_retencion_iva_recibida_ids) - un <field name="retention_id.fecha_emision"/>
+    # con ruta punteada directa NO se usa en este módulo (ver la misma nota de
+    # diseño en "Detalle de Facturas SAT" de sat_document.py), se prefieren
+    # campos related explícitos como este.
+    retention_fecha_emision = fields.Date(related='retention_id.fecha_emision', string='Fecha de Emisión')
+    retention_agente_retenedor = fields.Char(
+        related='retention_id.nombre_agente_retenedor', string='Cliente Retenedor')
     monto_importe_neto = fields.Monetary(string='Importe Neto del Bien', currency_field='currency_id')
     monto_retencion = fields.Monetary(string='Retención', currency_field='currency_id')
     sat_document_id = fields.Many2one(
@@ -286,6 +299,24 @@ class ConstructecSatRetentionLine(models.Model):
         help='Pago registrado y conciliado contra la factura por el monto de esta línea - ver '
              'action_aplicar_retencion_contable(). Vacío mientras la retención solo está archivada/vinculada '
              'pero no se ha reflejado contablemente todavía.')
+    estado_aplicacion = fields.Selection([
+        ('anulada', 'Anulada'),
+        ('pendiente', 'Pendiente de Aplicar'),
+        ('aplicada', 'Aplicada'),
+    ], string='Estado', compute='_compute_estado_aplicacion',
+        help='Para revisar de un vistazo, desde la propia factura (ver account.move.'
+             'sat_retencion_iva_recibida_ids), si esta línea ya se reflejó contablemente '
+             '(payment_id) o todavía está solo vinculada/archivada.')
+
+    @api.depends('payment_id', 'retention_id.anulado')
+    def _compute_estado_aplicacion(self):
+        for line in self:
+            if line.retention_id.anulado:
+                line.estado_aplicacion = 'anulada'
+            elif line.payment_id:
+                line.estado_aplicacion = 'aplicada'
+            else:
+                line.estado_aplicacion = 'pendiente'
 
     @api.model_create_multi
     def create(self, vals_list):

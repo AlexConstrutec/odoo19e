@@ -22,6 +22,63 @@ class AccountMove(models.Model):
         help='Heredado de construtec.sat.document.tipo_compra - clasificación para el Libro de '
              'Compras y Servicios Recibidos que se presenta a la SAT.')
 
+    # Campos para revisar, desde la propia factura, qué retenciones le aplican (pedido
+    # explícito del usuario 2026-09-17: "un campo en la factura para revisar si tiene
+    # retenciones a aplicar... ver desde factura que retenciones puede tener y lo que ya
+    # existe"). Son las dos direcciones ya modeladas en este módulo, cada una vista desde
+    # el lado de la factura en vez del lado de la constancia:
+    #   - sat_retencion_iva_recibida_ids: esta factura es una VENTA (out_invoice) y un
+    #     cliente le retuvo IVA a Construtec al pagarla (construtec.sat.retention, pantalla
+    #     "Recibidas" del portal SAT) - se aplica como un account.payment aparte conciliado
+    #     contra esta factura, nunca como una línea de la factura misma.
+    #   - sat_retencion_isr_emitida_ids: esta factura es una COMPRA (in_invoice) y
+    #     Construtec, como agente retenedor, le retuvo ISR al proveedor (construtec.sat.
+    #     retention.emitida, pantalla "Retenciones Web" del portal SAT) - se aplica como una
+    #     línea negativa directa en esta misma factura.
+    # Ambos son One2many de solo lectura (el vínculo real vive del lado de la constancia,
+    # vía Serie+Número de Documento contra construtec.sat.document - ver
+    # _sat_buscar_documento() en cada modelo) - la factura solo los expone para consulta.
+    sat_retencion_iva_recibida_ids = fields.One2many(
+        'construtec.sat.retention.line', 'move_id', string='Retenciones de IVA Recibidas',
+        help='Líneas de constancia(s) de Retención de IVA (Recibidas) que un cliente aplicó al '
+             'pagar esta factura de venta - resueltas automáticamente por Serie + Número contra '
+             'el Documento SAT de origen. "Pendiente de Aplicar" significa que la constancia ya '
+             'está archivada/vinculada pero su asiento contable (un pago conciliado aparte) '
+             'todavía no se ha generado.')
+    sat_retencion_isr_emitida_ids = fields.One2many(
+        'construtec.sat.retention.emitida.line', 'move_id', string='Retenciones de ISR Emitidas',
+        help='Conceptos de constancia(s) de Retención de ISR (Emitidas) que Construtec, como '
+             'agente retenedor, le aplicó al proveedor de esta factura de compra - resueltos '
+             'automáticamente por Serie + Número contra el Documento SAT de origen. "Pendiente '
+             'de Aplicar" significa que la constancia ya está vinculada pero su línea negativa '
+             'en esta factura todavía no se ha agregado.')
+    sat_retencion_pendiente_count = fields.Integer(
+        string='Retenciones Pendientes de Aplicar', compute='_compute_sat_retencion_counts',
+        help='Cuenta líneas/conceptos de retención ya vinculados a esta factura (de cualquiera '
+             'de las dos direcciones de arriba) cuyo asiento contable todavía no se ha generado '
+             '- para saber de un vistazo si falta aplicar algo sin tener que abrir la pestaña.')
+    sat_retencion_total_count = fields.Integer(
+        string='Retenciones Totales', compute='_compute_sat_retencion_counts',
+        help='Cuenta total de líneas/conceptos de retención vinculados a esta factura, aplicados '
+             'o no.')
+
+    @api.depends(
+        'sat_retencion_iva_recibida_ids.estado_aplicacion',
+        'sat_retencion_isr_emitida_ids.estado_aplicacion',
+    )
+    def _compute_sat_retencion_counts(self):
+        for move in self:
+            # Dos modelos distintos (construtec.sat.retention.line /
+            # .retention.emitida.line) - no se pueden concatenar como un solo
+            # recordset ("mixing apples and oranges"), se cuentan por separado.
+            recibida_pendientes = len(move.sat_retencion_iva_recibida_ids.filtered(
+                lambda l: l.estado_aplicacion == 'pendiente'))
+            emitida_pendientes = len(move.sat_retencion_isr_emitida_ids.filtered(
+                lambda l: l.estado_aplicacion == 'pendiente'))
+            move.sat_retencion_total_count = (
+                len(move.sat_retencion_iva_recibida_ids) + len(move.sat_retencion_isr_emitida_ids))
+            move.sat_retencion_pendiente_count = recibida_pendientes + emitida_pendientes
+
     def action_view_sat_document(self):
         self.ensure_one()
         return {

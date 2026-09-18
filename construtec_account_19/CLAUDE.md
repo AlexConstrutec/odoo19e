@@ -849,6 +849,71 @@ siguen intactos en `n8n/sat-bot/data_myr/outbox/` (nunca se borran en un error) 
 `run_sat_upload_to_odoo.py` de nuevo con `SAT_ENV_FILE` de MYR una vez actualizado el
 módulo en producción, deberían subir limpio.
 
+## Revisar retenciones SAT desde la propia factura (2026-09-17)
+
+Pedido explícito del usuario ("un campo en la factura para revisar si tiene retenciones a
+aplicar... ver desde factura que retenciones puede tener y lo que ya existe desde las
+retenciones que facturas afecta") - hasta ahora, para saber si una factura tenía alguna
+retención vinculada había que ir al modelo de la constancia y buscarla ahí; no había forma de
+verlo directamente parado en la factura.
+
+- **`account.move.sat_retencion_iva_recibida_ids`** (One2many a `construtec.sat.retention.line`,
+  inverso de `move_id`) - para una factura de VENTA (out_invoice): las líneas de constancia(s)
+  de Retención de IVA "Recibidas" que un cliente le aplicó a Construtec. `move_id` en ese modelo
+  ya era un `related='sat_document_id.move_id', store=True` desde antes - solo hizo falta
+  declarar el One2many inverso en `account.move`, ningún cambio al modelo de la línea salvo lo
+  de abajo.
+- **`account.move.sat_retencion_isr_emitida_ids`** (One2many a
+  `construtec.sat.retention.emitida.line`, inverso de `move_id`) - para una factura de COMPRA
+  (in_invoice): los conceptos de constancia(s) de Retención de ISR "Emitidas" que Construtec,
+  como agente retenedor, le aplicó al proveedor. A diferencia del modelo hermano de arriba, esta
+  línea **no tenía** un `move_id` propio (solo a nivel de encabezado, `retention_id.move_id`) -
+  se le agregó `move_id = fields.Many2one(related='retention_id.move_id', store=True)`,
+  exactamente el mismo patrón que ya existía en `construtec.sat.retention.line`, para poder
+  usarlo como inverso del One2many nuevo.
+- **`estado_aplicacion`** (Selection `pendiente`/`aplicada`, y también `anulada` en el modelo de
+  Recibidas) - computado en AMBOS modelos de línea a partir de si ya existe el asiento contable
+  real (`payment_id` en Recibidas, `move_line_id` en Emitidas) - la propia constancia ya tenía un
+  `state` de encabezado (`pendiente`/`parcial`/`vinculada` en Recibidas, `pendiente`/`vinculada`
+  en Emitidas), pero ese `state` solo refleja si `sat_document_id` se resolvió (la VINCULACIÓN),
+  no si el efecto contable ya se aplicó - son dos cosas distintas y ya podían diferir antes de
+  este cambio (una línea puede estar vinculada meses antes de aplicarse, o nunca aplicarse si
+  algo falla en silencio). `estado_aplicacion` es el que responde la pregunta real que hizo el
+  usuario: "¿ya se aplicó esto contablemente, o solo está archivado?"
+- **`account.move.sat_retencion_pendiente_count`/`sat_retencion_total_count`** (Integer,
+  computados) - cuentan líneas con `estado_aplicacion == 'pendiente'` y el total, sumando ambas
+  direcciones por separado y NUNCA concatenando los dos recordsets de línea con `+` (son modelos
+  distintos - `construtec.sat.retention.line` y `.retention.emitida.line` - concatenarlos
+  lanzaría el error nativo de Odoo "mixing apples and oranges").
+- **Vista** (`views/account_move_views.xml`): un banner `alert-warning` visible solo cuando
+  `sat_retencion_pendiente_count > 0` (mismo patrón que el banner `alert-danger`/`alert-warning`
+  ya usado en `sat_document_views.xml` para `anulado`/`etiquetas_no_reconocidas`), y una pestaña
+  nueva "Retenciones SAT" en el notebook del formulario de factura (`invisible` por completo si
+  no hay ninguna retención vinculada de ningún lado, para no ensuciar una factura común sin
+  relación con SAT) con dos listas de solo lectura (`create="false" delete="false"`, sin
+  `editable` - la acción real de aplicar/vincular sigue viviendo únicamente en el propio registro
+  de la constancia, este es un espacio de **consulta**, no de edición).
+- **Columnas aplanadas con campos `related` explícitos, no rutas punteadas en la vista** - mismo
+  criterio de diseño que "Detalle de Facturas SAT" (`sat_document.py`): un
+  `<field name="retention_id.fecha_emision"/>` directo en el XML no se usa en este módulo. Se
+  agregaron `retention_fecha_emision` (ambos modelos de línea) y `retention_agente_retenedor`
+  (solo Recibidas, donde tiene sentido mostrar quién retuvo) como campos `related` reales en el
+  modelo.
+- **`_rec_name = 'numero_constancia'`** agregado a `construtec.sat.retention` y
+  `construtec.sat.retention.emitida` - bug preexistente menor, encontrado al construir esta
+  vista: ninguno de los dos modelos tenía un campo `name` ni un `_rec_name` explícito, así que
+  cualquier Many2one hacia ellos (incluyendo el `retention_id` que ahora se muestra en las listas
+  nuevas de la factura, pero también cualquier referencia previa en el resto de la UI) mostraba
+  un `display_name` genérico en vez del número real de la constancia. Fix de una sola línea por
+  modelo, beneficia a toda la app, no solo a esta vista nueva.
+- **No verificado con `odoo-bin shell`** - sigue roto en este entorno (ver memoria
+  `odoo-bin-local-verification-broken`). Revisado por lectura cuidadosa del código (los
+  `related`/`One2many` siguen el mismo patrón ya usado y probado en este mismo archivo para los
+  campos hermanos `move_id`/`partner_id`/`currency_id`) y hay que confirmar en producción, tras
+  el próximo `-u construtec_account_19`, abriendo una factura real con una retención ya vinculada
+  (ej. cualquiera de las que ya tienen `payment_id`/`move_line_id` seteado de sesiones
+  anteriores) y comprobando que la pestaña "Retenciones SAT" aparece con el estado correcto.
+
 ## Common commands
 
 ```
