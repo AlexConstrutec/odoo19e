@@ -857,20 +857,33 @@ retenciones que facturas afecta") - hasta ahora, para saber si una factura tení
 retención vinculada había que ir al modelo de la constancia y buscarla ahí; no había forma de
 verlo directamente parado en la factura.
 
-- **`account.move.sat_retencion_iva_recibida_ids`** (One2many a `construtec.sat.retention.line`,
-  inverso de `move_id`) - para una factura de VENTA (out_invoice): las líneas de constancia(s)
-  de Retención de IVA "Recibidas" que un cliente le aplicó a Construtec. `move_id` en ese modelo
-  ya era un `related='sat_document_id.move_id', store=True` desde antes - solo hizo falta
-  declarar el One2many inverso en `account.move`, ningún cambio al modelo de la línea salvo lo
-  de abajo.
-- **`account.move.sat_retencion_isr_emitida_ids`** (One2many a
-  `construtec.sat.retention.emitida.line`, inverso de `move_id`) - para una factura de COMPRA
-  (in_invoice): los conceptos de constancia(s) de Retención de ISR "Emitidas" que Construtec,
-  como agente retenedor, le aplicó al proveedor. A diferencia del modelo hermano de arriba, esta
-  línea **no tenía** un `move_id` propio (solo a nivel de encabezado, `retention_id.move_id`) -
-  se le agregó `move_id = fields.Many2one(related='retention_id.move_id', store=True)`,
-  exactamente el mismo patrón que ya existía en `construtec.sat.retention.line`, para poder
-  usarlo como inverso del One2many nuevo.
+- **`account.move.sat_retencion_iva_recibida_ids`/`sat_retencion_isr_emitida_ids`** (One2many a
+  `construtec.sat.retention.line`/`.retention.emitida.line`) - para una factura de VENTA
+  (out_invoice): las líneas de constancia(s) de Retención de IVA "Recibidas" que un cliente le
+  aplicó a Construtec; para una factura de COMPRA (in_invoice): los conceptos de constancia(s) de
+  Retención de ISR "Emitidas" que Construtec le aplicó al proveedor.
+  - **Diseño real: `compute=`, NO `inverse_name`** - la primera versión de esto declaraba un
+    One2many normal con `inverse_name='move_id'` apuntando al `move_id` (related+store) de cada
+    línea. Se cambió tras revisar `One2many.__get__` en `odoo/orm/fields_relational.py`: un
+    One2many con `inverse_name` fuerza, CADA VEZ que se lee el campo, un
+    `records.env[comodel]._recompute_model([inverse_name])` - un recompute de TODOS los registros
+    pendientes de ese modelo completo, no solo los de esta factura. Ningún otro lugar de este
+    módulo usa ese patrón (todos los demás One2many existentes tienen un `inverse_name` que es un
+    Many2one plano, no uno `related`), así que se prefirió evitarlo por completo: ambos campos
+    ahora son `compute='_compute_sat_retenciones'`, que hace un `search()` directo por `move_id`
+    (con guarda `if move.id else <recordset vacío>` para una factura todavía sin guardar, donde
+    `move.id` es un `NewId` y `bool(NewId(...))` es `False` - confirmado en
+    `odoo/orm/identifiers.py`). Efecto colateral bueno: al no tener `inverse_name`, Odoo los trata
+    como de solo lectura automáticamente (no hace falta declarar `readonly=True` a mano).
+  - `move_id` en `construtec.sat.retention.line` ya era un `related='sat_document_id.move_id',
+    store=True` desde antes de este cambio (sigue existiendo, lo usa el `search()` de arriba).
+    `construtec.sat.retention.emitida.line` **no tenía** un `move_id` propio (solo a nivel de
+    encabezado, `retention_id.move_id`) - se le agregó `move_id = fields.Many2one(
+    related='retention_id.move_id', store=True)`, mismo patrón que el modelo hermano, para poder
+    buscar por él igual que en Recibidas.
+  - `sat_retencion_pendiente_count`/`sat_retencion_total_count` comparten el mismo método
+    `compute='_compute_sat_retenciones'` (los 4 campos se calculan juntos, un solo `search()` por
+    factura) - patrón estándar de Odoo para varios campos que se computan a la vez.
 - **`estado_aplicacion`** (Selection `pendiente`/`aplicada`, y también `anulada` en el modelo de
   Recibidas) - computado en AMBOS modelos de línea a partir de si ya existe el asiento contable
   real (`payment_id` en Recibidas, `move_line_id` en Emitidas) - la propia constancia ya tenía un
@@ -880,11 +893,6 @@ verlo directamente parado en la factura.
   este cambio (una línea puede estar vinculada meses antes de aplicarse, o nunca aplicarse si
   algo falla en silencio). `estado_aplicacion` es el que responde la pregunta real que hizo el
   usuario: "¿ya se aplicó esto contablemente, o solo está archivado?"
-- **`account.move.sat_retencion_pendiente_count`/`sat_retencion_total_count`** (Integer,
-  computados) - cuentan líneas con `estado_aplicacion == 'pendiente'` y el total, sumando ambas
-  direcciones por separado y NUNCA concatenando los dos recordsets de línea con `+` (son modelos
-  distintos - `construtec.sat.retention.line` y `.retention.emitida.line` - concatenarlos
-  lanzaría el error nativo de Odoo "mixing apples and oranges").
 - **Vista** (`views/account_move_views.xml`): un banner `alert-warning` visible solo cuando
   `sat_retencion_pendiente_count > 0` (mismo patrón que el banner `alert-danger`/`alert-warning`
   ya usado en `sat_document_views.xml` para `anulado`/`etiquetas_no_reconocidas`), y una pestaña
@@ -906,13 +914,20 @@ verlo directamente parado en la factura.
   nuevas de la factura, pero también cualquier referencia previa en el resto de la UI) mostraba
   un `display_name` genérico en vez del número real de la constancia. Fix de una sola línea por
   modelo, beneficia a toda la app, no solo a esta vista nueva.
-- **No verificado con `odoo-bin shell`** - sigue roto en este entorno (ver memoria
-  `odoo-bin-local-verification-broken`). Revisado por lectura cuidadosa del código (los
-  `related`/`One2many` siguen el mismo patrón ya usado y probado en este mismo archivo para los
-  campos hermanos `move_id`/`partner_id`/`currency_id`) y hay que confirmar en producción, tras
-  el próximo `-u construtec_account_19`, abriendo una factura real con una retención ya vinculada
-  (ej. cualquiera de las que ya tienen `payment_id`/`move_line_id` seteado de sesiones
-  anteriores) y comprobando que la pestaña "Retenciones SAT" aparece con el estado correcto.
+- **No verificado con `odoo-bin shell`** - se reintentó (`-u construtec_account_19 --stop-after-init`
+  contra `construtec_test`) específicamente para diagnosticar el "Test: Failed" de Odoo.sh de este
+  cambio, y sigue exactamente igual de roto que documenta `odoo-bin-local-verification-broken`
+  (`ExitCode: -1`, 0 bytes en stdout/stderr, ni siquiera un traceback) - confirmado que no es algo
+  que haya mejorado con el tiempo. El primer build de este cambio en Odoo.sh (commit `096551f`) y
+  un rebuild vacío de re-intento (`ecd4be6`) salieron ambos "Test: Failed" **sin log accesible**
+  desde la UI de Odoo.sh disponible en ese momento - diagnosticado en su lugar por revisión manual
+  exhaustiva del código y, más útil, leyendo directamente el código fuente de Odoo
+  (`odoo/orm/fields_relational.py::One2many.__get__`) para confirmar una sospecha real (ver la nota
+  de diseño arriba, "compute=, NO inverse_name") - no hay 100% de certeza de que ESO fuera la causa
+  raíz exacta del build fallido, pero es una mejora real y de menor riesgo de todos modos. Cuando
+  se pueda confirmar el próximo build en Odoo.sh como exitoso, actualizar esta nota; si sigue
+  fallando, el siguiente paso es conseguir el traceback real (Odoo.sh > Builds > el build
+  específico > su propio log, no el log de producción de la rama).
 
 ## Common commands
 
