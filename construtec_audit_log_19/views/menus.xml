@@ -1,6 +1,14 @@
 <odoo>
+    <!-- parent="base.menu_administration" ("Ajustes") - NO base.menu_custom ("Technical"),
+         porque ese exige base.group_no_one (developer mode) y el grupo de este módulo solo
+         implica base.group_system - ver CLAUDE.md, sección de este mismo fix ya aplicado del
+         lado Community. Sin esto, un menú sin parent siempre se muestra como app propia en el
+         dashboard, sin importar qué tan "de configuración" sea su contenido - exactamente lo
+         que el usuario reportó ver en producción (Enterprise) el 2026-09-18: la copia de este
+         módulo aquí nunca había recibido el fix que ya tenía la copia de Community. -->
     <menuitem id="menu_construtec_audit_log_root" name="Auditoría"
-              groups="group_construtec_audit_log_manager" sequence="95"/>
+              parent="base.menu_administration"
+              groups="group_construtec_audit_log_manager" sequence="60"/>
     <menuitem id="menu_construtec_audit_log" name="Bitácora"
               parent="menu_construtec_audit_log_root"
               action="action_construtec_audit_log" sequence="10"/>

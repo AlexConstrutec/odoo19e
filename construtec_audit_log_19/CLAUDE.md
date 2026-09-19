@@ -43,6 +43,16 @@ Un solo grupo, `group_construtec_audit_log_manager`, implica `base.group_system`
 
 Instalado en base desechable (`construtec_test_audit`) y verificado con un script real (`odoo-bin shell`) cubriendo: bloqueo de auditar los propios modelos del módulo; creación registra valores iniciales; modificación registra antes/después solo de lo que cambió; escribir el mismo valor no genera ruido; eliminación guarda un snapshot completo justo antes de borrar; un modelo sin regla nunca genera bitácora (overhead real cero); desactivar una regla detiene la auditoría sin reiniciar nada; `excluded_field_ids` funciona; un campo con nombre sensible (`password`) nunca se guarda aunque no esté excluido explícitamente; el cron de retención elimina solo lo más viejo que la antigüedad configurada; `retention_number=0` conserva todo indefinidamente incluso con datos de años de antigüedad.
 
+### El menú raíz aparecía como app propia en el dashboard, no dentro de Ajustes (2026-09-16, corregido AQUÍ hasta 2026-09-18)
+
+Reportado por el usuario con una captura real de producción (Enterprise): "Auditoría" salía como un ícono más en el selector de apps, junto a Contabilidad/Proyecto/etc. **Causa**: `views/menus.xml` declaraba `menu_construtec_audit_log_root` **sin `parent`** - en Odoo, cualquier menú sin padre se muestra como app de nivel superior en el dashboard, sin importar qué tan "de configuración" sea su contenido (mismo mecanismo ya documentado en `construtec_account_payment_order_19/CLAUDE.md` para el menú de `construtec_sat_catalog_sync_19`).
+
+**El fix**: se le agregó `parent="base.menu_administration"` (la app "Ajustes" nativa de Odoo) - deliberadamente **no** `base.menu_custom` ("Technical", dentro de Ajustes), porque ese submenú exige además `base.group_no_one` (solo visible con el modo desarrollador activado) - el grupo de este módulo (`group_construtec_audit_log_manager`) solo implica `base.group_system`, así que anidarlo bajo "Technical" lo habría vuelto invisible para un Administrador normal sin developer mode. Queda como una sección más de "Ajustes" (Ajustes > Auditoría), al mismo nivel que "Usuarios y Compañías"/"Ajustes Generales" - visible para cualquiera con el grupo de este módulo, sin requisitos extra.
+
+**⚠️ Este fix se hizo originalmente 2026-09-16 SOLO en la copia de Community** (`Odoo19C/server/odoo19c/construtec_audit_log_19`) - la copia de aquí (Enterprise) NUNCA lo recibió, a pesar de que este módulo es verbatim-idéntico entre las dos ediciones (`depends: ['base']` únicamente, sin nada Community-only ni Enterprise-only). El usuario reportó 2026-09-18 que seguía viendo "Auditoría" como app en producción (Enterprise, justo donde se había tomado la captura original) - confirmado el diagnóstico comparando ambas copias directamente: la de Community sí tenía `parent="base.menu_administration"`, esta no. Corregido ahora, igualando ambas copias.
+
+Verificado con `odoo-bin shell` tras `-i` en `construtec_test` (el módulo estaba `uninstalled` ahí, `-u` es no-op sobre un módulo desinstalado - hace falta `-i`): `parent_id` del menú raíz ahora resuelve a "Settings" (Ajustes), sin `web_icon` propio - ya no califica como menú raíz.
+
 ## Pendiente (no construido, fuera de alcance de esta pasada)
 
 - Un grupo "Auditor" de solo lectura, más amplio que `group_system`, si se necesita en el futuro.
