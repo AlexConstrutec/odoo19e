@@ -939,6 +939,12 @@ Verificado con `odoo-bin shell`: "Depositar a Mí" deja la Orden en `enviado` co
 
 Pedido explícito del usuario: estas 3 columnas de `viaticos_line_ids` (`views/account_payment_order_views.xml`) pasan de `optional="show"` a `optional="hide"` - siguen disponibles vía el selector de columnas (⚙ de la lista), solo dejan de ocupar espacio por defecto. `puesto`/`banco` no cambiaron (`puesto` sigue `optional="show"`, `banco` ya era `optional="hide"` desde antes). La decoración `decoration-danger="not cuenta_acreditar or not tipo_cuenta or not banco"` en el `<list>` sigue funcionando igual - es a nivel de fila, no depende de qué columnas estén visibles.
 
+## `disponible_tickets`: filtro para que un Ticket (Community) solo vea cuentas analíticas aptas como "Ubicación" (2026-09-18)
+
+Pedido explícito del usuario: `account.analytic.account` gana un Boolean nuevo, `disponible_tickets` ("Disponible para Tickets") - editable en la ficha de la cuenta analítica (`views/account_analytic_account_views.xml`, nuevo, hereda `analytic.view_account_analytic_account_form`, campo insertado junto a `code`). Se edita únicamente aquí (Enterprise, dueño del dato, igual que `enterprise_analytic_ref`) - viaja hacia Community por el MISMO mecanismo pull que ya trae el resto de la cuenta analítica (`fetch_analytic_accounts()`/`_sync_analytic_accounts_from_enterprise()`, ver el CLAUDE.md de la copia Community para el detalle completo del sync y del consumidor real - `construtec_helpdesk_field_service::helpdesk_ticket.analytic_account_id`, que ahora exige `disponible_tickets=True` además de `partner_id` para aparecer como "Ubicación" al crear un Ticket).
+
+Verificado con `odoo-bin shell` en `construtec_test`: el campo existe y aparece en el arch de la vista de formulario; crear/leer el valor por defecto (`False`) funciona correctamente. `-u` limpio en `odoo19e` y `odoo19enterprise`, sin `ERROR`/`CRITICAL` nuevos.
+
 ## Common commands
 
 ```

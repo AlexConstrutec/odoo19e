@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_analytic_account_form_disponible_tickets" model="ir.ui.view">
+        <field name="name">account.analytic.account.form.disponible.tickets</field>
+        <field name="model">account.analytic.account</field>
+        <field name="inherit_id" ref="analytic.view_account_analytic_account_form"/>
+        <field name="arch" type="xml">
+            <field name="code" position="after">
+                <field name="disponible_tickets"/>
+            </field>
+        </field>
+    </record>
+</odoo>

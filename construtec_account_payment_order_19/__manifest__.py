@@ -26,6 +26,7 @@
         'views/account_payment_order_quote_import_wizard_views.xml',
         'views/account_payment_order_bulk_import_wizard_views.xml',
         'views/account_payment_order_views.xml',
+        'views/account_analytic_account_views.xml',
         'views/sat_catalog_sync_menu_views.xml',
         'views/account_payment_order_viaticos_report_views.xml',
         'views/account_move_views.xml',
