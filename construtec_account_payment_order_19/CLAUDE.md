@@ -945,6 +945,26 @@ Pedido explícito del usuario: `account.analytic.account` gana un Boolean nuevo,
 
 Verificado con `odoo-bin shell` en `construtec_test`: el campo existe y aparece en el arch de la vista de formulario; crear/leer el valor por defecto (`False`) funciona correctamente. `-u` limpio en `odoo19e` y `odoo19enterprise`, sin `ERROR`/`CRITICAL` nuevos.
 
+## Contacto nuevo desde WhatsApp (Community): `create_partner_from_community` (2026-09-23)
+
+`res.partner` gana el método whitelisted `create_partner_from_community(vals)` - llamado vía
+XML-RPC desde una instalación Solicitante (Community, `construtec_contact_center_base_19`)
+cuando un agente crea un contacto nuevo desde una conversación de WhatsApp sin equivalente
+todavía aquí. Lista blanca propia (`PARTNER_FROM_COMMUNITY_ALLOWED_FIELDS = ('name', 'phone')` -
+**nunca `mobile`**, `res.partner` en este Odoo 19 no tiene ese campo), fuerza `customer_rank=1`
+del lado del servidor y aplica `_apply_construtec_tags()` de inmediato. Ver el CLAUDE.md de la
+copia de Community (`construtec_account_payment_order_19`, Odoo19C) para el diseño completo
+(`_push_new_partner_to_enterprise()`, reintentos, por qué nunca se dispara automáticamente).
+
+**Hallazgo real al construir esto**: `tools/enterprise_sync_api.py` en esta copia (Enterprise)
+llevaba tiempo desincronizado del de Community - le faltaban varias funciones (
+`create_employee_in_enterprise`, `push_employee_personal_data`, entre otras) porque nunca se
+llaman desde el lado Procesador y nadie lo notó. Al agregar `create_partner_in_enterprise` solo
+en Community, `res_partner.py` (archivo compartido verbatim) truena aquí con `ImportError` al
+cargar el módulo completo - se corrigió agregando esa función también aquí (dormida, nunca se
+llama desde este lado, pero necesita EXISTIR). El resto de la divergencia entre ambas copias de
+`enterprise_sync_api.py` sigue sin resolverse - candidato para una limpieza futura.
+
 ## Common commands
 
 ```

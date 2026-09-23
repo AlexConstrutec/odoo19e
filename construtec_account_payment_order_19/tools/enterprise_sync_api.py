@@ -203,6 +203,28 @@ def fetch_partners(url, db, login, api_key):
                      'is_company', 'customer_rank', 'supplier_rank']}])
 
 
+def create_partner_in_enterprise(url, db, login, api_key, vals):
+    """Crea un `res.partner` NUEVO en Enterprise a partir de un contacto creado en Community
+    (ej. "Crear Contacto" desde una conversación de WhatsApp del Contact Center, ver
+    `res_partner.py::_push_new_partner_to_enterprise()`). Copiado desde la versión de este
+    mismo módulo en Odoo19C (Community) - esta función solo la LLAMA una instalación
+    Solicitante, nunca una Procesadora, pero necesita existir aquí igual porque `res_partner.py`
+    es un archivo compartido verbatim entre ambas ediciones y la importa a nivel de módulo.
+
+    Mismo patrón que `create_sync_record()`/el resto de este archivo: sin ningún id existente
+    que resolver, se llama al método whitelisted `create_partner_from_community` con una lista
+    de ids VACÍA (`[[], vals]`) - internamente hace `.sudo().create(...)` (con su propia lista
+    blanca de campos aceptados) y devuelve el id del contacto recién creado."""
+    if not (url and db and login and api_key):
+        raise EnterpriseSyncError(
+            'Sincronización de Contactos incompleta (falta URL, base de datos, usuario o '
+            'API Key).')
+    uid = authenticate(url, db, login, api_key)
+    return _jsonrpc(
+        url, 'object', 'execute_kw',
+        [db, uid, api_key, 'res.partner', 'create_partner_from_community', [[], vals]])
+
+
 def fetch_companies(url, db, login, api_key):
     """Read-only pull of the Enterprise company list - usado para el desplegable "Compañía por
     defecto" (`res.company.payment_order_default_company_id`), el respaldo cuando el empleado

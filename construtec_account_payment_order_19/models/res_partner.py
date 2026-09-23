@@ -1,6 +1,11 @@
+import logging
+
 from odoo import api, fields, models
 
 from .account_payment_order import _resolve_employee_for_partner
+from ..tools.enterprise_sync_api import EnterpriseSyncError, create_partner_in_enterprise
+
+_logger = logging.getLogger(__name__)
 
 CATEGORIA_EMPLEADOS = 'Empleados'
 CATEGORIA_PROVEEDORES = 'Proveedores'
@@ -36,6 +41,85 @@ class ResPartner(models.Model):
              'registro en Community - no confundir con el id propio de este registro. Vacío '
              'en cualquier contacto que no llegó por esa sincronización (la inmensa mayoría '
              'en Enterprise, donde este campo nunca se usa).')
+
+    partner_sync_state = fields.Selection(
+        [('pendiente', 'Pendiente'), ('enviado', 'Enviado'), ('error', 'Error')],
+        string='Sincronización a Enterprise', copy=False,
+        help='Solo aplica a contactos creados aquí explícitamente para sincronizarse hacia '
+             'Enterprise (ej. desde "Crear Contacto" en la interfaz de chat del Contact '
+             'Center, ver construtec_contact_center_base_19::action_create_contact()) - un '
+             'contacto normal creado a mano en Contactos se queda sin valor aquí, nunca se '
+             'empuja solo (a diferencia de hr.employee, que si sincroniza cualquier alta).')
+    partner_sync_error = fields.Char(string='Detalle del Error de Sincronización', copy=False)
+
+    def _push_new_partner_to_enterprise(self):
+        """Crea este contacto (que todavía NO existe en Enterprise - sin `enterprise_partner_ref`)
+        allá. A diferencia de `hr.employee._create_employee_in_enterprise()` (que sincroniza
+        CUALQUIER alta de empleado), esto nunca se llama automáticamente desde `create()` - un
+        contacto se crea por muchísimos motivos normales en Odoo (proveedores, direcciones de
+        entrega, contactos de prueba) y no todos deben viajar a Enterprise. Los llamadores
+        explícitos (ej. `contact.conversation.action_create_contact()`) deciden cuándo
+        corresponde.
+
+        Manda solo `name`/`phone` - un contacto que llega por este camino (ej. desde una
+        conversación de WhatsApp) no tiene más datos que esos todavía; el resto se completa a
+        mano en Enterprise después, igual que cualquier otro contacto nuevo. NUNCA `mobile` -
+        `res.partner` en este Odoo 19 no tiene ese campo (solo `phone`), mismo gotcha ya
+        documentado en este módulo para `hr.employee`/`res.partner.mobile`."""
+        self.ensure_one()
+        company = self.env.company
+        if company.payment_order_role != 'solicitante' or not company.payment_order_sync_enabled:
+            return
+        vals = {'name': self.name, 'phone': self.phone or False}
+        try:
+            new_ref = create_partner_in_enterprise(
+                company.payment_order_sync_url, company.payment_order_sync_db,
+                company.payment_order_sync_login, company.payment_order_sync_api_key, vals)
+        except EnterpriseSyncError as exc:
+            _logger.warning('Error creando el contacto %s en Enterprise: %s', self.id, exc)
+            self.write({'partner_sync_state': 'error', 'partner_sync_error': str(exc)})
+        else:
+            self.write({
+                'enterprise_partner_ref': new_ref,
+                'partner_sync_state': 'enviado', 'partner_sync_error': False,
+            })
+
+    def action_retry_partner_sync(self):
+        self.filtered(lambda p: p.partner_sync_state == 'error')._push_new_partner_to_enterprise()
+
+    @api.model
+    def _cron_retry_partner_sync(self):
+        self.search([
+            ('partner_sync_state', '=', 'error'),
+            ('company_id.payment_order_role', '=', 'solicitante'),
+        ])._push_new_partner_to_enterprise()
+
+    # Campos que `create_partner_from_community()` acepta - una fuga de la API Key de
+    # integración nunca puede crear un contacto con más que esto (ej. asignarle rangos de
+    # cliente/proveedor "reales" con permisos de facturación, o vincularlo a otra compañía).
+    PARTNER_FROM_COMMUNITY_ALLOWED_FIELDS = ('name', 'phone')
+
+    def create_partner_from_community(self, vals):
+        """Método whitelisted, llamado vía XML-RPC desde una instalación Solicitante (ver
+        `create_partner_in_enterprise()` en `tools/enterprise_sync_api.py`) para crear un
+        contacto NUEVO aquí a partir de uno creado en Community (ej. "Crear Contacto" desde
+        una conversación de WhatsApp del Contact Center, sin equivalente todavía en ese
+        contacto del lado de Enterprise).
+
+        Solo acepta los campos de `PARTNER_FROM_COMMUNITY_ALLOWED_FIELDS` - cualquier otra
+        clave en `vals` se ignora en silencio, mismo criterio que `create_employee_from_community`
+        (Enterprise, `construtec_hr_employee_19`) para su propia lista blanca. Fuerza
+        `customer_rank=1` del lado del servidor (nunca confía en lo que mande el llamador) -
+        un contacto que escribe por WhatsApp es, por definición de este flujo, un prospecto/
+        cliente, así que se etiqueta "Clientes" de inmediato vía `_apply_construtec_tags()`."""
+        clean_vals = {k: v for k, v in (vals or {}).items()
+                      if k in self.PARTNER_FROM_COMMUNITY_ALLOWED_FIELDS and v}
+        if not clean_vals.get('name'):
+            raise ValueError('Falta el nombre del contacto.')
+        clean_vals['customer_rank'] = 1
+        partner = self.sudo().create(clean_vals)
+        partner._apply_construtec_tags()
+        return partner.id
 
     def _apply_construtec_tags(self):
         """Autoetiquetado local (Empleados/Proveedores/Clientes) desde campos nativos -
