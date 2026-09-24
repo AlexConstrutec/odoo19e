@@ -65,34 +65,46 @@ class ResPartner(models.Model):
         conversación de WhatsApp) no tiene más datos que esos todavía; el resto se completa a
         mano en Enterprise después, igual que cualquier otro contacto nuevo. NUNCA `mobile` -
         `res.partner` en este Odoo 19 no tiene ese campo (solo `phone`), mismo gotcha ya
-        documentado en este módulo para `hr.employee`/`res.partner.mobile`."""
-        self.ensure_one()
+        documentado en este módulo para `hr.employee`/`res.partner.mobile`.
+
+        Bug real de producción (2026-09-24): la primera versión de este método usaba
+        `self.ensure_one()` - pero tanto `action_retry_partner_sync()` como
+        `_cron_retry_partner_sync()` lo llaman sobre un recordset que puede tener CUALQUIER
+        cantidad de contactos en error (0, 1, o varios) - con 0 (el caso normal, cuando no hay
+        nada pendiente) o 2+, `ensure_one()` truena con `ValueError: Expected singleton`,
+        tumbando el cron entero cada vez que corre. Mismo patrón que ya usa correctamente
+        `hr.employee._sync_personal_data_to_enterprise()` (un `for` sobre `self`, nunca
+        `ensure_one()`) - se replica aquí."""
         company = self.env.company
         if company.payment_order_role != 'solicitante' or not company.payment_order_sync_enabled:
             return
-        vals = {'name': self.name, 'phone': self.phone or False}
-        try:
-            new_ref = create_partner_in_enterprise(
-                company.payment_order_sync_url, company.payment_order_sync_db,
-                company.payment_order_sync_login, company.payment_order_sync_api_key, vals)
-        except EnterpriseSyncError as exc:
-            _logger.warning('Error creando el contacto %s en Enterprise: %s', self.id, exc)
-            self.write({'partner_sync_state': 'error', 'partner_sync_error': str(exc)})
-        else:
-            self.write({
-                'enterprise_partner_ref': new_ref,
-                'partner_sync_state': 'enviado', 'partner_sync_error': False,
-            })
+        for partner in self:
+            vals = {'name': partner.name, 'phone': partner.phone or False}
+            try:
+                new_ref = create_partner_in_enterprise(
+                    company.payment_order_sync_url, company.payment_order_sync_db,
+                    company.payment_order_sync_login, company.payment_order_sync_api_key, vals)
+            except EnterpriseSyncError as exc:
+                _logger.warning('Error creando el contacto %s en Enterprise: %s', partner.id, exc)
+                partner.write({'partner_sync_state': 'error', 'partner_sync_error': str(exc)})
+            else:
+                partner.write({
+                    'enterprise_partner_ref': new_ref,
+                    'partner_sync_state': 'enviado', 'partner_sync_error': False,
+                })
 
     def action_retry_partner_sync(self):
         self.filtered(lambda p: p.partner_sync_state == 'error')._push_new_partner_to_enterprise()
 
     @api.model
     def _cron_retry_partner_sync(self):
-        self.search([
-            ('partner_sync_state', '=', 'error'),
-            ('company_id.payment_order_role', '=', 'solicitante'),
-        ])._push_new_partner_to_enterprise()
+        # Sin filtrar por `company_id.payment_order_role` a propósito - `company_id` en
+        # res.partner casi siempre está vacío para un contacto genérico (ej. uno creado desde
+        # el Contact Center, que nunca se le asigna compañía), así que ese filtro nunca
+        # encontraba nada (otro síntoma del mismo bug real de arriba). El chequeo de rol/company
+        # que de verdad importa ya lo hace `_push_new_partner_to_enterprise()` internamente
+        # (`self.env.company`, la compañía de ejecución del cron, no la del contacto).
+        self.search([('partner_sync_state', '=', 'error')])._push_new_partner_to_enterprise()
 
     # Campos que `create_partner_from_community()` acepta - una fuga de la API Key de
     # integración nunca puede crear un contacto con más que esto (ej. asignarle rangos de

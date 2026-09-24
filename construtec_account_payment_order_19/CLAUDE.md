@@ -971,6 +971,12 @@ Reportado por el usuario: "se borran los correos de los usuarios... cuando se si
 
 **El fix**: la protección ahora aplica a cualquier empleado (`synced = self` en vez de `self.filtered('enterprise_employee_ref')`) cuando `user_id` está en `vals` - ver el CLAUDE.md de la copia de Community para el detalle completo y la reproducción con `odoo-bin shell`. Un empleado que ya perdió su correo antes de este fix no se recupera solo - hay que volver a capturarlo a mano.
 
+## Bug real de producción (crash de cron): `_push_new_partner_to_enterprise()` usaba `ensure_one()` sobre un recordset variable (2026-09-24)
+
+Encontrado por el usuario pegando logs reales de Docker de producción - un traceback real `ValueError: Expected singleton: res.partner()` dentro de `_cron_retry_partner_sync()` (`models/res_partner.py`), tumbando por completo ese cron cada vez que corría. Dos bugs en el mismo método (agregado en la pasada anterior de "Contacto nuevo desde WhatsApp" - nunca se probó el caso de 0 o 2+ registros, solo el caso feliz de un solo contacto): (1) `_push_new_partner_to_enterprise()` usaba `self.ensure_one()` pese a que sus llamadores lo invocan sobre un recordset de cualquier tamaño - con 0 (el caso normal, "nada pendiente") o 2+, truena; (2) `_cron_retry_partner_sync()` filtraba además `company_id.payment_order_role`, pero `res.partner.company_id` casi siempre está vacío para un contacto genérico, así que ese filtro nunca encontraba nada, explicando por qué el recordset vacío era el caso reproducible en cada corrida.
+
+**El fix**: `_push_new_partner_to_enterprise()` ahora recorre `for partner in self:` (mismo patrón ya correcto de `hr.employee._sync_personal_data_to_enterprise()`) en vez de `ensure_one()`; `_cron_retry_partner_sync()` deja de filtrar por `company_id.payment_order_role` (ese chequeo ya lo hace el método interno vía `self.env.company`). Ver el CLAUDE.md de la copia de Community para el detalle completo y la verificación con `odoo-bin shell` (0 y 2 contactos en error). Copiado idéntico aquí (`diff` confirma byte-a-byte igual, archivo compartido verbatim).
+
 ## Common commands
 
 ```
