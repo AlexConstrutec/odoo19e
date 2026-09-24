@@ -265,13 +265,25 @@ class HrEmployee(models.Model):
         Pago/Marcajes de Asistencia (`group_payment_order_sync_integration`) - ese usuario NO
         necesita permiso de escritura real sobre hr.employee para esto: el `sudo()` de abajo
         resuelve la escritura, el permiso que sí necesita es poder LEER hr.employee para que
-        Odoo le deje invocar el método en absoluto (ver ir.model.access.csv)."""
+        Odoo le deje invocar el método en absoluto (ver ir.model.access.csv).
+
+        Bug real de producción (2026-09-24): sin un `return` explícito, este método devolvía
+        `None` - y el propio dispatcher JSON-RPC de Odoo (`odoo/http.py::JsonRPCDispatcher.
+        _response()`) OMITE la clave `result` por completo cuando el resultado es `None`
+        (`if result is not None: response['result'] = result`). Del lado Community,
+        `tools/enterprise_sync_api.py::_jsonrpc()` interpreta una respuesta sin `result` NI
+        `error` como `'El servidor Procesador no devolvió resultado (¿URL/versión correcta?).'`
+        - un falso negativo: el `write()` de arriba SÍ se aplicaba y se comiteaba en Enterprise,
+        pero Community lo veía como un fallo, lo dejaba en `personal_data_sync_state='error'`
+        para siempre y lo reintentaba cada 30 minutos indefinidamente, sin que el reintento
+        pudiera "arreglarlo" nunca (cada reintento repetía el mismo `write()` ya aplicado y
+        volvía a fallar de la misma forma). Corregido con un `return True` explícito."""
         self.ensure_one()
         vals_filtrados = self._resolve_personal_data_vals(vals)
         if vals_filtrados:
             self.sudo().write(vals_filtrados)
+        return True
 
-    @api.model
     def create_employee_from_community(self, vals):
         """Crea un hr.employee NUEVO a partir de un alta hecha en Community por alguien con
         `group_construtec_employee_data_entry` (sin cuenta/privilegios de nómina aquí) -
@@ -283,6 +295,21 @@ class HrEmployee(models.Model):
         Llamado vía XML-RPC con una lista de ids VACÍA (no hay ningún empleado existente que
         resolver todavía) - mismo usuario de integración, mismo criterio de `sudo()` para la
         escritura real que `sync_personal_data_from_community()`.
+
+        Bug real de producción (2026-09-24): este método tenía `@api.model`, pero el llamador
+        (`tools/enterprise_sync_api.py::create_employee_in_enterprise()`, Community) manda
+        `args=[[], vals]` - el mismo patrón "lista de ids vacía + vals" que SÍ funciona para
+        `create_partner_from_community()` (`res_partner.py`, sin `@api.model`). La diferencia
+        real está en `odoo/service/model.py::call_kw()`: para un método `@api.model`, `args` se
+        pasa TAL CUAL al método (`recs = model; result = method(recs, *args, **kwargs)`) - así
+        que `[[], vals]` se traduce en `method(recs, [], vals)`, 3 argumentos posicionales
+        (self+2) contra una firma de 2 (`self, vals`) - `TypeError: takes 2 positional arguments
+        but 3 were given`, siempre, para CUALQUIER alta nueva desde Community. Sin `@api.model`,
+        en cambio, `call_kw()` separa `ids, args = args[0], args[1:]` ANTES de llamar - el `[]`
+        se consume como "ids" (`recs = model.browse([])`) y solo `vals` llega como argumento
+        real, calzando perfecto con la firma. Corregido quitando `@api.model` - el cuerpo de
+        este método nunca dependió de esa convención de todas formas (`self.env`/`self.sudo()`
+        funcionan igual sobre un recordset vacío obtenido de cualquiera de las dos formas).
 
         Reutiliza `_resolve_personal_data_vals()` (misma lista blanca/resolución de país-
         municipio) más `department_name` (find-or-create por nombre - Community no tiene los
