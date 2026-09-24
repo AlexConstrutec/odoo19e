@@ -965,6 +965,12 @@ cargar el módulo completo - se corrigió agregando esa función también aquí 
 llama desde este lado, pero necesita EXISTIR). El resto de la divergencia entre ambas copias de
 `enterprise_sync_api.py` sigue sin resolverse - candidato para una limpieza futura.
 
+## Bug real: la protección contra el borrado de `work_email` nunca se activaba para empleados reales de Enterprise (2026-09-24)
+
+Reportado por el usuario: "se borran los correos de los usuarios... cuando se sincroniza Enterprise con Community". `hr.employee.write()` (`models/hr_employee.py`) ya protegía contra un bug real de Odoo core (vincular `user_id` reemplaza `work_contact_id` por el partner del usuario recién creado, sin teléfono ni correo, borrando lo que ya había) - pero solo para `self.filtered('enterprise_employee_ref')`, pensando que solo hacía falta proteger a los espejos de Community. **Ningún empleado real de Enterprise tiene `enterprise_employee_ref`** (ese campo solo existe del lado Community) - así que la protección nunca se activaba aquí, donde de hecho ocurre el alta normal de usuarios. El correo se borraba al vincular el usuario en Enterprise, y el siguiente pull de Community solo propagaba el vacío ya existente.
+
+**El fix**: la protección ahora aplica a cualquier empleado (`synced = self` en vez de `self.filtered('enterprise_employee_ref')`) cuando `user_id` está en `vals` - ver el CLAUDE.md de la copia de Community para el detalle completo y la reproducción con `odoo-bin shell`. Un empleado que ya perdió su correo antes de este fix no se recupera solo - hay que volver a capturarlo a mano.
+
 ## Common commands
 
 ```
