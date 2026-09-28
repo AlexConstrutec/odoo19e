@@ -205,14 +205,13 @@ class ConstructecSatDocument(models.Model):
              'Community vía construtec_sat_catalog_sync_19.construtec.sat.invoice.mirror, para '
              'que un jefe de técnicos pueda ver el saldo real al pedir un Pago Directo - ver '
              'construtec_account_payment_order_19 (Community) para el consumidor.')
-    move_payment_state = fields.Selection([
-        ('not_paid', 'No Pagada'),
-        ('in_payment', 'En Proceso de Pago'),
-        ('paid', 'Pagada'),
-        ('partial', 'Pagada Parcialmente'),
-        ('reversed', 'Revertida'),
-        ('invoicing_legacy', 'Facturación Heredada'),
-    ], string='Estado de Pago de la Factura', related='move_id.payment_state', store=True)
+    move_payment_state = fields.Selection(
+        related='move_id.payment_state', store=True, string='Estado de Pago de la Factura')
+    # Sin lista de opciones propia a propósito - Odoo la ignora en un campo `related` (toma la
+    # del campo de origen automáticamente) y la advierte en el log al iniciar
+    # ("selection attribute will be ignored as the field is related") - bug real encontrado en
+    # el primer `-u` real en producción, nunca se manifestó en las pruebas locales porque no
+    # generan ese WARNING de arranque.
     purchase_order_id = fields.Many2one(
         'purchase.order', string='Orden de Compra Generada', readonly=True, copy=False)
     sale_order_id = fields.Many2one(
