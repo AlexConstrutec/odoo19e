@@ -83,6 +83,13 @@
                             <field name="currency_id" invisible="1"/>
                             <field name="monto_total"/>
                             <field name="monto_iva"/>
+                            <field name="move_payment_state" widget="badge"
+                                   invisible="state != 'convertido_factura'"
+                                   decoration-danger="move_payment_state == 'not_paid'"
+                                   decoration-warning="move_payment_state in ('partial', 'in_payment')"
+                                   decoration-success="move_payment_state in ('paid', 'reversed')"/>
+                            <field name="move_amount_residual"
+                                   invisible="state != 'convertido_factura'"/>
                             <field name="cuenta_analitica_id"/>
                             <field name="cuenta_contable_id"/>
                         </group>

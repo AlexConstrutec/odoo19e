@@ -197,6 +197,22 @@ class ConstructecSatDocument(models.Model):
         ('convertido_pedido_venta', 'Convertido a Pedido de Venta'),
     ], string='Estado', default='pendiente', copy=False)
     move_id = fields.Many2one('account.move', string='Factura Generada', readonly=True, copy=False)
+    move_amount_residual = fields.Monetary(
+        string='Saldo Pendiente de la Factura', related='move_id.amount_residual', store=True,
+        currency_field='currency_id',
+        help='Saldo pendiente de pago de la factura ya generada - mecanismo nativo de Odoo '
+             '(account.move.amount_residual), sin ningún cálculo propio. Se sincroniza hacia '
+             'Community vía construtec_sat_catalog_sync_19.construtec.sat.invoice.mirror, para '
+             'que un jefe de técnicos pueda ver el saldo real al pedir un Pago Directo - ver '
+             'construtec_account_payment_order_19 (Community) para el consumidor.')
+    move_payment_state = fields.Selection([
+        ('not_paid', 'No Pagada'),
+        ('in_payment', 'En Proceso de Pago'),
+        ('paid', 'Pagada'),
+        ('partial', 'Pagada Parcialmente'),
+        ('reversed', 'Revertida'),
+        ('invoicing_legacy', 'Facturación Heredada'),
+    ], string='Estado de Pago de la Factura', related='move_id.payment_state', store=True)
     purchase_order_id = fields.Many2one(
         'purchase.order', string='Orden de Compra Generada', readonly=True, copy=False)
     sale_order_id = fields.Many2one(

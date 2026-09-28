@@ -950,6 +950,32 @@ verlo directamente parado en la factura.
     para obtener el traceback real, que es mucho más confiable que el status de build o el log de
     producción de la rama.
 
+## Saldo pendiente de la factura, trasladado al Documento SAT (2026-09-28)
+
+Pedido explícito del usuario: Community (Solicitud de Pago tipo Pago Directo, ver
+`construtec_account_payment_order_19`/`construtec_sat_catalog_sync_19` en Odoo19C) necesita
+sincronizar el saldo pendiente y estado de pago de una factura real - el usuario pidió
+específicamente que ese dato "se traslade" al Documento SAT (`construtec.sat.document`), no que
+el mecanismo de sync lea `account.move` directo, aunque el dato en sí ya vivía ahí de forma
+nativa (`amount_residual`/`payment_state`).
+
+- **`move_amount_residual`/`move_payment_state`** (nuevos, `models/sat_document.py`) - campos
+  `related` a `move_id.amount_residual`/`move_id.payment_state`, `store=True` (sin ningún
+  cálculo propio - Odoo ya lo mantiene actualizado de forma nativa). Visibles en el formulario
+  del Documento SAT (`views/sat_document_views.xml`, junto a `monto_total`/`monto_iva`,
+  `invisible="state != 'convertido_factura'"` - solo aplica una vez que el documento ya generó
+  una factura real).
+- **Consumidor**: `construtec_sat_catalog_sync_19.tools.enterprise_sync_api.fetch_vendor_invoices()`
+  (Community) ahora lee estos dos campos (y `numero_autorizacion`/`nombre_emisor`/`nit_contacto`/
+  `monto_total`) en un solo `search_read` sobre `construtec.sat.document` - antes eran tres
+  llamadas (`account.move` + `res.partner` + `construtec.sat.document`); ahora son dos (el
+  Documento SAT trae casi todo resuelto en un solo lugar, salvo `currency_id`/
+  `payment_order_id`, que se siguen leyendo de `account.move` directo - no se duplicaron en el
+  Documento SAT porque no eran parte de este pedido). Ver el CLAUDE.md de
+  `construtec_account_payment_order_19` (Odoo19C) para el diseño completo del consumidor
+  (`construtec.sat.invoice.mirror`, la vinculación de una Solicitud de Pago a la factura real,
+  y el candado contra pedir el pago de una factura ya pagada o ya comprometida en otra Orden).
+
 ## Common commands
 
 ```
