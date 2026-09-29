@@ -100,6 +100,121 @@ Verificado con `odoo-bin shell` en `construtec_test`: `-u` limpio de ambos módu
 
 Extensión pedida al convertir "Proveedor Sugerido" (encabezado de `account.payment.order`, `construtec_account_payment_order_19`) de texto libre a un Many2one real contra este catálogo - un Many2one estándar permite "Crear" un registro nuevo directo desde el desplegable, no solo desde el wizard de IA. Para que ese camino manual también quede marcado para revisión (mismo criterio que ya usa "Cargar Cotización"), `create()` (override, nuevo) hace `vals.setdefault('pendiente_verificar', not vals.get('origin_id'))` en cada alta - cualquier alta sin `origin_id` (manual, o del wizard de IA) queda `pendiente_verificar=True` salvo que el propio llamador ya lo haya decidido explícitamente; el pull real desde Enterprise (`_sync_vendor_catalog_from_enterprise()`, que sí manda `origin_id`) sigue quedando `pendiente_verificar=False` automáticamente, sin cambios en ese método.
 
+## Facturas de Proveedor (`construtec.sat.invoice.mirror`) - para Pago Directo desde Community (2026-09-28)
+
+Tercer mirror de este módulo, mismo patrón exacto que `construtec.materials.catalog.mirror`:
+copia de solo lectura de facturas de proveedor ya contabilizadas en Enterprise (`account.move`,
+`move_type in (in_invoice, in_refund)`, `state=posted`), con `amount_residual`/`payment_state`/
+`linked_order_name` (el `name` de la Orden que ya la tiene vinculada, si alguna - nunca un id).
+Pedido explícito del usuario, ver `construtec_account_payment_order_19/CLAUDE.md` ("Pago Directo
+ahora se puede crear/enviar desde Community") para el diseño completo del consumidor.
+
+**La fuente de la búsqueda es `construtec.sat.document`** - posición explícita del usuario, que
+corrigió un intento intermedio de esta misma pasada: "lo que existe es el Documento SAT - el
+Documento SAT se convierte en una factura de Odoo". El saldo pendiente/estado de pago vive de
+forma nativa en la factura, y se refleja hacia el Documento SAT vía los campos `related`
+`move_amount_residual`/`move_payment_state` (`construtec_account_19/models/sat_document.py`) -
+sin ningún cron ni sincronización propia, Odoo los recalcula solo en cuanto la factura cambia
+(un pago nuevo, una reconciliación, etc.).
+
+Historial real de esta misma pasada, documentado porque el error intermedio no era obvio:
+
+1. **Primera versión**: leía `account.move` directo - funcionaba, pero `partner_name` salía de
+   `nombre_emisor` de `construtec.sat.document` cuando había uno vinculado (bug, ver punto 3).
+2. **Intento intermedio, descartado**: al notar que "solo aparecían 13 facturas", se asumió (sin
+   confirmarlo con el usuario) que la causa era que algunas facturas no tenían Documento SAT
+   detrás - así que se cambió la búsqueda a `account.move` directo, tratando al Documento SAT
+   como un simple enriquecimiento opcional. **El usuario corrigió esto explícitamente**: en su
+   modelo real no existen facturas sin Documento SAT - la premisa detrás del cambio era
+   incorrecta. Revertido.
+3. **Versión final (esta)**: la búsqueda es sobre `construtec.sat.document`
+   (`state='convertido_factura'`, factura `posted`), con dos correcciones reales sobre el primer
+   intento:
+   - El domain original solo incluía `direction='recibida'` - excluía la **Factura Especial
+     (FESP)**, que la emite la propia Construtec (`direction='emitida'` según la SAT, se usa al
+     comprarle a alguien sin capacidad de facturar) pero económicamente sigue siendo una compra -
+     mismo criterio que ya centraliza `construtec.sat.document._sat_es_compra()` en Enterprise.
+     Domain corregido: `['|', ('direction','=','recibida'), ('tipo_dte','=','FESP'), ...]`.
+   - `partner_name` pasa de `nombre_emisor` (el campo CRUDO de "quién emitió el DTE" - para una
+     Factura Especial sería la propia Construtec) a `partner_id` (ya resuelto por NIT sin
+     importar la dirección - "emisor si es Recibida, receptor si es Emitida" - siempre el
+     contacto real de la otra parte).
+
+- **`tools/enterprise_sync_api.fetch_vendor_invoices()`**: dos llamadas - (1) `search_read`
+  sobre `construtec.sat.document` (trae en un solo lugar `numero_autorizacion`/`partner_id`/
+  `nit_contacto`/`monto_total`/`move_amount_residual`/`move_payment_state`), (2) `read` sobre
+  `account.move` (por los `move_id` recolectados) solo para `currency_id`/`payment_order_id`,
+  que no se duplicaron en el Documento SAT.
+- **Se cuelga del MISMO toggle/cron/botón "Sincronizar ahora"** ya existente para el Catálogo de
+  Materiales - `res.company._sync_vendor_invoices_from_enterprise()`, llamado junto a los otros
+  dos desde `action_sync_materials_catalog_now()`/`_cron_sync_materials_catalog_from_enterprise()`.
+- **Deliberadamente sin filtro de `payment_state`** - se sincroniza TODA factura posted, incluidas
+  las ya pagadas (se ven en el picker de Community, marcadas como no disponibles) - el candado
+  real ("no se puede vincular") vive en `construtec_account_payment_order_19`, no aquí.
+
+**Bug real de producción, encontrado de inmediato al probar**: `base.group_user` solo tenía
+lectura (`perm_read=1, perm_write=0`) sobre `construtec.sat.invoice.mirror`
+(`security/ir.model.access.csv`) - suficiente para los otros dos mirrors de este módulo
+(consumidos vía Many2one, que solo necesita `read` en el comodel), pero **no** para
+`factura_mirror_ids` (Many2many en `construtec_account_payment_order_19`) - escribir un
+Many2many exige `write` en el comodel, no solo `read`, aunque solo se esté vinculando un
+registro ya existente, nunca creándolo. Un Jefe de Técnicos real (solo `base.group_user`) recibía
+"Error de acceso... Ningún grupo permite esta operación" al intentar guardar una Solicitud de
+Pago con una factura elegida. Fix: `perm_write=1` para `base.group_user` (sigue sin
+`create`/`unlink` - puede vincular/desvincular, nunca crear ni borrar una entrada del mirror
+directamente). Verificado con un usuario creado solo con `base.group_user` (sin ningún grupo de
+Contabilidad/Administrador) - vincular `factura_mirror_ids` ya no truena.
+
+Verificado con `odoo-bin shell` en `construtec_test`, versión final (`construtec.sat.document`
+como fuente): tres documentos mockeados (uno `direction='recibida'` normal, una Factura Especial
+`tipo_dte='FESP'`, uno ya con `move_payment_state='paid'`) - los tres aparecen correctamente en
+el resultado (incluida la ya pagada - visible, no oculta), con `numero_autorizacion`/
+`partner_name`/`partner_vat` resueltos desde `partner_id`/`nit_contacto` del propio Documento
+SAT, no desde `nombre_emisor`. Los campos `move_amount_residual`/`move_payment_state` en sí
+(Enterprise, `construtec.sat.document`) se verificaron con su valor inicial correcto contra una
+factura real recién creada - la reactividad tras una reconciliación real no se pudo confirmar de
+punta a punta por un problema de datos/configuración de la propia base `construtec_test` de
+Enterprise (un `account.payment` creado a mano ahí no generaba su `move_id` - no reproducido en
+Community, donde el mismo patrón sí funciona correctamente, ver `construtec_account_payment_
+order_19/CLAUDE.md`) - dado que son campos `related` estándar de Odoo sin ningún cálculo propio,
+no se considera un riesgo alto, pero vale la pena confirmarlo visualmente la primera vez que se
+use con datos reales.
+
+## Rediseño: `origin_id` pasa a ser el Documento SAT, no la factura - soporte de Pendientes (2026-09-28/29)
+
+Corrección real del usuario sobre la sección anterior: un Documento SAT no necesita estar ya
+`convertido_factura` para que un jefe de técnicos pida su pago - el Contador puede convertirlo al
+Aprobar la Solicitud (ver `construtec_account_payment_order_19/CLAUDE.md`, "Documentos SAT
+Pendientes en Pago Directo", para el diseño completo del lado Enterprise). Esto obligó a un
+cambio de fondo en `origin_id`: **ya no es el id del `account.move`** (que puede no existir
+todavía) - **es siempre el id del propio `construtec.sat.document`**, la única identidad estable
+sin importar el estado.
+
+- **Campos nuevos en el mirror**: `move_origin_id` (Integer, vacío si el documento sigue
+  pendiente) y `state` (`pendiente`/`convertido_factura`).
+- **`fetch_vendor_invoices()`**: el domain ya no exige `move_id.state='posted'` (un documento
+  pendiente no tiene `move_id`) - ahora es simplemente `state in ('pendiente',
+  'convertido_factura')`, con el filtro de "factura no calza" (move_type/state/pagada al 100%)
+  movido a Python, aplicado SOLO a los ya convertidos. **Cambio de comportamiento explícito,
+  pedido por el usuario**: una factura ya pagada al 100% ahora se **excluye** del resultado (antes
+  quedaba visible-pero-bloqueada) - "si la factura ya está pagada totalmente, ya no debería
+  aparecer en Community".
+- Para un documento `pendiente`, no hay ninguna factura de la que copiar saldo/estado - se
+  reportan directamente como `amount_residual = monto_total` (nada pagado) y `payment_state =
+  'not_paid'`, sin ningún campo adicional que sincronizar para ese caso.
+
+Verificado con `odoo-bin shell` (Community, `construtec_test`): `fetch_vendor_invoices()`
+mockeada con una entrada `convertido_factura` y una `pendiente` - ambas llegan con los campos
+correctos (`move_origin_id`/`state`/`amount_residual`/`payment_state`); el upsert por `origin_id`
+crea ambas filas correctamente en el mirror.
+
+**Corrección posterior (2026-09-29)**: `move_origin_id` se ELIMINÓ del modelo - el usuario pidió
+explícitamente "de Enterprise a Community solo deben copiarse los documentos SAT", y ese campo
+guardaba el id real del `account.move` en Enterprise, aunque nunca se usara para nada visible. Ver
+"Community nunca vuelve a conocer ningún id de account.move" en el CLAUDE.md de
+`construtec_account_payment_order_19` para el detalle completo (`sat_document_ids` unificado,
+reemplazando a `factura_origin_ids`/`sat_document_pendiente_ids`).
+
 ## Status as of this writing (2026-09-01)
 
 **Verificado con `odoo-bin shell` contra `construtec_test` (Enterprise), incluyendo el navegador real**: se sincroniza tanto una entrada tipo Bien como una tipo Servicio (ambas generan espejo local, `bien_o_servicio` viaja correctamente), la copia local en Enterprise (sin red, `company_id` incluido), el `name_search` con preferencia por proveedor (preferido primero, el resto sigue visible), y el autocompletado real en la pestaña Materiales de `construtec_account_payment_order_19` (elegir una entrada del catálogo llena Material/Proveedor Sugerido/Precio Estimado y recalcula los totales, y el picker de esa línea solo ofrece Bienes por su propio `domain=`) — todo funcionando de punta a punta en un solo Odoo (Enterprise).

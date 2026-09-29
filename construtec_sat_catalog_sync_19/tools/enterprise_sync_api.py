@@ -183,11 +183,20 @@ def fetch_vendor_invoices(url, db, login, api_key):
     otra parte. `nit_contacto` (related a `partner_id.vat`, ya `store=True` en el propio
     Documento SAT) evita una tercera llamada solo para el NIT.
 
+    **`origin_id` en el resultado es SIEMPRE el id del `construtec.sat.document` (`doc['id']`),
+    nunca el del `account.move`** - decisión explícita del usuario (2026-09-29): "de Enterprise a
+    Community solo deben copiarse los documentos SAT". El `move_id` solo se usa AQUÍ, del lado
+    Enterprise, para resolver `currency_id`/`amount_residual`/`payment_state`/`linked_order_name`
+    de un documento ya convertido - ese id nunca viaja hacia Community ni se guarda en el mirror.
+    Community no necesita saber si un Documento SAT ya es factura o no para poder vincularlo -
+    Enterprise decide qué hacer según el estado real del documento al recibir la sincronización
+    (ver `_resolve_sat_document_ids()`, `account_payment_order_sat_document.py`).
+
     Dos llamadas: (1) `search_read` sobre `construtec.sat.document` (todo resuelto en un solo
     lugar - incluido `payment_order_id`, el candado propio de un documento aún pendiente), (2)
-    `read` sobre `account.move` (por los `move_id` recolectados, solo para los ya convertidos)
-    para `currency_id`/`move_type`/`state`/`payment_order_id`, que no se duplican en el
-    Documento SAT. Requiere que el usuario de integración tenga acceso a
+    `read` sobre `account.move` (por los `move_id` recolectados, solo para los ya convertidos,
+    solo para uso interno de esta función) para `currency_id`/`move_type`/`state`/
+    `payment_order_id`. Requiere que el usuario de integración tenga acceso a
     `construtec.sat.document`/`account.move` (`account.group_account_invoice` en Enterprise),
     igual que `fetch_vendor_catalog()`."""
     if not (url and db and login and api_key):
@@ -235,7 +244,6 @@ def fetch_vendor_invoices(url, db, login, api_key):
                 continue
             result.append({
                 **base,
-                'move_origin_id': doc['move_id'][0],
                 'state': 'convertido_factura',
                 'currency_name': move['currency_id'][1] if move.get('currency_id') else False,
                 'amount_residual': doc.get('move_amount_residual') or 0.0,
@@ -246,7 +254,6 @@ def fetch_vendor_invoices(url, db, login, api_key):
         else:
             result.append({
                 **base,
-                'move_origin_id': False,
                 'state': 'pendiente',
                 'currency_name': doc['currency_id'][1] if doc.get('currency_id') else False,
                 'amount_residual': doc.get('monto_total') or 0.0,

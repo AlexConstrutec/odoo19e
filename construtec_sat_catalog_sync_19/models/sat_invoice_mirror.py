@@ -13,13 +13,15 @@ class ConstructecSatInvoiceMirror(models.Model):
         '`_name` en Enterprise y Community, poblado en Community por un pull propio '
         '(res_company.py::_sync_vendor_invoices_from_enterprise(), mismo toggle/cron/botón ya '
         'usado para el Catálogo de Materiales).\n\n'
-        '`origin_id` es el id REAL del construtec.sat.document en Enterprise (nunca del '
-        'account.move, que puede no existir todavía si el documento sigue Pendiente) - es la '
-        'clave universal que existe sin importar el estado. `move_origin_id` es el id del '
-        'account.move REAL, solo presente si `state=convertido_factura`. Un jefe de técnicos '
-        'puede pedir el pago de un documento todavía Pendiente - el Contador lo convierte a '
-        'factura real al Aprobar la Solicitud (ver account_payment_order_sat_document.py, '
-        'Enterprise) - ver construtec_account_payment_order_19 para el consumidor de ambos ids.'
+        '`origin_id` es el id REAL del construtec.sat.document en Enterprise - NUNCA un id de '
+        'account.move (decisión explícita del usuario, 2026-09-29: "de Enterprise a Community '
+        'solo deben copiarse los documentos SAT" - este mirror no conoce, guarda ni sincroniza '
+        'ningún id de factura, solo del Documento SAT mismo). Un jefe de técnicos puede pedir el '
+        'pago de un documento todavía Pendiente - el Contador lo convierte a factura real al '
+        'Aprobar la Solicitud (ver account_payment_order_sat_document.py, Enterprise, que '
+        'resuelve `origin_id` hacia `construtec.sat.document` y decide qué hacer según su '
+        'estado ahí - Community nunca necesita saber si ya es factura o no para vincularla, solo '
+        'envía el id del Documento SAT).'
     )
     _order = 'fecha desc'
 
@@ -29,11 +31,6 @@ class ConstructecSatInvoiceMirror(models.Model):
              '(upsert) y, más importante, la clave que Enterprise usa para reclamar el '
              'documento (aún pendiente) o resolver el vínculo real (convertido_factura) al '
              'recibir una Orden de Pago sincronizada desde Community.')
-    move_origin_id = fields.Integer(
-        string='ID de la Factura (Enterprise)',
-        help='El id real del account.move en Enterprise, solo si este documento ya se convirtió '
-             'a factura (state=convertido_factura). Vacío mientras sigue Pendiente - no hay '
-             'ningún account.move todavía.')
     state = fields.Selection([
         ('pendiente', 'Pendiente (aún no es factura)'),
         ('convertido_factura', 'Convertido a Factura'),

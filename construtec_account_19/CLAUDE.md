@@ -1010,6 +1010,14 @@ reclama el documento sin convertirlo; una segunda Orden intentando el mismo docu
 queda bloqueada nombrando a la primera; `action_approve()` convierte el documento
 (`state='convertido_factura'`) y vincula el `move` resultante a la Orden.
 
+**Corrección posterior (2026-09-29)**: `_resolve_sat_document_pendiente_ids()` se renombró a
+`_resolve_sat_document_ids()` y ahora resuelve TODOS los ids recibidos en una sola llamada
+(ya `convertido_factura` o todavía `pendiente`, filtrando por el estado real de cada documento en
+ese momento) - Community pasó a mandar un solo `sat_document_ids` (nunca separa por estado, ver
+CLAUDE.md de `construtec_account_payment_order_19`, "Community nunca vuelve a conocer ningún id
+de account.move"). `action_approve()` no cambió. Verificado: un `create()` mezclando un documento
+pendiente y uno ya convertido en la MISMA lista resuelve ambos correctamente sin cruzarse.
+
 ## Common commands
 
 ```

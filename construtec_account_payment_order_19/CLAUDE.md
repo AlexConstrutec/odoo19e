@@ -1557,6 +1557,45 @@ Community, `fetch_partners()` mockeada (dos llamadas `_jsonrpc`) resuelve `es_pr
 correctamente, y `_construtec_tag_names_for()` lo usa igual de bien que antes usaba
 `supplier_rank`.
 
+## Community nunca vuelve a conocer ningún id de `account.move` - `sat_document_ids` unificado (2026-09-29)
+
+Corrección explícita del usuario, viendo su Community de producción: "quita account.move o
+bórralos de Community, de Enterprise a Community solo deben copiarse los documentos SAT". El
+diseño anterior (ver "Documentos SAT Pendientes en Pago Directo" más arriba) ya cumplía esto en
+espíritu, pero el mirror SÍ guardaba/enviaba `move_origin_id` (el id real del `account.move` en
+Enterprise, para los mirrors ya `convertido_factura`) - una filtración conceptual real, aunque
+nunca se usara para nada visible. Se elimina por completo:
+
+- **`construtec.sat.invoice.mirror`** (Community): se elimina el campo `move_origin_id`.
+  `origin_id` sigue siendo, como ya era, siempre el id del `construtec.sat.document` - nunca el
+  de la factura.
+- **`fetch_vendor_invoices()`**: ya no incluye `move_origin_id` en el resultado - el `move_id`
+  solo se usa internamente, del lado Enterprise, para resolver saldo/estado/moneda de un
+  documento ya convertido; nunca sale de esta función hacia Community.
+- **`_prepare_sync_vals()`**: `factura_origin_ids`/`sat_document_pendiente_ids` (dos listas
+  separadas por estado) se colapsan en una sola `sat_document_ids` - siempre ids de
+  `construtec.sat.document`, sin importar el estado del mirror. Community deja de necesitar saber
+  o decidir nada según el estado - esa decisión es 100% de Enterprise.
+- **`create()`** (archivo compartido): un solo hook (`sat_document_ids_list`), una sola llamada
+  condicional (`hasattr(record, '_resolve_sat_document_ids')`) - se elimina
+  `_resolve_factura_origin_ids()` por completo (ya no hace falta, ni siquiera como referencia a
+  `account.move`, que aunque es un modelo nativo presente en ambas ediciones, ya no tenía ningún
+  motivo para aparecer en este archivo compartido).
+- **`_resolve_sat_document_ids()`** (nuevo, reemplaza a `_resolve_sat_document_pendiente_ids()`,
+  Enterprise-only, `account_payment_order_sat_document.py`): resuelve TODOS los ids recibidos en
+  una sola llamada, filtrando por el estado REAL de cada `construtec.sat.document` en ese momento
+  (nunca el que tenía cuando Community sincronizó por última vez) - los ya `convertido_factura`
+  vinculan su `move_id` existente directo; los `pendiente` se reclaman, sin convertir todavía
+  (`action_approve()` los convierte después, sin cambios ahí).
+
+Verificado con `odoo-bin shell` (Community + Enterprise, `construtec_test`, savepoint/rollback):
+el campo `move_origin_id` ya no existe en el modelo; `fetch_vendor_invoices()` mockeada ya no lo
+construye; `_prepare_sync_vals()` manda un solo `sat_document_ids` (ambas claves viejas ya no
+existen en el payload); en Enterprise, `create()` con `sat_document_ids` mezclando un documento
+pendiente y uno ya convertido resuelve ambos correctamente en la MISMA llamada - el pendiente
+queda reclamado sin convertir, el convertido vincula su `move_id` existente sin volver a
+convertirlo.
+
 ## Common commands
 
 ```
