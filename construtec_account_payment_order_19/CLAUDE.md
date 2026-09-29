@@ -1634,6 +1634,16 @@ y `fetch_partners()` mockeada (confirmando que el domain enviado a Enterprise in
 el contacto recibido queda etiquetado "Proveedores" correctamente, sin ninguna llamada a
 `construtec.sat.document`.
 
+**Revertido el mismo día, a pedido del propio usuario ("te lo explico más sencillo: sincroniza
+los contactos que son proveedores de documentos SAT de Enterprise a Community")**: la vuelta al
+mirror local resultó ser una sobre-corrección - el usuario prefiere lo más simple y directo,
+consultar `construtec.sat.document` en Enterprise en cada corrida (como estaba antes de la
+sección inmediatamente anterior), sin depender de que el mirror de facturas de Community ya esté
+poblado. `fetch_partners()`/`_sync_partners_from_enterprise()` volvieron a su forma de la sección
+"Un contacto es 'Proveedor' solo con al menos un Documento SAT de compra" de arriba - ver esa
+sección para el detalle vigente. **Esta es la versión final/correcta** - no volver a cambiarla sin
+que el usuario lo pida explícitamente de nuevo.
+
 ## Common commands
 
 ```

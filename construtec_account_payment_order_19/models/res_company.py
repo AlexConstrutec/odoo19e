@@ -544,37 +544,23 @@ class ResCompany(models.Model):
         return True, message
 
     def _sync_partners_from_enterprise(self):
-        """Pull de los contactos que ya son Clientes/Proveedores reales en Enterprise - upsert
-        por `enterprise_partner_ref`, igual patrón que empleados/cuentas analíticas. Las
-        etiquetas (`category_id`) se derivan de `customer_rank`/`es_proveedor_sat` YA recibidos
-        en el payload - nunca se recalculan localmente.
-
-        **Proveedor se resuelve por NIT ya conocido AQUÍ, en Community** (vía el propio mirror de
-        Documentos SAT, `construtec.sat.invoice.mirror` - `construtec_sat_catalog_sync_19`), no
-        preguntándole a Enterprise "quién es proveedor" contra una tabla que Community no
-        controla - corrección explícita del usuario (2026-09-29): "los contactos de proveedores
-        en Community se filtran porque tienen una factura de proveedor en Community... estas
-        facturas de proveedor de Community son los documentos SAT de Enterprise". Se manda la
-        lista de NITs ya sincronizados (`partner_vat`, distintos, no vacíos) a `fetch_partners()`
-        para que Enterprise resuelva los contactos reales por NIT.
-
-        **Orden real, no garantizado por diseño**: esta sincronización de Contactos corre bajo
-        `payment_order_sync_enabled` (este módulo), mientras que el mirror de Documentos SAT
-        corre bajo `materials_catalog_sync_enabled` (`construtec_sat_catalog_sync_19`) - dos
-        toggles/crons independientes. Si el mirror de Documentos SAT todavía no se ha poblado la
-        primera vez, esta corrida simplemente no encuentra ningún NIT de proveedor (mismo
-        criterio de auto-sanación ya usado en el resto de este módulo - la siguiente corrida, una
-        vez que el mirror ya tenga datos, lo resuelve solo)."""
+        """Pull de los contactos que ya son Clientes/Proveedores reales en Enterprise
+        (`fetch_partners()` consulta directo `construtec.sat.document` allá para saber quién
+        califica como Proveedor - pedido explícito del usuario, 2026-09-29: "sincroniza los
+        contactos que son proveedores de documentos SAT de Enterprise a Community") - upsert por
+        `enterprise_partner_ref`, igual patrón que empleados/cuentas analíticas. Las etiquetas
+        (`category_id`) se derivan de `customer_rank`/`es_proveedor_sat` YA recibidos en el
+        payload - nunca se recalculan localmente (los campos de rango de Community no significan
+        nada real, esta base no factura contra estos contactos, y `construtec.sat.document` no
+        existe aquí)."""
         self.ensure_one()
         if self.payment_order_role != 'solicitante' or not self.payment_order_sync_enabled:
             return True, self.env._('Sincronización de Contactos no aplica (rol o '
                                      'sincronización no configurados).')
-        proveedor_vats = self.env['construtec.sat.invoice.mirror'].sudo().search(
-            [('partner_vat', '!=', False)]).mapped('partner_vat')
         try:
             partners = fetch_partners(
                 self.payment_order_sync_url, self.payment_order_sync_db,
-                self.payment_order_sync_login, self.payment_order_sync_api_key, proveedor_vats)
+                self.payment_order_sync_login, self.payment_order_sync_api_key)
         except EnterpriseSyncError as exc:
             _logger.warning('Sincronización de Contactos falló para %s: %s', self.name, exc)
             return False, str(exc)
