@@ -7,7 +7,7 @@
             <form string="Orden de Pago">
                 <header>
                     <button name="action_submit" string="Enviar" type="object" class="oe_highlight"
-                            invisible="tipo not in ('anticipo', 'anticipo_materiales') or state != 'borrador'"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_materiales', 'pago_directo') or state != 'borrador' or (tipo == 'pago_directo' and es_procesador)"/>
                     <button name="action_submit_depositar_a_mi" string="Depositar a Mí" type="object"
                             class="oe_highlight"
                             invisible="tipo != 'anticipo_viaticos' or state != 'borrador' or orden_padre_id"/>
@@ -16,17 +16,17 @@
                             invisible="tipo != 'anticipo_viaticos' or state != 'borrador' or orden_padre_id"/>
                     <button name="action_approve" string="Aprobar" type="object" class="oe_highlight"
                             groups="construtec_account_payment_order_19.group_payment_order_approver"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'enviado' or not es_procesador"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') or state != 'enviado' or not es_procesador"/>
                     <button name="action_reject" string="Rechazar" type="object"
                             groups="construtec_account_payment_order_19.group_payment_order_approver"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'enviado' or not es_procesador"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') or state != 'enviado' or not es_procesador"/>
                     <button name="action_reset_to_draft" string="Volver a Borrador" type="object"
                             groups="construtec_account_payment_order_19.group_payment_order_approver"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'enviado' or not es_procesador"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') or state != 'enviado' or not es_procesador"/>
                     <button name="action_reset_to_draft" string="Volver a Borrador" type="object"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'rechazado'"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') or state != 'rechazado'"/>
                     <button name="action_cancel" string="Cancelar" type="object"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state in ('cancelado', 'rechazado', 'aplicado', 'liquidado', 'dividida')"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') or state in ('cancelado', 'rechazado', 'aplicado', 'liquidado', 'dividida')"/>
                     <button name="action_aplicar" string="Aplicar" type="object" class="oe_highlight"
                             groups="account.group_account_manager"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'aprobado' or not es_procesador"/>
@@ -54,7 +54,8 @@
                     <field name="state" widget="statusbar"
                            statusbar_visible="borrador,enviado,aprobado,aplicado,liquidado"
                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')"/>
-                    <field name="state" widget="statusbar" statusbar_visible="borrador,liquidado"
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="borrador,enviado,aprobado,liquidado"
                            invisible="tipo != 'pago_directo'"/>
                 </header>
                 <sheet>
@@ -115,7 +116,41 @@
                     </group>
 
                     <notebook>
-                        <page string="Facturas y Pagos" invisible="not es_procesador">
+                        <page string="Factura a Pagar" invisible="tipo != 'pago_directo' or es_procesador">
+                            <p class="text-muted">
+                                Elige la factura del proveedor que se debe pagar - solo se muestran
+                                facturas reales ya contabilizadas en Enterprise. Si es una factura grande,
+                                se puede pagar en varios abonos (varias Solicitudes) - en cuanto una Orden
+                                cubre parte del saldo, la factura queda libre para que otra Orden cubra el
+                                resto despues.
+                            </p>
+                            <field name="factura_mirror_ids" widget="many2many" nolabel="1"
+                                   readonly="state != 'borrador'">
+                                <list>
+                                    <field name="numero_autorizacion" string="No. Autorización"/>
+                                    <field name="partner_name" string="Proveedor"/>
+                                    <field name="fecha"/>
+                                    <field name="monto_total" string="Monto Total"/>
+                                    <field name="amount_residual" string="Saldo Pendiente"/>
+                                    <field name="payment_state" widget="badge"
+                                           decoration-danger="payment_state == 'not_paid'"
+                                           decoration-warning="payment_state in ('partial', 'in_payment')"
+                                           decoration-success="payment_state in ('paid', 'reversed')"/>
+                                    <field name="linked_order_name" string="Ya Vinculada A"/>
+                                </list>
+                            </field>
+                        </page>
+                        <!-- groups= además de invisible: "invisible" solo oculta en pantalla, no evita
+                             que Odoo intente LEER estos campos (factura_ids/pago_ids/move_id apuntan a
+                             account.move/account.payment) - un usuario sin ningún grupo de Contabilidad
+                             (ej. un Jefe de Técnicos en Community, que nunca es "procesador") tronaba con
+                             "Error de acceso" al abrir/actualizar la Orden, aunque la pestaña ni se le
+                             mostrara. Bug real reportado por el usuario 2026-09-18 al usar "Depositar a
+                             Mí" con un usuario sin permisos de Contabilidad. account.group_account_invoice
+                             es uno de los grupos que el propio mensaje de error de Odoo ya listaba como
+                             con acceso a account.move. -->
+                        <page string="Facturas y Pagos" invisible="not es_procesador"
+                              groups="account.group_account_invoice">
                             <div class="oe_title">
                                 <h2>Facturas</h2>
                             </div>
@@ -126,8 +161,9 @@
                             </p>
                             <p class="text-muted" invisible="tipo != 'pago_directo'">
                                 Obligatorio en un Pago Directo: agrega al menos una factura. Al Conciliar, el
-                                monto del pago debe coincidir exactamente con el total de la(s) factura(s) - sin
-                                diferencia admitida (a diferencia de un Anticipo, no usa Cuenta de Ajuste).
+                                pago nunca puede exceder el saldo pendiente - si cubre menos, la factura queda
+                                con el saldo restante disponible para que otra Orden lo cubra despues (nunca
+                                usa Cuenta de Ajuste, a diferencia de un Anticipo).
                             </p>
                             <field name="factura_ids" widget="many2many" nolabel="1">
                                 <list>
@@ -244,7 +280,7 @@
                             </group>
                         </page>
                         <page string="Sincronización"
-                              invisible="(origin == 'synced' and not external_ref) or tipo == 'pago_directo'">
+                              invisible="origin == 'synced' and not external_ref">
                             <group>
                                 <field name="origin"/>
                                 <field name="external_ref" invisible="not external_ref"/>
@@ -320,11 +356,11 @@
                 <field name="partner_id"/>
                 <field name="lote_origen" string="Lote de Origen"/>
                 <filter string="Mis Órdenes" name="my_orders"
-                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')), ('requested_by_id', '=', uid)]"/>
+                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo')), ('requested_by_id', '=', uid)]"/>
                 <filter string="Pendientes de Aprobar" name="pendientes"
-                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')), ('state', '=', 'enviado')]"/>
+                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo')), ('state', '=', 'enviado')]"/>
                 <filter string="Aprobadas" name="aprobadas"
-                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')), ('state', '=', 'aprobado')]"/>
+                        domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo')), ('state', '=', 'aprobado')]"/>
                 <filter string="Anticipos Liquidados" name="anticipos_liquidados"
                         domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')), ('state', '=', 'liquidado')]"/>
                 <filter string="Anticipos sin Liquidar" name="anticipos_sin_liquidar"
@@ -347,8 +383,14 @@
         </field>
     </record>
 
+    <!-- App propia (sin parent) - antes vivía dentro de Facturación (account.menu_finance_payables),
+         pedido explícito del usuario 2026-09-18: que Órdenes de Pago sea su propia app, con su
+         propio ícono (static/description/icon.png). Al ser el propio root el que trae la action,
+         el ícono de la app abre directo esta lista - los otros 2 menús de este módulo (Importar
+         Solicitudes, Viáticos sin Liquidar) ahora cuelgan de este mismo root en vez de Facturación. -->
     <menuitem action="action_account_payment_order" id="menu_account_payment_order"
-              parent="account.menu_finance_payables" sequence="21"/>
+              name="Órdenes de Pago" web_icon="construtec_account_payment_order_19,static/description/icon.png"
+              sequence="21"/>
 
     <record id="action_account_payment_order_generar_excel_transferencia" model="ir.actions.server">
         <field name="name">Generar Excel de Transferencia</field>

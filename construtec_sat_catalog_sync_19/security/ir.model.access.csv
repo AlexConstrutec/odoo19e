@@ -4,3 +4,5 @@ access_construtec_materials_catalog_mirror_user,construtec.materials.catalog.mir
 access_construtec_materials_catalog_mirror_system,construtec.materials.catalog.mirror.system,model_construtec_materials_catalog_mirror,base.group_system,1,1,1,1
 access_construtec_materials_vendor_mirror_user,construtec.materials.vendor.mirror.user,model_construtec_materials_vendor_mirror,base.group_user,1,0,0,0
 access_construtec_materials_vendor_mirror_system,construtec.materials.vendor.mirror.system,model_construtec_materials_vendor_mirror,base.group_system,1,1,1,1
+access_construtec_sat_invoice_mirror_user,construtec.sat.invoice.mirror.user,model_construtec_sat_invoice_mirror,base.group_user,1,1,0,0
+access_construtec_sat_invoice_mirror_system,construtec.sat.invoice.mirror.system,model_construtec_sat_invoice_mirror,base.group_system,1,1,1,1

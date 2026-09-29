@@ -93,7 +93,13 @@ class AccountPaymentOrderViaticoLine(models.Model):
     def _onchange_employee_partner_id(self):
         for line in self:
             if line.employee_id:
-                line.tecnico_name = line.employee_id.name
+                # .sudo(): un jefe de técnicos capturando esta línea no tiene por qué tener
+                # hr.group_hr_user - sin esto, Odoo intenta resolver la lectura vía
+                # hr.employee.public (el "perfil público"), que no conoce ninguno de los campos
+                # custom de Datos Personales (agregados 2026-09-16/17) y truena con "Error de
+                # acceso". Bug real reportado por el usuario 2026-09-18 con una captura de
+                # producción real al presionar "Depositar a Mí" - ver CLAUDE.md.
+                line.tecnico_name = line.employee_id.sudo().name
                 # puesto/departamento: del CONTACTO, no resueltos en vivo - ver header/res_partner.py.
                 line.puesto = line.employee_partner_id.function or line.puesto
                 line.departamento = line.employee_partner_id.employee_department_id.name or line.departamento
@@ -116,8 +122,9 @@ class AccountPaymentOrderViaticoLine(models.Model):
             ref = vals.pop('employee_enterprise_ref', None)
             if ref and not vals.get('employee_partner_id'):
                 # Mismo mecanismo que el encabezado - ver
-                # AccountPaymentOrder._resolve_employee_enterprise_ref().
-                employee = self.env['hr.employee'].browse(int(ref)).exists()
+                # AccountPaymentOrder._resolve_employee_enterprise_ref(). .sudo(): mismo motivo
+                # (bug real 2026-09-18).
+                employee = self.env['hr.employee'].sudo().browse(int(ref)).exists()
                 if employee:
                     vals['employee_partner_id'] = employee.work_contact_id.id
             partner_id = vals.get('employee_partner_id')

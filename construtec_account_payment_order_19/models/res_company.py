@@ -207,7 +207,7 @@ class ResCompany(models.Model):
 
         pendientes = self.env['account.payment.order'].search([
             ('company_id', '=', self.id),
-            ('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')),
+            ('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo')),
             ('origin', '=', 'local'),
             ('sync_state', '=', 'synced'),
             ('state', 'not in', ('rechazado', 'cancelado')),
@@ -232,16 +232,22 @@ class ResCompany(models.Model):
             if not remoto:
                 continue
             monto_remoto = remoto.get('monto', orden.monto)
-            if remoto['state'] == orden.state and monto_remoto == orden.monto:
+            estado_remoto = remoto['state']
+            estado_anterior = orden.state
+            if estado_remoto == estado_anterior and monto_remoto == orden.monto:
                 continue
             orden.write({
-                'state': remoto['state'],
+                'state': estado_remoto,
                 'monto': monto_remoto,
                 'reject_reason': remoto.get('reject_reason') or orden.reject_reason,
                 'approve_date': remoto.get('approve_date') or orden.approve_date,
                 'reject_date': remoto.get('reject_date') or orden.reject_date,
             })
             actualizadas += 1
+            # Notifica al solicitante original solo si el ESTADO en sí cambió (no si solo
+            # cambió `monto`) - ver AccountPaymentOrder._notify_estado_pull().
+            if estado_remoto != estado_anterior:
+                orden._notify_estado_pull(estado_remoto)
         message = self.env._(
             '%(actualizadas)s de %(total)s Órdenes de Pago actualizadas.',
             actualizadas=actualizadas, total=len(pendientes))
@@ -300,7 +306,10 @@ class ResCompany(models.Model):
         }
 
     def _sync_employees_from_enterprise(self):
-        """Pull name/department/job for active employees and upsert them into hr.employee.
+        """Pull name/department/job position/job title for active employees and upsert them
+        into hr.employee. `job_id` (hr.job, catálogo formal) se resuelve find-or-create por
+        nombre+compañía, mismo criterio que `department_id` - Community termina con los mismos
+        Puestos de Trabajo que Enterprise, no solo el texto libre de `job_title`.
 
         Only meaningful when this company is Solicitante - Procesador companies simply have
         nothing to pull from (they're the source, per explicit product decision: employees
@@ -320,7 +329,18 @@ class ResCompany(models.Model):
 
         Employee = self.env['hr.employee'].sudo()
         Department = self.env['hr.department'].sudo()
+        Job = self.env['hr.job'].sudo()
+        Country = self.env['res.country'].sudo()
         created = updated = 0
+        # Mismos nombres que PERSONAL_DATA_FIELDS en hr_employee.py, sin country_id/
+        # country_of_birth/municipio_nombre (esos 3 llegan como nacionalidad_code/
+        # pais_origen_code/municipio_nombre - ver fetch_employees() - y se resuelven abajo).
+        personal_data_direct_fields = (
+            'primer_nombre', 'segundo_nombre', 'tercer_nombre', 'primer_apellido', 'segundo_apellido',
+            'apellido_casada', 'discapacidad', 'nit', 'igss', 'pueblo_pertenencia', 'comunidad_linguistica',
+            'marital', 'sex', 'birthday', 'children', 'identification_id', 'permit_no', 'certificate',
+            'study_field',
+        )
         for emp in employees:
             enterprise_ref = str(emp['id'])
             department = False
@@ -330,9 +350,23 @@ class ResCompany(models.Model):
                     [('name', '=', dept_name), ('company_id', '=', self.id)], limit=1)
                 if not department:
                     department = Department.create({'name': dept_name, 'company_id': self.id})
+            # Puesto de trabajo (hr.job, catálogo formal - no confundir con job_title, el texto
+            # libre que ya se sincroniza abajo) - pedido explícito del usuario 2026-09-18: mismo
+            # criterio find-or-create por nombre+compañía que ya usa department_id arriba, para
+            # que Community tenga los mismos Puestos de Trabajo que Enterprise, no solo el texto.
+            job = False
+            if emp.get('job_id'):
+                job_name = emp['job_id'][1]
+                job = Job.search([('name', '=', job_name), ('company_id', '=', self.id)], limit=1)
+                if not job:
+                    job = Job.create({
+                        'name': job_name, 'company_id': self.id,
+                        'department_id': department.id if department else False,
+                    })
             vals = {
                 'name': emp['name'],
                 'job_title': emp.get('job_title') or False,
+                'job_id': job.id if job else False,
                 'department_id': department.id if department else False,
                 'cuenta_bancaria_raw': emp.get('acc_number') or False,
                 'banco_nombre_raw': emp.get('bank_name') or False,
@@ -345,13 +379,72 @@ class ResCompany(models.Model):
                 'enterprise_employee_ref': enterprise_ref,
                 'company_id': self.id,
             }
-            existing = Employee.search([('enterprise_employee_ref', '=', enterprise_ref)], limit=1)
+            # `active_test=False`: si este empleado ya se había archivado aquí en una
+            # sincronización anterior (ver más abajo), un `search()` normal ya no lo
+            # encontraría (por default excluye archivados) - se crearía un DUPLICADO en vez de
+            # reconocer al que ya existe.
+            existing = Employee.with_context(active_test=False).search(
+                [('enterprise_employee_ref', '=', enterprise_ref)], limit=1)
+
+            # Relleno de huecos de "Datos Personales" (2026-09-17) - ver el bug real
+            # documentado en hr_employee.py: estos campos, para un empleado que ya existía
+            # antes de esta funcionalidad, llegaban en blanco a Community (nunca se hizo un
+            # backfill desde Enterprise, que sí tiene los valores reales). Para un empleado
+            # NUEVO se cargan todos tal cual (nada que pisar). Para uno EXISTENTE, solo se
+            # completa lo que hoy está en blanco en Community - si el usuario ya cargó/editó
+            # un valor aquí, esta sincronización nunca lo toca ni lo pisa.
+            personal_data_vals = {}
+            for f in personal_data_direct_fields:
+                value = emp.get(f)
+                # Solo se agrega si Enterprise SÍ tiene un valor real - forzar `False` explícito
+                # en un `create()` nuevo pisaría el default del propio campo en Odoo (ej.
+                # `marital` es NOT NULL a nivel de base de datos en `hr.version` con default
+                # 'single' - mandar `False` ahí truena con NotNullViolation en vez de dejar
+                # que el propio modelo ponga su default).
+                if value and (not existing or not existing[f]):
+                    personal_data_vals[f] = value
+            if emp.get('nacionalidad_code') and (not existing or not existing.country_id):
+                country = Country.search([('code', '=', emp['nacionalidad_code'])], limit=1)
+                if country:
+                    personal_data_vals['country_id'] = country.id
+            if emp.get('pais_origen_code') and (not existing or not existing.country_of_birth):
+                country = Country.search([('code', '=', emp['pais_origen_code'])], limit=1)
+                if country:
+                    personal_data_vals['country_of_birth'] = country.id
+            if emp.get('municipio_nombre') and (not existing or not existing.municipio_nombre):
+                personal_data_vals['municipio_nombre'] = emp['municipio_nombre']
+
+            # Baja en Enterprise → baja en Community + en el usuario vinculado (2026-09-18,
+            # pedido explícito del usuario). `fetch_employees()` ya trae `active` (con
+            # `context: active_test=False`, para que un empleado archivado en Enterprise no
+            # desaparezca del todo del resultado). Estado laboral sigue siendo dueño Enterprise
+            # - esto es solo reflejar esa baja aquí, nunca al revés.
+            enterprise_active = emp.get('active', True)
+            was_active = existing.active if existing else True
+
             if existing:
-                existing.write(vals)
+                # `skip_personal_data_push`: este relleno lee de Enterprise, no debe
+                # reenviarse a Enterprise como si el usuario lo hubiera editado aquí (ver
+                # write() en hr_employee.py). `active_test=False`: necesario para poder
+                # reactivar un registro que hoy está archivado - un write() normal sobre un
+                # registro archivado igual funciona, pero mantiene el mismo contexto ya usado
+                # arriba para encontrarlo.
+                employee_record = existing
+                employee_record.with_context(skip_personal_data_push=True, active_test=False).write(
+                    {**vals, **personal_data_vals})
                 updated += 1
             else:
-                Employee.create(vals)
+                employee_record = Employee.create({**vals, **personal_data_vals})
                 created += 1
+
+            if was_active and not enterprise_active:
+                employee_record.action_archive()
+                if employee_record.user_id:
+                    employee_record.user_id.sudo().action_archive()
+            elif not was_active and enterprise_active:
+                employee_record.action_unarchive()
+                if employee_record.user_id:
+                    employee_record.user_id.sudo().action_unarchive()
         message = self.env._(
             '%(created)s empleados nuevos, %(updated)s actualizados.',
             created=created, updated=updated)
@@ -401,6 +494,7 @@ class ResCompany(models.Model):
                 'partner_id': partner.id or False,
                 'company_id': self.id,
                 'enterprise_analytic_ref': enterprise_ref,
+                'disponible_tickets': bool(acc.get('disponible_tickets')),
             }
             existing = AnalyticAccount.search(
                 [('enterprise_analytic_ref', '=', enterprise_ref)], limit=1)

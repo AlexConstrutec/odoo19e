@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_construtec_sat_invoice_mirror_list" model="ir.ui.view">
+        <field name="name">construtec.sat.invoice.mirror.list</field>
+        <field name="model">construtec.sat.invoice.mirror</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0" decoration-muted="payment_state == 'paid'">
+                <field name="partner_name"/>
+                <field name="numero_autorizacion"/>
+                <field name="fecha"/>
+                <field name="monto_total"/>
+                <field name="amount_residual"/>
+                <field name="payment_state"/>
+                <field name="linked_order_name"/>
+                <field name="received_date"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_construtec_sat_invoice_mirror_search" model="ir.ui.view">
+        <field name="name">construtec.sat.invoice.mirror.search</field>
+        <field name="model">construtec.sat.invoice.mirror</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="partner_name"/>
+                <field name="numero_autorizacion"/>
+                <filter string="Disponibles" name="disponibles"
+                        domain="[('payment_state', '!=', 'paid'), ('linked_order_name', '=', False)]"/>
+                <filter string="Pagadas" name="pagadas" domain="[('payment_state', '=', 'paid')]"/>
+                <filter string="Ya Vinculadas" name="vinculadas"
+                        domain="[('linked_order_name', '!=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_construtec_sat_invoice_mirror" model="ir.actions.act_window">
+        <field name="name">Facturas de Proveedor</field>
+        <field name="res_model">construtec.sat.invoice.mirror</field>
+        <field name="view_mode">list</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Todavía no hay ninguna factura sincronizada.
+            </p>
+        </field>
+    </record>
+
+    <menuitem action="action_construtec_sat_invoice_mirror"
+              id="menu_construtec_sat_invoice_mirror"
+              parent="menu_construtec_sat_catalog_sync_root" sequence="20"/>
+</odoo>

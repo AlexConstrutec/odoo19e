@@ -14,6 +14,13 @@ APPROVER_ALTO_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_o
 # líneas de detalle + sync); `anticipo` a secas sigue existiendo para un anticipo que un contable
 # arma directo en Enterprise, sin relación a viáticos ni materiales.
 ANTICIPO_TIPOS = ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')
+# Pago Directo ahora también se puede crear/enviar desde Community (una Solicitud de Pago a
+# Proveedor vinculada a una factura real - ver factura_mirror_ids/_check_factura_disponible más
+# abajo), reusando el mismo ciclo enviado/aprobado que ya tenían los tres de ANTICIPO_TIPOS - a
+# diferencia de esos tres, Pago Directo nunca pasa por `aplicado` (va directo de `aprobado` a
+# `liquidado` vía action_conciliar(), igual que su camino clásico de `borrador` a `liquidado`
+# cuando se crea directo en Enterprise, sin pasar por Community).
+SUBMITTABLE_TIPOS = ANTICIPO_TIPOS + ('pago_directo',)
 
 
 def _resolve_employee_for_partner(partner, company):
@@ -131,6 +138,15 @@ class AccountPaymentOrder(models.Model):
     # cuyo método _search (account_payment.py:_search_reconciled_invoice_ids) solo entiende
     # 'in'/'=' contra un id concreto, no '=False' (lo traduce a "id in ()", que excluye todo).
     # Ese chequeo se hace en Python dentro de action_conciliar().
+    factura_mirror_ids = fields.Many2many(
+        'construtec.sat.invoice.mirror', string='Facturas (Catálogo SAT)',
+        help='Lo que un jefe de técnicos en Community realmente elige para un Pago Directo - '
+             'facturas reales de Enterprise, vía el mirror de solo lectura de '
+             'construtec_sat_catalog_sync_19 (Community no tiene account.move reales que '
+             'vincular). Al Enviar, sus `origin_id` viajan en _prepare_sync_vals() y Enterprise '
+             'los resuelve hacia `factura_ids` real (ver _resolve_factura_origin_ids()). Sin '
+             'efecto en Enterprise mismo (es_procesador=True) - ahí se usa `factura_ids` '
+             'directo, como siempre.')
     pago_ids = fields.One2many('account.payment', 'payment_order_id', string='Pagos/Cheques')
     diferencia_conciliacion = fields.Monetary(
         string='Diferencia (a conciliar)', compute='_compute_diferencia_conciliacion',
@@ -379,12 +395,15 @@ class AccountPaymentOrder(models.Model):
 
     @api.constrains('tipo', 'journal_id')
     def _check_journal_id(self):
-        """Pago Directo siempre necesita un Diario (antes se garantizaba con `required=True` a
-        nivel de campo, cuando `journal_id` solo existía para ese tipo). Un Anticipo NO lo
-        necesita todavía al crearse - lo llena el contable después de Aprobar (ver el `help=`
-        de `journal_id` y `action_aplicar()`, que sí lo exige antes de aplicar)."""
+        """Un Pago Directo creado directo en Enterprise (sin pasar por Community) sigue sin
+        poder guardarse sin Diario, igual que siempre. Un Pago Directo que SÍ viene de una
+        Solicitud sincronizada desde Community (ver factura_mirror_ids/action_submit()) no
+        necesita Diario todavía al crearse/enviarse - lo llena el contable después de Aprobar,
+        exactamente igual que ya funciona para un Anticipo (ver `action_conciliar()`, que sí lo
+        exige antes de Conciliar). No hay forma de distinguir el origen a este nivel, así que se
+        relaja para AMBOS caminos de Pago Directo - mismo criterio ya usado para Anticipo."""
         for rec in self:
-            if rec.tipo not in ANTICIPO_TIPOS and not rec.journal_id:
+            if rec.tipo not in SUBMITTABLE_TIPOS and not rec.journal_id:
                 raise ValidationError(rec.env._(
                     'Defina el Diario antes de guardar una Orden de Pago de tipo %s.', rec.tipo))
 
@@ -425,9 +444,16 @@ class AccountPaymentOrder(models.Model):
                 employee = rec.employee_id.sudo()
                 # cuenta_bancaria/banco_nombre/telefono_personal solo resuelven a un valor real
                 # cuando employee_id es el empleado vinculado al usuario actual - hr_employee.py.
-                rec.cuenta_acreditar = rec.employee_id.cuenta_bancaria or rec.cuenta_acreditar
-                rec.banco = rec.employee_id.banco_nombre or rec.banco
-                rec.tipo_cuenta = rec.employee_id.tipo_cuenta or rec.tipo_cuenta
+                # Bug real (2026-09-18): estas 3 líneas leían `rec.employee_id` (SIN sudo) en vez
+                # de la variable `employee` ya preparada arriba - para un solicitante sin
+                # hr.group_hr_user, cualquier lectura de un campo de hr.employee sin sudo() hace
+                # que Odoo intente resolverlo vía hr.employee.public (el "perfil público" que no
+                # tiene ninguno de los campos custom de Datos Personales agregados 2026-09-16/17)
+                # y truena con "Error de acceso" - reportado por el usuario con una captura real
+                # de producción al presionar "Depositar a Mí".
+                rec.cuenta_acreditar = employee.cuenta_bancaria or rec.cuenta_acreditar
+                rec.banco = employee.banco_nombre or rec.banco
+                rec.tipo_cuenta = employee.tipo_cuenta or rec.tipo_cuenta
                 # Teléfono: trabajo (work_phone) -> celular de trabajo (mobile_phone) ->
                 # personal (private_phone), campos nativos de hr.employee. sudo() porque
                 # private_phone requiere hr.group_hr_user para leerse directo.
@@ -609,6 +635,7 @@ class AccountPaymentOrder(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        factura_origin_ids_list = [vals.pop('factura_origin_ids', None) for vals in vals_list]
         for vals in vals_list:
             if vals.get('tipo', 'anticipo') in (
                     'anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') \
@@ -625,6 +652,7 @@ class AccountPaymentOrder(models.Model):
                 vals['name'] = self.env['ir.sequence'].next_by_code(
                     'account.payment.order.sequence') or '/'
             self._resolve_employee_enterprise_ref(vals)
+            self._resolve_partner_enterprise_ref(vals)
             self._resolve_company_enterprise_ref(vals)
             self._resolve_analytic_enterprise_ref(vals)
             self._fill_derived_vals_from_employee(vals)
@@ -633,7 +661,42 @@ class AccountPaymentOrder(models.Model):
         records._sync_monto_desde_total_acreditar()
         records._sync_proveedor_materiales_name()
         records._autosugerir_proveedor_materiales_id()
+        for record, origin_ids in zip(records, factura_origin_ids_list):
+            if origin_ids:
+                record._resolve_factura_origin_ids(origin_ids)
         return records
+
+    def _resolve_factura_origin_ids(self, origin_ids):
+        """Vincula esta Orden (tipo pago_directo, recién creada/recibida por sincronización
+        desde Community) a las facturas REALES de esta base - `origin_ids` son ids de
+        account.move genuinamente válidos aquí, porque Community los tomó de
+        construtec.sat.invoice.mirror.origin_id, que ES el id real en Enterprise (a diferencia
+        de employee_enterprise_ref/analytic_enterprise_ref, aquí no hace falta resolver nada por
+        nombre - el id ya es el correcto).
+
+        La validación real (¿ya está pagada? ¿ya está comprometida en otra Orden viva?) vive en
+        `account.move.write()` (`account_move.py::_check_payment_order_disponible()`) - a
+        propósito, para que aplique sin importar el camino (este `write()` de aquí, o el widget
+        many2many normal de `factura_ids` que un contador usa a mano en Enterprise). Si cualquier
+        factura falla, la excepción se propaga tal cual - todo el create() se revierte (una sola
+        transacción), y del lado Community el fallo llega como cualquier otro error de
+        sincronización (`sync_state='error'`, ver `_sync_to_enterprise()`)."""
+        self.ensure_one()
+        facturas = self.env['account.move'].browse(origin_ids).exists()
+        facturas.write({'payment_order_id': self.id})
+
+    def _check_factura_mirror_disponible(self, mirror):
+        """Mismo candado que `_check_factura_disponible()`, pero contra el mirror de solo
+        lectura (Community no tiene el account.move real) - un aviso temprano en
+        `action_submit()`, útil pero NO autoritativo (el mirror puede estar desactualizado); la
+        autoridad real corre en Enterprise, dentro de `_resolve_factura_origin_ids()`."""
+        label = mirror.numero_autorizacion or mirror.partner_name or str(mirror.origin_id)
+        if mirror.payment_state == 'paid':
+            raise UserError(self.env._('La factura %s ya está completamente pagada.', label))
+        if mirror.linked_order_name and mirror.linked_order_name != self.name:
+            raise UserError(self.env._(
+                'La factura %(factura)s ya está vinculada a la Orden de Pago %(orden)s.',
+                factura=label, orden=mirror.linked_order_name))
 
     def _resolve_employee_enterprise_ref(self, vals):
         """Resuelve `employee_enterprise_ref` (el id ORIGINAL de este empleado en Enterprise,
@@ -648,10 +711,27 @@ class AccountPaymentOrder(models.Model):
         compañía es el primer criterio de desempate)."""
         ref = vals.pop('employee_enterprise_ref', None)
         if ref and not vals.get('partner_id'):
-            employee = self.env['hr.employee'].browse(int(ref)).exists()
+            # .sudo(): quien crea/sincroniza una Orden no necesariamente tiene hr.group_hr_user -
+            # mismo motivo documentado en _onchange_partner_id() (bug real 2026-09-18).
+            employee = self.env['hr.employee'].sudo().browse(int(ref)).exists()
             if employee:
                 vals['partner_id'] = employee.work_contact_id.id
                 vals.setdefault('company_id', employee.company_id.id)
+
+    def _resolve_partner_enterprise_ref(self, vals):
+        """Resuelve `partner_enterprise_ref` (solo para Pago Directo - ver `_prepare_sync_vals()`)
+        hacia un `partner_id` real de esta base. A diferencia de `_resolve_employee_enterprise_ref()`
+        (el contacto de un EMPLEADO, resuelto vía `hr.employee.enterprise_employee_ref`), aquí
+        `partner_id` es directamente un proveedor/cliente real - se resuelve vía
+        `res.partner.enterprise_partner_ref`, poblado por la sincronización de Contactos que ya
+        trae a Community los proveedores conocidos (ver `res_company.py::
+        _sync_partners_from_enterprise()`) - el mismo id, porque es literalmente el id de ese
+        contacto tal como existe en Enterprise."""
+        ref = vals.pop('partner_enterprise_ref', None)
+        if ref and not vals.get('partner_id'):
+            partner = self.env['res.partner'].browse(int(ref)).exists()
+            if partner:
+                vals['partner_id'] = partner.id
 
     def _resolve_company_enterprise_ref(self, vals):
         """Respaldo de compañía (`res.company.payment_order_default_company_id`, configurado en
@@ -780,6 +860,134 @@ class AccountPaymentOrder(models.Model):
                 'Solo un Aprobador Nivel Medio (Jefe de Área) o superior puede aprobar '
                 'Órdenes de Pago.'))
 
+    def _push_notify(self, partners, title, body):
+        """Notificación push del navegador (Web Push / RFC 8291) - pedido explícito del usuario
+        2026-09-18: que viva aquí, en `construtec_account_payment_order_19`, separada de
+        `construtec_whatsapp_19` (esa integra con la API de Meta, mucho más compleja).
+
+        **Rediseñado el mismo día**: la primera versión llamaba directo a los métodos de bajo
+        nivel de `mail.thread` (`_web_push_get_partners_parameters`/`_web_push_send_notification`)
+        con un payload propio, sin pasar por `message_post()` - esto SÍ mandaba el push, pero no
+        dejaba ningún rastro en Odoo: ni en el chatter de la Orden, ni en el panel de
+        Conversaciones (Discusión > Bandeja de entrada) del destinatario. El usuario pidió
+        explícitamente que la notificación "quede en el panel de conversaciones" - si el push en
+        sí no llega (navegador cerrado y el sistema operativo/fabricante mata el proceso en
+        segundo plano antes de que despierte, batería, etc.), la persona no tenía NINGÚN otro
+        rastro de que algo pasó.
+
+        Ahora se usa `message_post(partner_ids=..., subtype_xmlid='mail.mt_note')` - el mismo
+        mecanismo nativo que Odoo ya usa para menciones/mensajes directos
+        (`_notify_thread_by_inbox`/`_notify_thread_by_web_push`, en `mail.thread`). Con esto, UNA
+        sola llamada logra las tres cosas: (1) el mensaje queda en el chatter de la Orden
+        (historial permanente, visible para cualquiera con acceso al registro), (2) cada
+        `partner` recibe un `mail.notification` en su Bandeja de entrada de Conversaciones -
+        visible ahí para siempre, sin importar si el push llegó o no -, y (3) Odoo dispara el
+        mismo push (misma infraestructura VAPID/Service Worker de antes, sin nada nuevo que
+        mantener) hacia los dispositivos ya registrados de esos partners.
+
+        **Bug real corregido 2026-09-19, encontrado al construir la notificación de Tickets**:
+        el default REAL de `message_post()` es `message_type='notification'`, NO `'comment'`
+        (el docstring original de este método asumía, sin verificar, que 'comment' era el
+        default - error de transcripción, nunca se puso explícito en el primer despliegue).
+        Con `'notification'`, `_notify_get_recipients_for_extra_notifications()` (`mail_thread.py`)
+        **excluye del push a cualquier partner cuya preferencia (`res.users.notification_type`)
+        sea `'email'`** - el default de TODA cuenta nueva de Odoo. Resultado real: el push nunca
+        llegaba a nadie que no hubiera cambiado ya esa preferencia a "En Odoo" a mano, aunque el
+        mensaje sí quedara en el chatter. Confirmado con `odoo-bin shell` (mockeando
+        `_web_push_get_partners_parameters`/`_web_push_send_notification`): `message_type`
+        por defecto → cero intentos de push; `message_type='comment'` → sí se intenta, para
+        TODOS los `partner_ids` explícitos salvo el autor. **El fix**: `message_type='comment'`
+        ahora se pasa explícito en la llamada.
+
+        Sin ningún efecto visible en el push si ningún `partner` tiene un dispositivo registrado
+        (`mail.push.device`, nunca aceptó el permiso del navegador) - pero el registro en el
+        chatter/Bandeja de entrada ocurre siempre, con o sin dispositivo."""
+        self.ensure_one()
+        partners = partners.filtered('id')
+        if not partners:
+            return
+        self.message_post(
+            body=Markup('<b>%s</b><br/>%s') % (title, body),
+            partner_ids=partners.ids,
+            subtype_xmlid='mail.mt_note',
+            message_type='comment',
+        )
+
+    def _notify_estado_pull(self, estado_nuevo):
+        """Notifica al solicitante original cuando `_pull_payment_order_status()`
+        (`res_company.py`) detecta que su Orden cambió de estado en Enterprise - pedido
+        explícito del usuario 2026-09-19: "el usuario que ingresa la orden de pago también debe
+        ser notificado cuando la orden es aprobada y aplicada".
+
+        Por qué esto vive aquí y no en `action_approve()`/`action_aplicar()`/`action_conciliar()`
+        (que ya tenían su propio `_push_notify()` desde el 2026-09-18): esos tres métodos NUNCA
+        se ejecutan de verdad sobre el registro LOCAL de Community de una Orden sincronizada -
+        la aprobación ocurre en la instalación Procesadora (Enterprise), sobre una copia
+        DISTINTA del registro (ver "Cambio de arquitectura" en este mismo CLAUDE.md). El único
+        momento en que Community se entera de esa transición es el `write()` plano de
+        `_pull_payment_order_status()` - así que la notificación tiene que dispararse ahí,
+        usando el `requested_by_id` LOCAL de Community (el solicitante real), no el de la copia
+        de Enterprise (que resuelve al usuario de integración API, no a la persona real - ver
+        `requested_by_id.default` y la regla de "nunca ids entre bases independientes").
+
+        Los `_push_notify()` que ya existen dentro de `action_approve()`/`action_aplicar()`/
+        `action_conciliar()` no se eliminaron - siguen siendo correctos para una Orden 100%
+        local (creada y aprobada dentro de la misma base, sin sincronización de por medio, ej.
+        un Anticipo normal capturado directo en Enterprise)."""
+        self.ensure_one()
+        partner = self.requested_by_id.partner_id
+        if estado_nuevo == 'aprobado':
+            self._push_notify(
+                partner, self.env._('Orden de Pago aprobada'),
+                self.env._('%(name)s fue aprobada.', name=self.name))
+        elif estado_nuevo == 'aplicado':
+            self._push_notify(
+                partner, self.env._('Orden de Pago aplicada'),
+                self.env._('%(name)s ya se desembolsó (Q%(monto).2f).',
+                           name=self.name, monto=self.monto or 0.0))
+        elif estado_nuevo == 'liquidado':
+            self._push_notify(
+                partner, self.env._('Orden de Pago liquidada'),
+                self.env._('%(name)s quedó liquidada.', name=self.name))
+        elif estado_nuevo == 'rechazado':
+            motivo = (' %s' % self.env._('Motivo: %(motivo)s', motivo=self.reject_reason)
+                      if self.reject_reason else '')
+            self._push_notify(
+                partner, self.env._('Orden de Pago rechazada'),
+                self.env._('%(name)s fue rechazada.', name=self.name) + motivo)
+
+    def _approver_partners(self):
+        """Destinatarios del push de "Enviado" - pedido explícito del usuario, en dos pasadas:
+        primero "avisar solo a quien de verdad puede aprobar según el monto" (2026-09-18), luego
+        corregido el mismo día: "las Órdenes de Pago deben ser notificadas a TODOS los
+        aprobadores Nivel Medio, sean menores o mayores [al umbral]... ya los gerentes solo
+        arriba del umbral" - o sea:
+        - **Nivel Medio (Jefe de Área)**: SIEMPRE, sin importar el monto - quiere ver todo, aunque
+          técnicamente no le toque aprobar los montos altos.
+        - **Nivel Alto (Gerente de Área)**: SOLO cuando el monto llega al umbral configurado
+          (`res.company.payment_order_approval_threshold` - el que sea, no un número fijo) - no
+          se le satura con cada Orden de monto bajo que no necesita su aprobación.
+
+        Solo afecta el push de este módulo - WhatsApp (`construtec_whatsapp_19`) no se toca,
+        sigue con su propio `recipient_group_id` configurable de siempre.
+
+        `group_ids` (grupos DIRECTOS del usuario), no `all_group_ids` (directos + implícitos) -
+        a propósito, al revés del criterio anterior: aquí sí importa separar "asignado
+        directamente a Nivel Medio" de "asignado a Nivel Alto" (que implica Medio a nivel de
+        PERMISO, pero eso no debe traducirse en notificarlo de más) - verificado con
+        `odoo-bin shell` que un usuario asignado solo a Nivel Alto no aparece en `group_ids` de
+        Nivel Medio (la implicación de `res.groups` no se materializa ahí, solo en
+        `all_group_ids`), que es justo el comportamiento que se necesita ahora."""
+        self.ensure_one()
+        medio_partners = self.env['res.users'].search(
+            [('group_ids', 'in', self.env.ref(APPROVER_MEDIO_GROUP_XMLID).ids)]).partner_id
+        threshold = self.company_id.payment_order_approval_threshold or 0.0
+        if self.total_acreditar >= threshold:
+            alto_partners = self.env['res.users'].search(
+                [('group_ids', 'in', self.env.ref(APPROVER_ALTO_GROUP_XMLID).ids)]).partner_id
+            return medio_partners | alto_partners
+        return medio_partners
+
     def action_submit_depositar_a_mi(self):
         """Botón "Depositar a Mí" (reemplaza el checkbox `depositar_directo_tecnicos` - pedido
         explícito del usuario: la elección debe ser un botón, no una casilla que hay que marcar
@@ -798,8 +1006,15 @@ class AccountPaymentOrder(models.Model):
 
     def action_submit(self):
         for rec in self:
-            if rec.tipo not in ANTICIPO_TIPOS:
-                raise UserError(self.env._('Enviar solo aplica a Órdenes de Pago de tipo Anticipo.'))
+            if rec.tipo not in SUBMITTABLE_TIPOS:
+                raise UserError(self.env._(
+                    'Enviar solo aplica a Órdenes de Pago de tipo Anticipo o Pago Directo.'))
+            if rec.tipo == 'pago_directo':
+                if not rec.factura_mirror_ids:
+                    raise UserError(self.env._(
+                        'Agregue al menos una factura antes de enviar la Solicitud de Pago.'))
+                for mirror in rec.factura_mirror_ids:
+                    rec._check_factura_mirror_disponible(mirror)
             if rec.tipo == 'anticipo_viaticos' and not rec.viaticos_line_ids:
                 raise UserError(self.env._(
                     'Agregue al menos una línea de viáticos antes de enviar la orden.'))
@@ -841,6 +1056,12 @@ class AccountPaymentOrder(models.Model):
             # aquí - sus hijas se sincronizan cada una por su cuenta, dentro de su propia
             # llamada recursiva a action_submit() (ver _dividir_en_ordenes_por_tecnico()).
             rec._sync_to_enterprise()
+            rec._push_notify(
+                rec._approver_partners(),
+                self.env._('Nueva Orden de Pago para aprobar'),
+                self.env._('%(name)s - Q%(monto).2f, solicitada por %(solicitante)s',
+                           name=rec.name, monto=rec.total_acreditar or rec.monto or 0.0,
+                           solicitante=rec.requested_by_id.name or rec.requested_by_name or ''))
 
     def _dividir_en_ordenes_por_tecnico(self):
         """Con 'depositar_directo_tecnicos' marcado: por cada línea de viáticos, crea una Orden
@@ -927,8 +1148,9 @@ class AccountPaymentOrder(models.Model):
 
     def action_approve(self):
         for rec in self:
-            if rec.tipo not in ANTICIPO_TIPOS:
-                raise UserError(self.env._('Aprobar solo aplica a Órdenes de Pago de tipo Anticipo.'))
+            if rec.tipo not in SUBMITTABLE_TIPOS:
+                raise UserError(self.env._(
+                    'Aprobar solo aplica a Órdenes de Pago de tipo Anticipo o Pago Directo.'))
             rec._check_is_approver_for_amount()
             rec.write({
                 'state': 'aprobado',
@@ -941,12 +1163,18 @@ class AccountPaymentOrder(models.Model):
             # reintenta aquí, mismo criterio ya usado para las credenciales del Catálogo de
             # Materiales (self-healing en el punto de uso, no una migración aparte).
             rec._autosugerir_proveedor_materiales_id()
+            rec._push_notify(
+                rec.requested_by_id.partner_id,
+                self.env._('Orden de Pago aprobada'),
+                self.env._('%(name)s fue aprobada por %(aprobador)s', name=rec.name,
+                           aprobador=self.env.user.name))
 
     def action_reject(self):
         self._check_is_approver()
         for rec in self:
-            if rec.tipo not in ANTICIPO_TIPOS:
-                raise UserError(self.env._('Rechazar solo aplica a Órdenes de Pago de tipo Anticipo.'))
+            if rec.tipo not in SUBMITTABLE_TIPOS:
+                raise UserError(self.env._(
+                    'Rechazar solo aplica a Órdenes de Pago de tipo Anticipo o Pago Directo.'))
             rec.write({
                 'state': 'rechazado',
                 'rejected_by_id': self.env.user.id,
@@ -955,9 +1183,10 @@ class AccountPaymentOrder(models.Model):
 
     def action_reset_to_draft(self):
         for rec in self:
-            if rec.tipo not in ANTICIPO_TIPOS:
+            if rec.tipo not in SUBMITTABLE_TIPOS:
                 raise UserError(self.env._(
-                    'Volver a Borrador solo aplica a Órdenes de Pago de tipo Anticipo.'))
+                    'Volver a Borrador solo aplica a Órdenes de Pago de tipo Anticipo o Pago '
+                    'Directo.'))
             # Enviada -> Borrador requiere el mismo permiso que aprobar/rechazar (el
             # solicitante -ej. Jefe de técnicos- no debe poder retirar en silencio una Orden
             # que ya está en revisión). Rechazada -> Borrador se deja SIN este gate a propósito:
@@ -981,11 +1210,13 @@ class AccountPaymentOrder(models.Model):
         contra llamar esto sobre un Anticipo ya Aplicado/Liquidado era que el botón estaba
         oculto en la vista - no una validación real en Python."""
         for rec in self:
-            if rec.tipo not in ANTICIPO_TIPOS:
-                raise UserError(self.env._('Cancelar (Anticipo) solo aplica a tipo Anticipo.'))
+            if rec.tipo not in SUBMITTABLE_TIPOS:
+                raise UserError(self.env._(
+                    'Cancelar (antes de Aplicar/Liquidar) solo aplica a tipo Anticipo o Pago '
+                    'Directo.'))
             if rec.state not in ('borrador', 'enviado', 'aprobado', 'rechazado'):
                 raise UserError(self.env._(
-                    'No se puede cancelar así un Anticipo ya Aplicado/Liquidado - usa el botón '
+                    'No se puede cancelar así una Orden ya Aplicada/Liquidada - usa el botón '
                     '"Cancelar" correspondiente a ese estado, que sí revierte el pago/asiento.'))
             rec.state = 'cancelado'
 
@@ -1038,10 +1269,17 @@ class AccountPaymentOrder(models.Model):
             'origin_record_id': self.id,
             'origin_base_url': self.get_base_url(),
             'requested_by_name': self.requested_by_name or '',
-            'employee_enterprise_ref': self.employee_id.enterprise_employee_ref or False,
+            # .sudo(): mismo motivo documentado en _onchange_partner_id() más arriba - un
+            # solicitante sin hr.group_hr_user no puede leer hr.employee sin esto.
+            'employee_enterprise_ref': self.employee_id.sudo().enterprise_employee_ref or False,
             'company_enterprise_ref':
                 self.company_id.payment_order_default_company_id.enterprise_company_ref or False,
             'analytic_enterprise_ref': self.analytic_account_id.enterprise_analytic_ref or False,
+            # Solo para Pago Directo - ver _resolve_partner_enterprise_ref(). Para los demás
+            # tipos, partner_id se resuelve vía employee_enterprise_ref (arriba), no aquí.
+            'partner_enterprise_ref': (
+                self.partner_id.enterprise_partner_ref
+                if self.tipo == 'pago_directo' and self.partner_id else False),
             'puesto': self.puesto or '',
             'departamento': self.departamento or '',
             'proyecto': self.proyecto or '',
@@ -1057,6 +1295,12 @@ class AccountPaymentOrder(models.Model):
             'observaciones': self.observaciones or '',
             'anticipo_previo': self.anticipo_previo,
             'proveedor_materiales_name': self.proveedor_materiales_name or '',
+            # Ids REALES de account.move en Enterprise (no requieren resolución por nombre - ver
+            # _resolve_factura_origin_ids()) - el jefe de técnicos los eligió del mirror de solo
+            # lectura construtec.sat.invoice.mirror, cuyo origin_id ES el id real allá. Vacío
+            # para cualquier tipo que no sea Pago Directo.
+            'factura_origin_ids': (
+                self.factura_mirror_ids.mapped('origin_id') if self.tipo == 'pago_directo' else []),
             # 'enviado', no 'aprobado': la aprobación ocurre en la instalación Procesadora
             # (Enterprise), donde están los usuarios Nivel Medio/Alto reales - ver
             # action_submit()/action_approve() más arriba.
@@ -1065,7 +1309,9 @@ class AccountPaymentOrder(models.Model):
             'viaticos_line_ids': [
                 (0, 0, {
                     'tecnico_name': line.tecnico_name or '',
-                    'employee_enterprise_ref': line.employee_id.enterprise_employee_ref or False,
+                    # .sudo(): mismo motivo que arriba - un solicitante sin hr.group_hr_user no
+                    # puede leer hr.employee sin esto (bug real 2026-09-18, ver CLAUDE.md).
+                    'employee_enterprise_ref': line.employee_id.sudo().enterprise_employee_ref or False,
                     'departamento': line.departamento or '',
                     'puesto': line.puesto or '',
                     'cantidad': line.cantidad,
@@ -1106,7 +1352,7 @@ class AccountPaymentOrder(models.Model):
 
         Nunca lanza: los fallos quedan registrados en el propio registro (sync_state='error')
         para el cron de reintento, sin bloquear action_submit()."""
-        for rec in self.filtered(lambda r: r.tipo in ANTICIPO_TIPOS):
+        for rec in self.filtered(lambda r: r.tipo in SUBMITTABLE_TIPOS):
             company = rec.company_id
             if company.payment_order_role != 'solicitante' or not company.payment_order_sync_enabled:
                 continue
@@ -1140,7 +1386,7 @@ class AccountPaymentOrder(models.Model):
     @api.model
     def _cron_retry_sync(self):
         pending = self.search([
-            ('tipo', 'in', ANTICIPO_TIPOS),
+            ('tipo', 'in', SUBMITTABLE_TIPOS),
             ('sync_state', '=', 'error'),
             ('company_id.payment_order_role', '=', 'solicitante'),
             ('company_id.payment_order_sync_enabled', '=', True),
@@ -1161,7 +1407,16 @@ class AccountPaymentOrder(models.Model):
         if self.tipo in ANTICIPO_TIPOS and self.state != 'aplicado':
             raise UserError(self.env._(
                 'Solo se puede Conciliar/Liquidar un Anticipo ya Aplicado.'))
+        if self.tipo == 'pago_directo' and self.state not in ('borrador', 'aprobado'):
+            # 'borrador': camino clásico, creado directo en Enterprise, sin pasar por Community.
+            # 'aprobado': camino nuevo - llegó sincronizado desde Community y ya fue aprobado
+            # aquí (ver action_submit()/action_approve()) - nunca 'enviado' sin aprobar primero.
+            raise UserError(self.env._(
+                'Solo se puede Conciliar/Liquidar un Pago Directo en Borrador, o ya Aprobado si '
+                'vino de una Solicitud sincronizada desde Community.'))
         self._check_es_administrador_contable()
+        if not self.journal_id:
+            raise UserError(self.env._('Define el Diario antes de Conciliar/Liquidar.'))
         if self.tipo == 'pago_directo' and not self.factura_ids:
             raise UserError(self.env._(
                 'Un Pago Directo debe incluir al menos una factura.'))
@@ -1171,9 +1426,13 @@ class AccountPaymentOrder(models.Model):
         # otro lado del asiento y no deben entrar en el neteo.
         CUENTAS_A_NETEAR = ('asset_receivable', 'liability_payable')
 
-        lineas = []
-        total = 0.0
-
+        # `amount_residual` (no `credit - debit`, el monto ORIGINAL de la línea) - una factura de
+        # Pago Directo puede llegar aquí ya parcialmente conciliada por una Orden ANTERIOR contra
+        # la misma factura (pago en varios abonos - ver "Facturas pagadas en varios abonos" en el
+        # CLAUDE.md de este módulo) - usar el monto original volvería a intentar netear lo que
+        # otra Orden ya cubrió. Mismo signo que `balance` (debit-credit); positivo = todavía se
+        # debe (factura), negativo = ya se pagó (pago) - de ahí el signo `-` en ambos casos.
+        facturas_montos = []
         for factura in self.factura_ids:
             if factura.state != 'posted':
                 continue
@@ -1181,9 +1440,9 @@ class AccountPaymentOrder(models.Model):
                 if line.account_id.reconcile and line.account_id.account_type in CUENTAS_A_NETEAR:
                     if line.reconciled:
                         raise UserError(self.env._('La factura %s ya está conciliada.', factura.name))
-                    total += (line.credit - line.debit)
-                    lineas.append(line)
+                    facturas_montos.append((line, -line.amount_residual))
 
+        pagos_montos = []
         for pago in self.pago_ids:
             if pago.state not in ('in_process', 'paid'):
                 continue
@@ -1191,33 +1450,57 @@ class AccountPaymentOrder(models.Model):
                 raise UserError(self.env._('El pago %s ya está conciliado.', pago.name))
             for line in pago.move_id.line_ids:
                 if line.account_id.reconcile and line.account_id.account_type in CUENTAS_A_NETEAR:
-                    total -= (line.debit - line.credit)
-                    lineas.append(line)
+                    pagos_montos.append((line, -line.amount_residual))
 
-        if round(total, 2) != 0:
-            if self.tipo == 'pago_directo':
+        factura_total = sum(monto for _, monto in facturas_montos)
+        pago_total = sum(monto for _, monto in pagos_montos)
+        total = factura_total + pago_total
+
+        if self.tipo == 'pago_directo':
+            if not pagos_montos:
+                raise UserError(self.env._('Agrega al menos un pago antes de Conciliar/Liquidar.'))
+            if round(total, 2) < 0:
                 raise UserError(self.env._(
-                    'El monto del pago no coincide con el total de la(s) factura(s) - un Pago '
-                    'Directo debe cubrir exactamente el 100%s de las facturas, sin diferencia '
-                    '(a diferencia de un Anticipo, no admite Cuenta de Ajuste). Corrige el '
-                    'monto del pago o registra esto como un Anticipo en su lugar.', '%'))
-            if not self.cuenta_ajuste_id:
+                    'El monto del pago excede el saldo pendiente de la(s) factura(s) por '
+                    '%(exceso).2f.', exceso=-total))
+            # total >= 0: el pago cubre parte o el 100% del saldo actual - nunca más. A
+            # diferencia de Anticipo/Liquidación (que admiten una Cuenta de Ajuste para CUALQUIER
+            # diferencia), Pago Directo nunca inventa un ajuste - si el pago cubre menos que el
+            # saldo, se recorta el neteo del lado de las facturas a exactamente lo que el pago
+            # cubre (`abs(pago_total)`), dejando el resto del saldo abierto - ver
+            # `_liberar_facturas_con_saldo()` más abajo, que libera esas facturas para que otra
+            # Orden pueda tomarlas después.
+            restante = -pago_total
+            lineas, montos = [], []
+            for line, monto in facturas_montos:
+                if restante <= 0:
+                    break
+                cubierto = min(monto, restante)
+                lineas.append(line)
+                montos.append(cubierto)
+                restante -= cubierto
+            lineas += [line for line, _ in pagos_montos]
+            montos += [monto for _, monto in pagos_montos]
+        else:
+            lineas = [line for line, _ in facturas_montos] + [line for line, _ in pagos_montos]
+            montos = [monto for _, monto in facturas_montos] + [monto for _, monto in pagos_montos]
+            if round(total, 2) != 0 and not self.cuenta_ajuste_id:
                 raise UserError(self.env._(
                     'El total de las facturas no coincide con el total de los pagos. Define una '
                     'Cuenta de Ajuste para registrar la diferencia.'))
 
         nuevas_lineas = []
-        for linea in lineas:
+        for linea, monto in zip(lineas, montos):
             nuevas_lineas.append((0, 0, {
                 'name': linea.name,
-                'debit': linea.credit,
-                'credit': linea.debit,
+                'debit': monto if monto > 0 else 0,
+                'credit': -monto if monto < 0 else 0,
                 'account_id': linea.account_id.id,
                 'partner_id': linea.partner_id.id,
                 'date_maturity': self.fecha,
             }))
 
-        if round(total, 2) != 0:
+        if self.tipo != 'pago_directo' and round(total, 2) != 0:
             nuevas_lineas.append((0, 0, {
                 'name': 'Diferencial en %s' % self.name,
                 'debit': -total if total < 0 else 0,
@@ -1244,7 +1527,26 @@ class AccountPaymentOrder(models.Model):
             (linea | nueva_linea).reconcile()
 
         self.write({'move_id': move.id, 'state': 'liquidado'})
+        if self.tipo == 'pago_directo':
+            self._liberar_facturas_con_saldo()
+        self._push_notify(
+            self.requested_by_id.partner_id,
+            self.env._('Orden de Pago liquidada'),
+            self.env._('%(name)s quedó liquidada', name=self.name))
         return True
+
+    def _liberar_facturas_con_saldo(self):
+        """Tras Conciliar un Pago Directo que cubrió solo PARTE del saldo de una factura, la
+        deja libre (`payment_order_id = False`) para que otra Orden pueda tomarla y cubrir el
+        resto - ver "Facturas pagadas en varios abonos" en el CLAUDE.md de este módulo. Una
+        factura que SÍ quedó completamente pagada se deja vinculada a esta Orden (registro
+        histórico de quién la cerró) - de todas formas `_check_payment_order_disponible()`
+        (`account_move.py`) ya bloquea cualquier intento de tomarla, esté o no vinculada, en
+        cuanto `payment_state == 'paid'`."""
+        self.ensure_one()
+        for factura in self.factura_ids:
+            if factura.payment_state != 'paid':
+                factura.payment_order_id = False
 
     def _deshacer_conciliacion(self):
         """Unreconcilia y cancela `move_id` (el asiento regularizador de `action_conciliar()`),
@@ -1412,6 +1714,10 @@ class AccountPaymentOrder(models.Model):
         payment = self.env['account.payment'].create(payment_vals)
         payment.action_post()
         self.write({'state': 'aplicado'})
+        self._push_notify(
+            self.requested_by_id.partner_id,
+            self.env._('Orden de Pago aplicada'),
+            self.env._('%(name)s ya se desembolsó (Q%(monto).2f)', name=self.name, monto=self.monto or 0.0))
 
         # Dos avisos posibles, ninguno bloquea: si el contacto ya tiene otro Anticipo aplicado
         # sin liquidar todavía, y/o si esta Orden ya cubre el 100% de facturas adjuntas (pudo

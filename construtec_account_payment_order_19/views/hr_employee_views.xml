@@ -14,6 +14,50 @@
                     <field name="tipo_cuenta"/>
                 </group>
             </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page name="construtec_personal_data" string="Datos Personales (Colaborador)"
+                      groups="construtec_account_payment_order_19.group_construtec_employee_data_entry">
+                    <div class="alert alert-info" role="alert">
+                        Estos datos se cargan aquí en Community y se sincronizan hacia Enterprise -
+                        Enterprise sigue siendo el único lugar donde se edita salario, cuenta
+                        bancaria y estado laboral. El orden de los campos sigue el mismo orden que
+                        "ACTUALIZACIÓN DE DATOS COLABORADORES" (la hoja que usa RR.HH. para
+                        recolectar esta información) para que sea fácil transcribir de una a otra.
+                    </div>
+                    <group>
+                        <field name="primer_nombre"/>
+                        <field name="segundo_nombre"/>
+                        <field name="tercer_nombre"/>
+                        <field name="primer_apellido"/>
+                        <field name="segundo_apellido"/>
+                        <field name="apellido_casada"/>
+                        <field name="country_id" string="Nacionalidad"/>
+                        <field name="discapacidad" string="Tipo de discapacidad"/>
+                        <field name="marital" string="Estado civil"/>
+                        <field name="identification_id" string="Documento (DPI/Pasaporte/Certificado Nac.)"/>
+                        <field name="country_of_birth" string="País de Origen"/>
+                        <field name="permit_no" string="Núm. Expediente Permiso de Extranjero"/>
+                        <field name="municipio_nombre" string="Lugar de Nacimiento (Municipio)"/>
+                        <field name="nit"/>
+                        <field name="igss"/>
+                        <field name="sex"/>
+                        <field name="birthday"/>
+                        <field name="certificate" string="Nivel académico"/>
+                        <field name="study_field" string="Título o Diploma"/>
+                        <field name="pueblo_pertenencia"/>
+                        <field name="comunidad_linguistica"/>
+                        <field name="children"/>
+                    </group>
+                    <group string="Sincronización hacia Enterprise" invisible="not enterprise_employee_ref">
+                        <field name="personal_data_sync_state" readonly="1"/>
+                        <field name="personal_data_sync_error" readonly="1"
+                               invisible="personal_data_sync_state != 'error'"/>
+                        <button name="action_retry_personal_data_sync" type="object"
+                                string="Reintentar Sincronización" class="btn-link"
+                                invisible="personal_data_sync_state != 'error'"/>
+                    </group>
+                </page>
+            </xpath>
         </field>
     </record>
 </odoo>

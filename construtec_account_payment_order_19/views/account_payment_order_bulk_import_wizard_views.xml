@@ -115,8 +115,10 @@
         <field name="target">new</field>
     </record>
 
+    <!-- Ahora cuelga de la app propia "Órdenes de Pago" (ver account_payment_order_views.xml),
+         no de Facturación - mismo cambio 2026-09-18. -->
     <menuitem action="action_account_payment_order_bulk_import_wizard"
               id="menu_account_payment_order_bulk_import"
-              parent="account.menu_finance_payables" sequence="22"
+              parent="construtec_account_payment_order_19.menu_account_payment_order" sequence="22"
               groups="account.group_account_manager"/>
 </odoo>

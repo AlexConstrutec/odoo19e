@@ -49,17 +49,32 @@
             nuevo, solo se documenta aquí con precisión (antes decía "nunca leer", desactualizado).</field>
     </record>
 
+    <record id="group_construtec_employee_data_entry" model="res.groups">
+        <field name="name">Empleados: Captura de Datos Personales</field>
+        <field name="comment">Puede editar la pestaña "Datos Personales (Colaborador)" del formulario
+            de Empleado (nombres/apellidos, DPI, NIT, IGSS, estado civil, nacionalidad, etc.) -
+            pensado para personas SIN cuenta en Enterprise ni acceso a nómina, que sí ayudan a cargar
+            estos datos desde Community. Implica hr.group_hr_user porque varios de estos campos son
+            nativos de hr.employee y ya vienen restringidos a ese grupo a nivel de campo en el core
+            de Odoo (ej. country_of_birth/permit_no) - sin esto, este grupo no podría ni leerlos ni
+            escribirlos aunque el propio ir.model.access.csv de "hr" ya le de CRUD completo sobre
+            hr.employee vía esa implicación. NO implica nada de nómina/salario (eso sigue siendo
+            hr.group_hr_manager, un grupo distinto) - coincide con lo que pidió el usuario
+            explícitamente ("sin privilegios para ver nóminas").</field>
+        <field name="implied_ids" eval="[(4, ref('hr.group_hr_user'))]"/>
+    </record>
+
     <record id="account_payment_order_own_rule" model="ir.rule">
-        <field name="name">Orden de Pago: el solicitante ve las propias (solo Anticipo)</field>
+        <field name="name">Orden de Pago: el solicitante ve las propias (Anticipo/Pago Directo)</field>
         <field name="model_id" ref="model_account_payment_order"/>
-        <field name="domain_force">[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')), ('requested_by_id', '=', user.id)]</field>
+        <field name="domain_force">[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo')), ('requested_by_id', '=', user.id)]</field>
         <field name="groups" eval="[(4, ref('base.group_user'))]"/>
     </record>
 
     <record id="account_payment_order_approver_rule" model="ir.rule">
-        <field name="name">Orden de Pago: el Aprobador ve todos los Anticipo</field>
+        <field name="name">Orden de Pago: el Aprobador ve todos (Anticipo/Pago Directo)</field>
         <field name="model_id" ref="model_account_payment_order"/>
-        <field name="domain_force">[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales'))]</field>
+        <field name="domain_force">[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo'))]</field>
         <field name="groups" eval="[(4, ref('group_payment_order_approver')),
                                     (4, ref('group_payment_order_sync_integration'))]"/>
     </record>

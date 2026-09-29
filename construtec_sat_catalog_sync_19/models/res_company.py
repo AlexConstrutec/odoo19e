@@ -2,7 +2,9 @@ import logging
 
 from odoo import api, fields, models
 
-from ..tools.enterprise_sync_api import EnterpriseSyncError, fetch_materials_catalog, fetch_vendor_catalog
+from ..tools.enterprise_sync_api import (
+    EnterpriseSyncError, fetch_materials_catalog, fetch_vendor_catalog, fetch_vendor_invoices,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -110,14 +112,47 @@ class ResCompany(models.Model):
         message = self.env._('%(count)s proveedores procesados.', count=len(proveedores))
         return True, message
 
+    def _sync_vendor_invoices_from_enterprise(self):
+        """Pull de las facturas de proveedor ya contabilizadas en Enterprise
+        (construtec.sat.invoice.mirror) - se cuelga del MISMO toggle/intervalo/cron/botón que ya
+        existe para el Catálogo de Materiales (`materials_catalog_sync_enabled`), mismo criterio
+        ya usado para `_sync_vendor_catalog_from_enterprise()`: es el mismo concern ("mantener
+        fresca mi copia de referencia de Enterprise"), no amerita un bloque de Ajustes aparte.
+        Upsert directo por `origin_id` (el id real del account.move en Enterprise)."""
+        self.ensure_one()
+        if not self.materials_catalog_sync_enabled:
+            return True, self.env._('Sincronización de Facturas de Proveedor no habilitada.')
+        try:
+            facturas = fetch_vendor_invoices(
+                self.materials_catalog_sync_url, self.materials_catalog_sync_db,
+                self.materials_catalog_sync_login, self.materials_catalog_sync_api_key)
+        except EnterpriseSyncError as exc:
+            _logger.warning(
+                'Sincronización de Facturas de Proveedor falló para %s: %s', self.name, exc)
+            return False, str(exc)
+
+        Invoice = self.env['construtec.sat.invoice.mirror'].sudo()
+        for factura in facturas:
+            vals = dict(factura, received_date=fields.Datetime.now())
+            entry = Invoice.search([('origin_id', '=', vals['origin_id'])], limit=1)
+            if entry:
+                entry.write(vals)
+            else:
+                Invoice.create(vals)
+        message = self.env._('%(count)s facturas procesadas.', count=len(facturas))
+        return True, message
+
     def action_sync_materials_catalog_now(self):
         self.ensure_one()
         ok_materiales, message_materiales = self._sync_materials_catalog_from_enterprise()
         ok_proveedores, message_proveedores = self._sync_vendor_catalog_from_enterprise()
-        ok = ok_materiales and ok_proveedores
+        ok_facturas, message_facturas = self._sync_vendor_invoices_from_enterprise()
+        ok = ok_materiales and ok_proveedores and ok_facturas
         message = self.env._(
-            'Catálogo de Materiales: %(message_materiales)s\nProveedores: %(message_proveedores)s',
-            message_materiales=message_materiales, message_proveedores=message_proveedores)
+            'Catálogo de Materiales: %(message_materiales)s\nProveedores: %(message_proveedores)s'
+            '\nFacturas: %(message_facturas)s',
+            message_materiales=message_materiales, message_proveedores=message_proveedores,
+            message_facturas=message_facturas)
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
@@ -134,6 +169,7 @@ class ResCompany(models.Model):
         for company in self.search([('materials_catalog_sync_enabled', '=', True)]):
             company._sync_materials_catalog_from_enterprise()
             company._sync_vendor_catalog_from_enterprise()
+            company._sync_vendor_invoices_from_enterprise()
 
     @api.model_create_multi
     def create(self, vals_list):

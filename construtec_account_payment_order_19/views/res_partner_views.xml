@@ -14,4 +14,21 @@
             </field>
         </field>
     </record>
+
+    <record id="res_partner_view_form_partner_sync" model="ir.ui.view">
+        <field name="name">res.partner.view.form.partner.sync</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <sheet position="inside">
+                <div class="alert alert-danger" role="alert"
+                     invisible="partner_sync_state != 'error'">
+                    <strong>Error al sincronizar este contacto hacia Enterprise:</strong>
+                    <field name="partner_sync_error" readonly="1" nolabel="1"/>
+                    <button name="action_retry_partner_sync" type="object"
+                            string="Reintentar Sincronización" class="btn-link p-0"/>
+                </div>
+            </sheet>
+        </field>
+    </record>
 </odoo>
