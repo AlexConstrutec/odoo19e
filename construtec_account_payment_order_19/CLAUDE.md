@@ -1596,6 +1596,44 @@ pendiente y uno ya convertido resuelve ambos correctamente en la MISMA llamada -
 queda reclamado sin convertir, el convertido vincula su `move_id` existente sin volver a
 convertirlo.
 
+## "Proveedor" se resuelve por el NIT ya conocido en el propio mirror de Community, no contra Enterprise (2026-09-29)
+
+Corrección explícita del usuario sobre la sección "Un contacto es 'Proveedor' solo con al menos
+un Documento SAT de compra" (arriba, mismo día): esa versión resolvía `es_proveedor_sat`
+haciendo una SEGUNDA llamada RPC a `construtec.sat.document` en Enterprise - el usuario señaló
+que eso está al revés: "los contactos de proveedores en Community se filtran porque tienen una
+factura de proveedor en Community... estas facturas de proveedor de Community son los documentos
+SAT de Enterprise" - es decir, Community YA tiene esa información (su propio mirror
+`construtec.sat.invoice.mirror`, poblado por `_sync_vendor_invoices_from_enterprise()`), no hace
+falta preguntarle a Enterprise otra vez.
+
+- **`fetch_partners(url, db, login, api_key, proveedor_vats=())`**: nuevo parámetro
+  `proveedor_vats` - la lista de NITs que Community YA conoce (de su propio mirror de facturas/
+  Documentos SAT). Se eliminó la llamada a `construtec.sat.document` por completo - ahora es una
+  sola llamada a `res.partner` con domain `customer_rank > 0 OR vat in proveedor_vats`.
+  `es_proveedor_sat` se calcula localmente (`vat` devuelto está en `proveedor_vats`), sin
+  necesidad de ninguna tabla de Enterprise.
+- **`_sync_partners_from_enterprise()`** (`res_company.py`): calcula `proveedor_vats` desde
+  `self.env['construtec.sat.invoice.mirror'].search([...]).mapped('partner_vat')` (distinto, no
+  vacío) ANTES de llamar `fetch_partners()`, y se lo pasa.
+- **Orden real, no forzado**: esta sincronización de Contactos corre bajo
+  `payment_order_sync_enabled` (este módulo); el mirror de Documentos SAT corre bajo
+  `materials_catalog_sync_enabled` (`construtec_sat_catalog_sync_19`) - dos toggles/crons
+  independientes, sin garantía de orden entre ellos. Si el mirror de Documentos SAT aún no se ha
+  poblado la primera vez, esta corrida no encuentra ningún NIT de proveedor - se autosana en la
+  siguiente corrida, una vez que el mirror ya tenga datos (mismo criterio de auto-sanación ya
+  usado en el resto de este módulo).
+- `ResPartner._apply_construtec_tags()`/`_construtec_tag_names_for()` (el auto-etiquetado de
+  Enterprise sobre SUS PROPIOS contactos, sección anterior) **no cambió** - ese camino es local a
+  Enterprise, sin ningún salto RPC, y sigue usando `construtec.sat.document` directo
+  correctamente. Solo cambió cómo Community decide qué NITs pedir.
+
+Verificado con `odoo-bin shell` (Community, `construtec_test`, savepoint/rollback):
+`_sync_partners_from_enterprise()` con un Documento SAT/factura ya en el mirror local (NIT `333`)
+y `fetch_partners()` mockeada (confirmando que el domain enviado a Enterprise incluye ese NIT) -
+el contacto recibido queda etiquetado "Proveedores" correctamente, sin ninguna llamada a
+`construtec.sat.document`.
+
 ## Common commands
 
 ```
