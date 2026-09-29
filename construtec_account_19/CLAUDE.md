@@ -1018,6 +1018,39 @@ CLAUDE.md de `construtec_account_payment_order_19`, "Community nunca vuelve a co
 de account.move"). `action_approve()` no cambió. Verificado: un `create()` mezclando un documento
 pendiente y uno ya convertido en la MISMA lista resuelve ambos correctamente sin cruzarse.
 
+## Bug real de producción: `fetch_partners()` (Community) no sincronizaba NINGÚN contacto (2026-09-29)
+
+Reportado por el usuario: tras el cambio de "Un contacto es 'Proveedor' solo con al menos un
+Documento SAT de compra" (`construtec_account_payment_order_19`, mismo día), la sincronización de
+Contactos dejó de traer absolutamente NINGÚN contacto - ni siquiera los que ya calificaban por
+`customer_rank > 0` (que antes sí llegaban).
+
+**Causa real**: `fetch_partners()` (Community) empezó a consultar `construtec.sat.document` en
+Enterprise usando las credenciales `payment_order_sync_*` - el usuario de integración detrás de
+esas credenciales (`group_payment_order_sync_integration`) está deliberadamente restringido a
+SOLO `account.payment.order` (create-only) y `hr.employee` (read-only) - ver "Provisioning the
+integration user" en el CLAUDE.md de `construtec_account_payment_order_19`. `construtec.sat.
+document` solo concede acceso a `account.group_account_invoice` (`security/ir.model.access.csv`
+de este módulo) - un grupo que ese usuario nunca tuvo. La llamada a `construtec.sat.document`
+(la PRIMERA de las dos que hace `fetch_partners()`) reventaba con `AccessError` antes de siquiera
+intentar la segunda llamada (`res.partner`), así que NADA se sincronizaba - ni los contactos que
+solo dependían de `customer_rank`.
+
+**El fix**: nueva fila en `security/ir.model.access.csv` -
+`access_construtec_sat_document_sync,construtec.sat.document.sync,model_construtec_sat_document,
+construtec_account_payment_order_19.group_payment_order_sync_integration,1,0,0,0` - SOLO lectura,
+igual criterio de mínimo privilegio que `access_hr_employee_sync` (ese mismo grupo, en el módulo
+hermano) - la fuga de esta API Key seguiría sin poder crear/escribir/borrar ningún Documento SAT,
+solo leer. Vive AQUÍ (`construtec_account_19`), no en el módulo compartido, porque ese archivo
+compartido no puede referenciar `construtec.sat.document` (no existe en Community) - pero este
+módulo SÍ depende de `construtec_account_payment_order_19`, así que puede referenciar su grupo
+sin problema.
+
+Verificado con `odoo-bin shell`: un usuario creado con SOLO `group_payment_order_sync_integration`
+(sin `base.group_user` ni ningún otro grupo, replicando exactamente la configuración real del
+usuario de integración) puede ahora leer `construtec.sat.document`, y sigue sin poder crear ni
+escribir nada ahí (`AccessError` confirmado en el intento de `create()`).
+
 ## Common commands
 
 ```
