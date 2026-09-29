@@ -704,7 +704,13 @@ class AccountPaymentOrder(models.Model):
         """Mismo candado que `_check_factura_disponible()`, pero contra el mirror de solo
         lectura (Community no tiene el account.move real) - un aviso temprano en
         `action_submit()`, útil pero NO autoritativo (el mirror puede estar desactualizado); la
-        autoridad real corre en Enterprise, dentro de `_resolve_factura_origin_ids()`."""
+        autoridad real corre en Enterprise, dentro de `_resolve_factura_origin_ids()`.
+
+        También bloquea mezclar facturas de proveedores distintos en una misma Solicitud - una
+        Orden de Pago Directo es para UN solo proveedor (regla de negocio explícita del usuario);
+        la vista ya filtra `factura_mirror_ids` por `partner_id.vat` (ver
+        account_payment_order_views.xml), esto es la defensa real (por si se elige por API/script,
+        o si `partner_id` cambia después de ya haber elegido facturas)."""
         label = mirror.numero_autorizacion or mirror.partner_name or str(mirror.origin_id)
         if mirror.payment_state == 'paid':
             raise UserError(self.env._('La factura %s ya está completamente pagada.', label))
@@ -712,6 +718,13 @@ class AccountPaymentOrder(models.Model):
             raise UserError(self.env._(
                 'La factura %(factura)s ya está vinculada a la Orden de Pago %(orden)s.',
                 factura=label, orden=mirror.linked_order_name))
+        if (self.partner_id and self.partner_id.vat and mirror.partner_vat
+                and mirror.partner_vat != self.partner_id.vat):
+            raise UserError(self.env._(
+                'La factura %(factura)s es del proveedor %(otro)s, no de %(actual)s - una '
+                'Solicitud de Pago Directo es para un solo proveedor.',
+                factura=label, otro=mirror.partner_name or mirror.partner_vat,
+                actual=self.partner_id.name))
 
     def _resolve_employee_enterprise_ref(self, vals):
         """Resuelve `employee_enterprise_ref` (el id ORIGINAL de este empleado en Enterprise,

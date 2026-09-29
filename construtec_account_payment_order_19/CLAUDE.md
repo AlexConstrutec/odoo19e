@@ -2,8 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**⚠️ Este módulo YA NO es verbatim-idéntico entre Community y Enterprise (desde 2026-09-16/17)**: la copia de Community agregó campos de "Datos Personales" (`primer_nombre`/`nit`/`igss`/`pueblo_pertenencia`/etc.) a `hr_employee.py`/las vistas/la seguridad - deliberadamente NO portados aquí, porque esos mismos campos ya existen en `construtec_hr_employee_19` (este árbol) con los mismos nombres técnicos. Ver "Datos Personales cargados desde Community" en el CLAUDE.md de `construtec_hr_employee_19` para el mecanismo receptor, y la sección equivalente en el CLAUDE.md de la copia de Community para el detalle completo del lado que empuja. **Antes de correr `sync-to-enterprise.ps1` de nuevo**, hay que excluir este módulo de la lista (o excluir específicamente esos archivos) - copiarlo tal cual duplicaría/pisaría esos campos.
-
 ## What this module is
 
 `account.payment.order` — a header model with a `tipo` field (`anticipo` / `anticipo_viaticos` / `pago_directo`) representing flavors of a real Construtec accounting flow: money moves through an intermediary (an advance to a contact, or an employee reimbursement) and later has to be reconciled against vendor bills that belong to a **different partner** than the payment. Native Odoo reconciliation works per-partner/account and can't do this on its own. Migrated from the Odoo 16 module `bolson` (`..\Odoo16\bolson\`, "Manejo de cajas chicas y liquidaciones").
@@ -939,43 +937,559 @@ Verificado con `odoo-bin shell`: "Depositar a Mí" deja la Orden en `enviado` co
 
 Pedido explícito del usuario: estas 3 columnas de `viaticos_line_ids` (`views/account_payment_order_views.xml`) pasan de `optional="show"` a `optional="hide"` - siguen disponibles vía el selector de columnas (⚙ de la lista), solo dejan de ocupar espacio por defecto. `puesto`/`banco` no cambiaron (`puesto` sigue `optional="show"`, `banco` ya era `optional="hide"` desde antes). La decoración `decoration-danger="not cuenta_acreditar or not tipo_cuenta or not banco"` en el `<list>` sigue funcionando igual - es a nivel de fila, no depende de qué columnas estén visibles.
 
-## `disponible_tickets`: filtro para que un Ticket (Community) solo vea cuentas analíticas aptas como "Ubicación" (2026-09-18)
+## Datos Personales del empleado: editables aquí, empujados hacia Enterprise (2026-09-16/17)
 
-Pedido explícito del usuario: `account.analytic.account` gana un Boolean nuevo, `disponible_tickets` ("Disponible para Tickets") - editable en la ficha de la cuenta analítica (`views/account_analytic_account_views.xml`, nuevo, hereda `analytic.view_account_analytic_account_form`, campo insertado junto a `code`). Se edita únicamente aquí (Enterprise, dueño del dato, igual que `enterprise_analytic_ref`) - viaja hacia Community por el MISMO mecanismo pull que ya trae el resto de la cuenta analítica (`fetch_analytic_accounts()`/`_sync_analytic_accounts_from_enterprise()`, ver el CLAUDE.md de la copia Community para el detalle completo del sync y del consumidor real - `construtec_helpdesk_field_service::helpdesk_ticket.analytic_account_id`, que ahora exige `disponible_tickets=True` además de `partner_id` para aparecer como "Ubicación" al crear un Ticket).
+Pedido explícito del usuario: hay personas que ayudan a cargar datos personales de colaboradores (nombres/apellidos, DPI, NIT, IGSS, estado civil, nacionalidad, etc. - usados para el "Informe del Empleador" en Enterprise, `construtec_hr_reports_19`) pero **no tienen cuenta en Enterprise ni privilegios de nómina**. Decisión de arquitectura confirmada con el usuario tras plantear el dilema de "quién es la fuente real": **propiedad por campo, no por lado** - nunca hay dos ediciones peleando por el mismo dato, porque cada campo solo se edita en UN lugar:
 
-Verificado con `odoo-bin shell` en `construtec_test`: el campo existe y aparece en el arch de la vista de formulario; crear/leer el valor por defecto (`False`) funciona correctamente. `-u` limpio en `odoo19e` y `odoo19enterprise`, sin `ERROR`/`CRITICAL` nuevos.
+- **Datos personales/demográficos** → se editan **aquí** (Community), se empujan hacia Enterprise. En Enterprise, estos mismos campos (ya existentes en `construtec_hr_employee_19`, más dos nuevos - ver su CLAUDE.md) quedan como la copia recibida, no se vuelven a tocar a mano allá.
+- **Estado laboral, salario, cuenta bancaria** → sigue siendo dueño Enterprise, sin cambios - Community solo tiene el espejo de lectura de siempre (`enterprise_employee_ref`, sincronizado por `_sync_employees_from_enterprise()`).
 
-## Contacto nuevo desde WhatsApp (Community): `create_partner_from_community` (2026-09-23)
+**Campos nuevos en `hr_employee.py`** (`primer_nombre`/`segundo_nombre`/`tercer_nombre`/`primer_apellido`/`segundo_apellido`/`apellido_casada`/`discapacidad`/`nit`/`igss`/`municipio_nombre`/`pueblo_pertenencia`/`comunidad_linguistica`) - deliberadamente duplicados de los catálogos ya existentes en Enterprise (`construtec_hr_employee_19`), mismo criterio ya usado en este módulo para MARITAL_CODE/SEX_CODE (catálogo chico, cada base mantiene su propia copia). `marital`/`sex`/`birthday`/`children`/`identification_id`/`country_id`/`country_of_birth`/`permit_no`/`certificate`/`study_field` **no se duplicaron** - ya son campos nativos de `hr.employee` (Community también trae el módulo core `hr`), solo se expusieron en la vista.
 
-`res.partner` gana el método whitelisted `create_partner_from_community(vals)` - llamado vía
-XML-RPC desde una instalación Solicitante (Community, `construtec_contact_center_base_19`)
-cuando un agente crea un contacto nuevo desde una conversación de WhatsApp sin equivalente
-todavía aquí. Lista blanca propia (`PARTNER_FROM_COMMUNITY_ALLOWED_FIELDS = ('name', 'phone')` -
-**nunca `mobile`**, `res.partner` en este Odoo 19 no tiene ese campo), fuerza `customer_rank=1`
-del lado del servidor y aplica `_apply_construtec_tags()` de inmediato. Ver el CLAUDE.md de la
-copia de Community (`construtec_account_payment_order_19`, Odoo19C) para el diseño completo
-(`_push_new_partner_to_enterprise()`, reintentos, por qué nunca se dispara automáticamente).
+**`PUEBLO_PERTENENCIA`/`COMUNIDAD_LINGUISTICA` verificados 2026-09-17 contra el archivo oficial real** (`Formato_Informe Empleados.xlsx`, descargado por el usuario directamente de la plataforma de MITRAB - ver el CLAUDE.md de `construtec_hr_employee_19` en Enterprise para el detalle completo). Dos intentos previos sin esta fuente quedaron descartados. `COMUNIDAD_LINGUISTICA` ahora solo cubre los 22 idiomas mayas + 99=No aplica (antes tenía, incorrectamente, códigos propios para español/garífuna/xinka/extranjero). **Debe permanecer idéntico, código por código, a la copia de Enterprise** - el `write()` de este módulo empuja el NÚMERO, no la etiqueta, así que un desfase entre los dos catálogos corrompería el dato en silencio al sincronizar.
 
-**Hallazgo real al construir esto**: `tools/enterprise_sync_api.py` en esta copia (Enterprise)
-llevaba tiempo desincronizado del de Community - le faltaban varias funciones (
-`create_employee_in_enterprise`, `push_employee_personal_data`, entre otras) porque nunca se
-llaman desde el lado Procesador y nadie lo notó. Al agregar `create_partner_in_enterprise` solo
-en Community, `res_partner.py` (archivo compartido verbatim) truena aquí con `ImportError` al
-cargar el módulo completo - se corrigió agregando esa función también aquí (dormida, nunca se
-llama desde este lado, pero necesita EXISTIR). El resto de la divergencia entre ambas copias de
-`enterprise_sync_api.py` sigue sin resolverse - candidato para una limpieza futura.
+**`municipio_nombre` es texto libre**, no un Many2one - Community no tiene el catálogo `hr.municipio` de Enterprise. Al sincronizar, Enterprise intenta resolverlo por nombre exacto contra su propio catálogo (`sync_personal_data_from_community()`, ver su CLAUDE.md) - sin match, RR.HH. lo resuelve a mano allá, sin bloquear nada.
+
+**Push, no pull**: `write()` detecta si algún campo de `PERSONAL_DATA_FIELDS` cambió y, si el empleado ya tiene `enterprise_employee_ref` y la compañía es `payment_order_role='solicitante'` con sync habilitado, llama a `_sync_personal_data_to_enterprise()` → `tools/enterprise_sync_api.push_employee_personal_data()` → el método whitelisted en Enterprise (nunca un `write()` genérico - ver su CLAUDE.md para la lista blanca). `personal_data_sync_state`/`personal_data_sync_error` + `action_retry_personal_data_sync()` + un cron cada 30 min (`ir_cron_employee_personal_data_sync_retry`) - mismo patrón exacto que ya usan Órdenes de Pago/Marcajes de Asistencia para sus propios reintentos.
+
+**Grupo nuevo**: `group_construtec_employee_data_entry` ("Empleados: Captura de Datos Personales") - implica `hr.group_hr_user` (necesario: varios campos nativos, ej. `country_of_birth`/`permit_no`, ya vienen restringidos a ese grupo A NIVEL DE CAMPO en el core de `hr` - sin la implicación, este grupo no podría ni leerlos ni escribirlos aunque tuviera CRUD sobre `hr.employee`). Deliberadamente **no** implica nada de nómina/salario - coincide con "sin privilegios para ver nóminas" tal como lo pidió el usuario. Gatea una pestaña nueva "Datos Personales (Colaborador)" en el formulario de Empleado (`views/hr_employee_views.xml`) - agrupa TODOS los campos relevantes (nativos + custom) en un solo lugar, en vez de dejarlos regados en la pestaña "Personal" nativa (que de todas formas ya se vuelve visible para este grupo, por la implicación de `hr.group_hr_user`).
+
+**⚠️ Riesgo real de despliegue, sin resolver todavía**: este módulo está en la lista de `sync-to-enterprise.ps1` (Odoo19E) que copia automáticamente carpetas completas desde Community hacia Enterprise - pero a partir de esta pasada, **este módulo ya NO es verbatim-idéntico entre las dos ediciones**: la copia de Enterprise NO tiene (ni debe tener) estos campos nuevos, porque ya existen ahí vía `construtec_hr_employee_19` con los mismos nombres técnicos - copiar ciegamente esta versión de `hr_employee.py`/las vistas/la seguridad relacionada sobrescribiría o duplicaría esos campos en Enterprise. **No se corrigió el script en esta pasada** - antes de volver a correrlo, hay que excluir este módulo de la lista, o excluir específicamente los archivos tocados aquí (`models/hr_employee.py`, `views/hr_employee_views.xml`, `security/payment_order_request_security.xml`, `data/employee_personal_data_sync_cron.xml`).
+
+**Bug real encontrado al verificar, antes de desplegar**: el cron nuevo (`data/employee_personal_data_sync_cron.xml`) usaba `ref="base.model_hr_employee"` - `hr.employee` es un modelo del módulo `hr`, no de `base`, así que su xmlid real es **`hr.model_hr_employee`**. El xmlid equivocado tumbaba el registro COMPLETO en cuanto se corría CUALQUIER `-u` (no solo de este módulo) - el proceso terminaba abruptamente sin traceback visible en consola (solo en `odoo.log`), el mismo patrón de "muerte silenciosa" ya documentado en la memoria de este workspace sobre reinicios aleatorios del servidor de desarrollo - antes de asumir que es ese problema conocido, revisar primero `odoo.log` por un `ParseError`/`ValueError: External ID not found` como este.
+
+Verificado con `odoo-bin shell` en `construtec_community_0509`: los 8 campos nuevos existen; el grupo existe e implica `hr.group_hr_user`; un empleado sin `enterprise_employee_ref` no intenta sincronizar nada (sin crash); con `enterprise_employee_ref` pero sync deshabilitado, tampoco intenta nada; con sync habilitado pero apuntando a un servidor que no tiene el método (probado sin querer contra este mismo servidor local), el error se atrapa limpio (`personal_data_sync_state='error'`, el `write()` no truena). `-u` limpio tras el fix del xmlid, sin `ERROR`/`CRITICAL` nuevos.
+
+### 🔴 Bug real de producción: el push mandaba un snapshot completo y BORRÓ datos reales en Enterprise (2026-09-17)
+
+Reportado por el usuario tras la primera prueba real en `erp.construtecasesores.com`: al editar UN SOLO campo de "Datos Personales" en Community, se borraron en Enterprise `primer_nombre`/`segundo_nombre`/`tercer_nombre`/`primer_apellido`/`segundo_apellido`/`apellido_casada` y `identification_id` (Número de identificación) de un empleado real.
+
+**Causa raíz, dos partes**:
+1. `_prepare_personal_data_sync_vals()` leía **todos** los campos de `PERSONAL_DATA_FIELDS` en cada push, sin importar cuáles habían cambiado - un snapshot completo, no un delta.
+2. Para un empleado que ya existía ANTES de esta funcionalidad, esos campos llegaban en blanco a Community: nunca hubo un backfill desde Enterprise (que sí tenía los valores reales) - `_sync_employees_from_enterprise()`/`fetch_employees()` solo traían name/department/job/banco/teléfonos, no estos campos nuevos.
+
+Resultado: editar `comunidad_linguistica` (el único campo que el usuario tocó) empujaba TAMBIÉN, en blanco, todo lo demás - pisando en Enterprise datos reales que ya existían ahí.
+
+**El fix, dos partes**:
+1. **Push por delta, no por snapshot**: `write()` ahora calcula `changed_personal_fields` (solo las claves de `PERSONAL_DATA_FIELDS` presentes en el `vals` de ESE write en particular) y las acumula en el nuevo campo `personal_data_sync_pending_fields` (texto separado por comas) - `_prepare_personal_data_sync_vals(fields_to_push)` y `_sync_personal_data_to_enterprise()` ya solo arman/mandan esos campos, nunca todos. Si un push falla, los campos quedan en `personal_data_sync_pending_fields` para que `action_retry_personal_data_sync()`/el cron reintenten exactamente esos (y se van acumulando si mientras tanto cambian más campos) - nunca un reintento manda un snapshot completo tampoco.
+2. **Backfill/relleno de huecos, Enterprise → Community**: `fetch_employees()` ahora también lee los campos de `PERSONAL_DATA_FIELDS` (resolviendo `country_id`/`country_of_birth`/`municipio_id` a `code`/`name` - los ids de Enterprise no sirven en Community, son bases distintas) y `_sync_employees_from_enterprise()` los usa para completar SOLO lo que hoy está en blanco en Community - si el campo ya tiene un valor (cargado a mano o en un backfill anterior), nunca se toca. Este relleno usa `with_context(skip_personal_data_push=True)` para no reenviar a Enterprise lo que se acaba de traer DE Enterprise (`write()` respeta ese flag y no dispara ningún push cuando está presente).
+
+Verificado con `odoo-bin shell` (savepoint/rollback, `push_employee_personal_data`/`fetch_employees` mockeados para capturar payloads sin red real): editar un campo manda solo ese campo; dos fallos consecutivos en campos distintos acumulan ambos y el reintento los manda juntos; el backfill rellena `primer_nombre`/`primer_apellido`/`identification_id`/`country_id`/`country_of_birth`/`municipio_nombre` en un empleado que los tenía en blanco, sin tocar `nit` (que ya tenía cargado a mano), y sin disparar ningún push hacia Enterprise durante el proceso.
+
+**⚠️ El empleado con el que se probó en producción quedó con datos reales borrados en Enterprise (`primer_nombre` y compañía, `identification_id`) - esto NO se puede recuperar solo actualizando el código.** Una vez desplegado este fix, el backfill (cron `_cron_sync_employees_from_enterprise`, cada rato, o disparándolo a mano desde Ajustes) va a intentar rellenar esos huecos DESDE Enterprise - pero si Enterprise mismo ya quedó en blanco para ese empleado, el backfill no tiene de dónde traer el valor real. Hay que re-cargar a mano en Enterprise (o restaurar de un backup de la base si existe uno de antes del incidente) el `primer_nombre`/`segundo_nombre`/`tercer_nombre`/`primer_apellido`/`segundo_apellido`/`apellido_casada`/`identification_id` del empleado afectado.
+
+**Gap real, no corregido**: Community no tiene forma de indicar "el documento es un Pasaporte, no un DPI" - `identification_id` es solo el NÚMERO del documento (etiqueta "Documento (DPI/Pasaporte)" en la vista, pero es un solo campo de texto), y no hay campo `passport_id` expuesto aquí (si existe, es nativo de `hr.version`/`hr.employee`, ver el CLAUDE.md de `construtec_hr_reports_19` en Enterprise para `_doc_identificacion_code()`, que sí distingue los dos). Para un empleado extranjero cuyo único documento es pasaporte, cargar su número en `identification_id` lo clasificaría como DPI en el Informe del Empleador. No resuelto en esta pasada - pendiente de decidir si vale la pena agregar el campo aquí.
+
+## Pestaña reordenada + "Nivel académico" real (2026-09-18)
+
+Pedido explícito del usuario, con las dos Excel de referencia en mano (`ACTUALIZACIÓN DE DATOS COLABORADORES 2026.xlsx` - la hoja que usa RR.HH. para recolectar esto - y `Formato_Informe Empleados.xlsx` - el archivo real de MITRAB, con una hoja de catálogo por cada campo codificado): la pestaña "Datos Personales (Colaborador)" ahora sigue el MISMO ORDEN que esa hoja de recolección de RR.HH. (antes estaba reorganizada en grupos temáticos - Nombres y Apellidos/Identificación/Datos Personales/Educación - que no coincidían con el orden de la hoja que la gente realmente llena) - un solo `<group>` plano en vez de sub-grupos, para que el orden de inserción sea el orden visual exacto (un `<group>` con `<field>` directos, sin `<group>` anidados, renderiza como una sola columna de arriba a abajo).
+
+**`certificate` (Nivel académico) sobrescrito aquí también** - antes solo tenía las 5 opciones nativas de Odoo (Graduate/Bachelor/Master/Doctor/Other, en inglés); ahora usa el mismo `NIVEL_ACADEMICO` de 13 niveles que ya tenía Enterprise (`hr_employee_selections.py`) - ver esa sección en el CLAUDE.md de `construtec_hr_employee_19`. Confirmado que Odoo NO valida a nivel de ORM que un `Selection` reciba una clave de su propia lista (probado escribiendo `'3'` sobre el `certificate` nativo de 5 opciones - se guardó sin error) - así que sin este fix, un valor de nivel educativo traído por el backfill desde Enterprise se habría guardado igual, pero se habría visto en blanco/sin seleccionar en el formulario de Community.
+
+## Alta de empleados nuevos desde Community (2026-09-18)
+
+Pedido explícito del usuario: la puerta de entrada para dar de alta un colaborador puede ser **Community**, no solo Enterprise - alguien con `group_construtec_employee_data_entry` (sin cuenta/privilegios de nómina en Enterprise) puede crear el empleado aquí, y se crea también en Enterprise automáticamente. Antes de esta pasada, los empleados SOLO se creaban en Enterprise (documentado explícitamente arriba, en la descripción del módulo) - eso ya no es cierto, aunque Enterprise sigue siendo dueño de todo lo que no sea identidad/datos personales (salario, banco, contrato, estado laboral).
+
+Decisiones confirmadas con el usuario:
+- **Mismo grupo que ya edita Datos Personales** (`group_construtec_employee_data_entry`) puede crear - no se agregó un permiso separado. Ya tenía CRUD completo sobre `hr.employee` vía la implicación a `hr.group_hr_user` (stock `hr`), así que no hizo falta ningún cambio de `ir.model.access.csv` en Community para esto.
+- **Captura identidad + departamento/puesto** al crear (no solo los campos de la pestaña "Datos Personales") - salario/banco/tipo de contrato se completan después en Enterprise, como con cualquier empleado.
+
+**Cómo se distingue un alta real de un espejo**: `create()` (nuevo override) revisa si `enterprise_employee_ref` viene en el `vals` de creación - `_sync_employees_from_enterprise()` (el pull que ya existía) SIEMPRE lo incluye (es justo el id del empleado que ya existe del otro lado); un alta hecha a mano en el formulario nunca lo trae, porque el empleado no existe todavía en ningún lado más que aquí. Sin esa distinción, cada empleado que Community trae por sincronización periódica se habría intentado "crear" de nuevo en Enterprise.
+
+**`_create_employee_in_enterprise()`**: a diferencia de una edición (que manda solo el delta, ver el bug real de arriba), aquí se manda un snapshot COMPLETO de `PERSONAL_DATA_FIELDS` - no hay ningún riesgo de pisar algo real, porque el registro todavía no existe en Enterprise. Además manda `name`/`job_title`/`department_name` (nombre, no id - Enterprise resuelve o crea el departamento por nombre, mismo criterio que ya usa `_sync_employees_from_enterprise()` en la dirección contraria) y `company_ref` (`payment_order_default_company_id.enterprise_company_ref` - la misma compañía que ya usan las Solicitudes de Pago). Llama al método whitelisted `create_employee_from_community()` en Enterprise (`[[], vals]` - lista de ids vacía, no hay ningún empleado existente que resolver) y guarda el id que regresa como `enterprise_employee_ref` - desde ese momento, el empleado se comporta exactamente igual que cualquier otro ya sincronizado (toda edición futura usa el flujo de delta normal).
+
+**Reintentos unificados**: `_sync_personal_data_to_enterprise()` ahora revisa primero si el empleado tiene `enterprise_employee_ref` - si no, llama a `_create_employee_in_enterprise()` en vez de intentar un update. Esto significa que un alta que falló (servidor caído, credenciales mal puestas) usa el MISMO botón "Reintentar Sincronización" y el MISMO cron (`_cron_retry_personal_data_sync`) que ya existían para reintentar ediciones - no hizo falta UI ni estado nuevo para esto.
+
+**Bug real encontrado al verificar esto con el usuario de integración REAL** (no como superusuario, que es como se habían corrido las pruebas anteriores de esta misma feature sin querer, ocultando el problema): `_resolve_personal_data_vals()` en Enterprise buscaba `res.country`/`hr.municipio` sin `.sudo()` - el usuario de integración real (solo `group_payment_order_sync_integration`, sin `base.group_user`) no tiene permiso de lectura sobre esos modelos, así que CUALQUIER edición de nacionalidad/país de origen/municipio habría tronado con `AccessError` en producción desde que se desplegó esta funcionalidad, no solo la creación nueva. Corregido agregando `.sudo()` a esas 2 búsquedas (ver CLAUDE.md de `construtec_hr_employee_19` en Enterprise) - `sudo()` es seguro ahí porque solo resuelve un id a partir de un valor ya filtrado por la lista blanca, nunca escribe nada fuera de ella.
+
+Verificado con `odoo-bin shell` en ambos lados, usando un usuario de prueba con SOLO `group_payment_order_sync_integration` (no superusuario) para las llamadas del lado Enterprise: creación exitosa con resolución de país/municipio/departamento (find-or-create) funcionando bajo esos permisos restringidos; un campo fuera de la lista blanca (`wage`, `contract_type_id`) intentado en el payload nunca se coló; una edición posterior a la creación usa el flujo de UPDATE normal, no crea de nuevo; un espejo traído por `_sync_employees_from_enterprise()` no dispara ninguna creación; una creación que falla queda en estado de error y el botón de reintento la completa correctamente.
+
+## Notificaciones push del navegador (2026-09-18)
+
+Pedido explícito del usuario: notificaciones push reales (que lleguen al celular/escritorio aunque Odoo no esté abierto), para los mismos 4 eventos del ciclo de una Orden de Pago que ya notifica `construtec_whatsapp_19` (Enviado/Aprobado/Aplicado/Liquidado) - pero **separado** de ese módulo a propósito ("el de WhatsApp es algo más complejo con Meta"), viviendo aquí mismo.
+
+**No hizo falta ningún módulo/JS/Service Worker nuevo**: Odoo (`mail`) ya trae toda la infraestructura de Web Push (claves VAPID, cifrado AES128GCM, el Service Worker que ya se sirve en `/web/service-worker.js`, cron de reintento `mail.ir_cron_web_push_notification`) para las notificaciones de menciones/mensajes directos - se agregó `_push_notify(partners, title, body)` (nuevo, en `account_payment_order.py`), que reutiliza los métodos de bajo nivel de `mail.thread` (`_web_push_get_partners_parameters`/`_web_push_send_notification`, heredados - `account.payment.order` ya inherit `mail.thread`) con un payload propio, sin pasar por el camino de "mención" que Odoo usa normalmente para esto.
+
+**Destinatarios, sin ninguna configuración nueva que armar** (a diferencia de WhatsApp, que tiene su propio modelo `construtec.whatsapp.payment.order.notification` con grupos configurables - aquí se usó lo que ya existe en este mismo modelo, para mantenerlo simple):
+- **Enviado** → **corregido dos veces el mismo día (2026-09-18)**. Primer intento: solo el nivel que de verdad puede aprobar según el umbral (monto ≥ umbral → solo Alto; monto < umbral → Medio). El usuario probó esto como aprobador Nivel Medio y no le llegó nada en una Orden - al revisar, la Orden que probó estaba sobre el umbral, así que el comportamiento era correcto, pero **no era lo que el usuario quería**: corrigió explícitamente que "las Órdenes de Pago deben ser notificadas a TODOS los aprobadores Nivel Medio, sean menores o mayores [al umbral]... ya los gerentes solo arriba del umbral". Diseño final en `_approver_partners()`:
+  - **Nivel Medio (Jefe de Área)**: SIEMPRE, sin importar el monto.
+  - **Nivel Alto (Gerente de Área)**: SOLO cuando el monto llega al umbral configurado (`res.company.payment_order_approval_threshold` - el valor que sea, no un número fijo).
+
+  Aquí SÍ importa usar `group_ids` (grupos DIRECTOS), no `all_group_ids` (directos + implícitos) - al revés del criterio que se había usado en el primer intento (ver abajo) - porque ahora hace falta distinguir "asignado directamente a Nivel Medio" de "asignado a Nivel Alto" (que implica Medio a nivel de PERMISO, pero eso ya no debe traducirse en notificarlo también para montos bajos).
+- **Aprobado/Aplicado/Liquidado** → `requested_by_id.partner_id` (el solicitante, campo nativo ya existente).
+
+**Trampa real al filtrar por grupo con jerarquía (`implied_ids`)**: `group_ids` en `res.users` (sus grupos DIRECTAMENTE asignados) **no** incluye los grupos implícitos - un usuario asignado solo a `group_payment_order_approver_alto` (que `implied_ids` hacia `_medio`) **no aparece** en una búsqueda `[('group_ids', 'in', [medio.id])]`, aunque en la práctica SÍ puede aprobar montos de Nivel Medio. `all_group_ids` (directos + implícitos) sí lo encuentra. Confirmado con `odoo-bin shell` - **cuál de los dos campos usar depende de la intención**: para "cualquiera con permiso real de aprobar esto" usar `all_group_ids`; para "solo quien está directamente en este nivel" (el diseño final de arriba) usar `group_ids`.
+
+**Requisito operativo, no de código**: para que le llegue algo a una persona, esa persona necesita haber aceptado el permiso de notificaciones del navegador DENTRO de Odoo al menos una vez (flujo nativo de Odoo, no hay que construir nada) - eso es lo que genera su `mail.push.device` y, la primera vez que cualquiera lo hace, las claves VAPID del sistema (`ir.config_parameter`: `mail.web_push_vapid_private_key`/`public_key`) - antes de eso, `_push_notify()` no manda nada (no es un error, simplemente no hay ningún dispositivo registrado todavía). En una base de datos donde nadie lo ha hecho nunca (confirmado: base de prueba local sin esas claves), la primera prueba real no dispara nada hasta que alguien acepte el permiso una vez.
+
+Verificado con `odoo-bin shell` (savepoint/rollback, `_web_push_send_notification` mockeado para capturar el payload sin red real, forzando la generación de claves VAPID primero para simular el bootstrap real): `action_submit()` con una Orden bajo el umbral (Q500) notifica SOLO a Nivel Medio; con una Orden sobre el umbral (Q5000) notifica a AMBOS niveles; `action_approve()` notifica correctamente al solicitante. Nota de la propia verificación: `total_acreditar` (el campo que decide el umbral) se computa desde `viaticos_line_ids`/`material_line_ids` - para un `tipo='anticipo'` sin esas líneas queda en `0.0` (mismo comportamiento que ya tenía `_check_is_approver_for_amount()`, no es un caso nuevo introducido aquí), así que para Anticipo/Viáticos/Materiales reales (con líneas) el monto se lee correctamente.
+
+## Órdenes de Pago como app propia, con ícono propio (2026-09-18)
+
+Pedido explícito del usuario: sacar "Órdenes de Pago" del módulo de Facturación (vivía como submenú dentro de `account.menu_finance_payables`, la sección de Pagos a Proveedores de Contabilidad) y que sea su propia app en el dashboard de Odoo, con el ícono que compartió (imagen de un banco/institución, azul).
+
+**Mecanismo**: el ícono de una "app" en Odoo es simplemente un `ir.ui.menu` sin `parent_id` (root) que tiene `web_icon="modulo,ruta/relativa/al/icono.png"` - mismo patrón exacto que usan módulos stock como `hr`/`fleet` (`web_icon="hr,static/description/icon.png"`). El menú `menu_account_payment_order` (antes con `parent="account.menu_finance_payables"`) ahora es ese root - se le quitó el `parent`, se le agregó `web_icon` y `name` explícito. Los otros 2 menús de este módulo que también vivían en Facturación (**Importar Órdenes de Pago desde Excel**, **Viáticos sin Liquidar**) ahora cuelgan de este mismo root en vez de Facturación, así aparecen como sub-menús de la nueva app.
+
+El ícono (`static/description/icon.png`, 512×512 PNG) también sirve automáticamente como el ícono del módulo en Ajustes > Aplicaciones (convención estándar de Odoo: cualquier módulo con ese archivo en esa ruta lo usa ahí también, sin configuración aparte) - no había ningún ícono propio antes, así que esto es una mejora sin efectos secundarios.
+
+**No se tocó** el menú de WhatsApp (`construtec_whatsapp_19`, root propio "WhatsApp") ni el de sincronización de catálogo SAT - ambos también viven hoy bajo `account.menu_finance_payables`, pero el usuario pidió específicamente sacar "las órdenes de pago", no todo lo relacionado - quedan donde estaban.
+
+Verificado: `-u` limpio; por `odoo-bin shell`, el menú `menu_account_payment_order` tiene `parent_id` vacío, `web_icon` correcto, `action` apuntando al mismo action de siempre, y sus 2 hijos (`Viáticos sin Liquidar`, `Importar Órdenes de Pago desde Excel`) - la imagen se sirve correctamente en `/construtec_account_payment_order_19/static/description/icon.png` (confirmado con el navegador, 512×512 tal como el archivo original). No se pudo verificar el render final del ícono en el dashboard de apps por no tener credenciales de un usuario real para iniciar sesión - la próxima vez que entres, deberías verlo ahí.
+
+## Puestos de Trabajo (hr.job) sincronizados desde Enterprise (2026-09-18)
+
+Pedido explícito del usuario: que Community tenga los mismos catálogos de `hr.job` ("Puesto de Trabajo", el registro formal - no confundir con `job_title`, el texto libre que ya se sincronizaba desde antes) que Enterprise, y que cada empleado quede asignado al puesto correcto.
+
+**Mismo criterio que `department_id`** (find-or-create por nombre+compañía, dentro de `_sync_employees_from_enterprise()`) - `fetch_employees()` ahora también lee `job_id` (además de `job_title`); en Community se busca un `hr.job` con ese nombre para esta compañía y, si no existe, se crea (vinculado al `department_id` ya resuelto de ese mismo empleado). El nuevo `job_id` se agrega a los `vals` que siempre se sobrescriben en cada sincronización (igual que `department_id`/`job_title` - esto es dato de "estado laboral", dueño Enterprise, no pasa por el relleno de huecos de Datos Personales).
+
+Verificado con `odoo-bin shell` (savepoint/rollback, `fetch_employees` mockeado): un puesto que ya existía en Community se reutiliza (no se duplica); uno nuevo se crea con el departamento correcto; correr la sincronización dos veces seguidas no duplica nada.
+
+## Baja en Enterprise → baja en Community + en el usuario vinculado (2026-09-18)
+
+Pedido explícito del usuario: cuando a un empleado se le da de baja en Enterprise (estado laboral, sigue siendo dueño Enterprise - esto solo refleja esa baja aquí, nunca al revés), debe archivarse también en Community y, por lo tanto, el usuario de Odoo vinculado a ese empleado también debe quedar archivado (sin poder iniciar sesión).
+
+**El mecanismo, todo dentro de `_sync_employees_from_enterprise()`** (el mismo pull periódico que ya trae name/departamento/Datos Personales, cron `_cron_sync_employees_from_enterprise`):
+- `fetch_employees()` ahora pide `context: {'active_test': False}` y agrega `'active'` a los campos leídos - sin esto, un empleado archivado en Enterprise **desaparece por completo** del `search_read` en vez de venir con `active: False`, y Community nunca se enteraría de que hay que archivarlo.
+- La búsqueda de `existing` (el empleado ya sincronizado, por `enterprise_employee_ref`) también usa `active_test=False` - de lo contrario, un empleado que YA se había archivado en una sincronización anterior no se encontraría en la siguiente pasada (búsqueda normal excluye archivados por default) y se **crearía un duplicado**.
+- Tras el `write()`/`create()` normal, se compara el estado activo/inactivo antes y después: si pasó de activo a inactivo, `action_archive()` sobre el empleado y, si tiene `user_id`, `action_archive()` sobre ese usuario también (`sudo()`, mismo criterio que el resto de esta sincronización). Si pasó de inactivo a activo, ambos se reactivan con `action_unarchive()` - comportamiento simétrico, por si alguien reingresa.
+- Un empleado que llega por primera vez YA dado de baja en Enterprise (nunca existió aquí) se crea y se archiva de inmediato en el mismo ciclo, sin quedar activo ni un instante.
+
+**Bug real encontrado de paso, sin relación directa con lo anterior**: el relleno de huecos de "Datos Personales" (`personal_data_vals`) forzaba `emp.get(f) or False` incluso para un empleado **nuevo** sin ese dato en Enterprise - para un campo con restricción `NOT NULL` a nivel de base de datos en `hr.version` (ej. `marital`, que tiene default `'single'`), esto producía `psycopg2.errors.NotNullViolation` al crear, en vez de dejar que el propio modelo aplicara su default. Corregido: solo se agrega la clave a `personal_data_vals` cuando Enterprise SÍ tiene un valor real - nunca se fuerza `False` explícito en una creación nueva.
+
+Verificado con `odoo-bin shell` (savepoint/rollback, `fetch_employees` mockeado): baja en Enterprise → empleado y usuario archivados en Community; reactivación en Enterprise → ambos reactivados; un empleado nuevo que llega ya dado de baja se crea directamente archivado, sin usuario vinculado, sin tronar; ningún ciclo de baja/reactivación duplica el registro (`enterprise_employee_ref` sigue siendo único).
+
+## Bug real: "Error de acceso" al leer `factura_ids` con un usuario sin permisos de Contabilidad (2026-09-18)
+
+Reportado por el usuario con una captura real de producción: un Jefe de Técnicos (sin ningún grupo de Contabilidad, solo `base.group_user`) presiona "Depositar a Mí" en una Orden de tipo Anticipo Viáticos y le sale "Error de acceso" - "Ocurrió un error al leer el campo `account.payment.order.factura_ids`... No puede acceder a los registros 'Asiento contable' (`account.move`)".
+
+**Causa**: la pestaña "Facturas y Pagos" del formulario (`factura_ids`/`pago_ids`/`move_id`/`cuenta_ajuste_id` - todos apuntando a `account.move`/`account.payment`, modelos de Contabilidad) solo tenía `invisible="not es_procesador"` - **`invisible` únicamente oculta en pantalla, no evita que Odoo intente LEER esos campos** al refrescar el formulario (ej. después de cualquier botón de acción) - un usuario sin ningún grupo de Contabilidad no puede leer `account.move`, así que la lectura truena aunque la pestaña ni se le muestre. Community siempre corre en `payment_order_role='solicitante'` (`es_procesador=False`), así que esta pestaña nunca debería aplicar ahí en absoluto - pero el campo se seguía pidiendo de todas formas.
+
+**El fix**: se agregó `groups="account.group_account_invoice"` a la página completa (además de mantener el `invisible` ya existente) - con `groups=`, Odoo quita el elemento del `arch` que le manda al navegador para cualquier usuario fuera de ese grupo, así que el campo ni se pide. `account.group_account_invoice` es uno de los grupos que el propio mensaje de error de Odoo ya listaba con acceso a `account.move` ("Contabilidad/Facturación").
+
+Verificado con `odoo-bin shell`: un usuario con SOLO `base.group_user` (sin ningún grupo de Contabilidad) puede leer `factura_ids`/`pago_ids`/`move_id` y ejecutar `action_submit_depositar_a_mi()` sin `AccessError`. Nota: la prueba usó `.read()` directo del ORM, no una llamada RPC completa del cliente web (que es exactamente donde ocurrió el error real) - el mecanismo (`groups=` en un elemento de vista) es el patrón estándar y documentado de Odoo para este caso exacto, pero si el usuario ya tenía el formulario cargado en el navegador ANTES de este fix, necesita refrescar (Ctrl+Shift+R) para que el cliente pida la vista de nuevo con el `arch` ya filtrado.
+
+## Bug real, más grave: leer `hr.employee` sin `.sudo()` rompe TODO para un usuario sin `hr.group_hr_user` (2026-09-18)
+
+El fix de arriba no fue suficiente - la MISMA captura de pantalla (después de arreglar `factura_ids`) mostró un segundo "Error de acceso", esta vez: *"Los campos `enterprise_employee_ref,primer_nombre,segundo_nombre,tercer_nombre,primer_apellido,segundo_apellido,apellido_casada,discapacidad,nit,igss,mun[icipio_nombre]...`, que está intentando leer, no están disponibles para los perfiles públicos de los empleados."*
+
+**Causa, mucho más de fondo**: `hr.employee` (`odoo/addons/hr/models/hr_employee.py`, `search_fetch()`/`fetch()`) hace algo que no era obvio: si el usuario actual **no tiene acceso de lectura al modelo `hr.employee`** (`self.browse().has_access('read')` → `False`, que es justo el caso de cualquier usuario sin `hr.group_hr_user` ni ningún otro grupo que dé ese acceso), Odoo **sustituye la lectura por `hr.employee.public`** (el "perfil público" - name/avatar/department_id/job_title y poco más, pensado para mostrar un empleado en un selector sin exponer datos de RR.HH.) - y si CUALQUIERA de los campos pedidos no existe en ese modelo público, truena con `AccessError` en vez de devolver solo lo que sí es público. **Todos** los campos que agregamos para "Datos Personales" (2026-09-16/17: `primer_nombre`, `nit`, `igss`, `discapacidad`, `enterprise_employee_ref`, etc.) están en `hr.employee` pero NO en `hr.employee.public` - así que **cualquier lectura de `hr.employee` sin `.sudo()`, hecha por un usuario sin `hr.group_hr_user`, ahora truena siempre**, sin importar qué campo específico se pidió - basta con que el fetch/prefetch de Odoo agrupe esa lectura con cualquiera de estos campos nuevos.
+
+Esto es una regresión real introducida por la funcionalidad de Datos Personales: **antes** de esos campos, un Jefe de Técnicos sin `hr.group_hr_user` podía usar el picker de empleado sin problema (`hr.employee.public` ya cubría lo que hacía falta). Después, cualquier código de este módulo que leyera un campo de `hr.employee` **sin `.sudo()`** empezó a fallar para ese mismo tipo de usuario - un patrón de `.sudo()` que YA estaba correctamente aplicado en algunas líneas (`_onchange_partner_id()`, con un comentario explícito: *"un solicitante normal no tiene por qué tener el grupo hr.group_hr_user"*) mientras que otras líneas cercanas, del mismo método o de métodos hermanos, se quedaron sin él - un descuido de consistencia, no una decisión.
+
+**El fix**: se agregó `.sudo()` a **todas** las lecturas de `hr.employee`/campos de un `employee_id` ya resuelto que faltaban, en `account_payment_order.py` (`_onchange_partner_id()` - `cuenta_acreditar`/`banco`/`tipo_cuenta` leían `rec.employee_id` en vez de la variable `employee` YA sudo'd que existía dos líneas arriba; `_prepare_sync_vals()`/`_resolve_employee_enterprise_ref()` - `enterprise_employee_ref`/`work_contact_id`/`company_id`) y en `account_payment_order_viatico_line.py` (`_onchange_employee_partner_id()` - `tecnico_name = line.employee_id.name`; `create()` - el mismo `browse(int(ref))` del encabezado). **Nunca se expuso ningún campo nuevo en `hr.employee.public`** a propósito - serían datos personales sensibles (DPI, NIT, discapacidad) expuestos ampliamente, exactamente lo que ese modelo público existe para evitar; la solución correcta es que el CÓDIGO siempre sude cuando de verdad necesita leer `hr.employee` para alguien sin ese grupo, no relajar qué se considera "público".
+
+Verificado con `odoo-bin shell`, reproduciendo las condiciones EXACTAS del reporte (usuario con solo `base.group_user`, `has_access('read')` sobre `hr.employee` confirmado en `False`): crear una línea de viáticos, disparar `_onchange_employee_partner_id()`, y ejecutar `action_submit_depositar_a_mi()` completo - los tres pasos que antes tronaban ahora funcionan de punta a punta sin ningún `AccessError`.
+
+## `_push_notify()` rediseñado: ahora pasa por `message_post()`, no un push crudo (2026-09-18)
+
+Corrección explícita del usuario, el mismo día que se implementó el push: "las notificaciones deberían quedar en el panel de Conversaciones" - la primera versión de `_push_notify()` llamaba directo a los métodos de bajo nivel de `mail.thread` (`_web_push_get_partners_parameters`/`_web_push_send_notification`) con un payload propio, sin pasar por `message_post()`/`message_notify()` - esto sí mandaba el push, pero no dejaba NINGÚN rastro dentro de Odoo (ni en el chatter de la Orden, ni en la Bandeja de entrada/Conversaciones del destinatario) - si el push en sí no llegaba (celular con el navegador realmente cerrado por el sistema/fabricante, sin batería, etc.), la persona no tenía ningún otro lugar donde enterarse.
+
+**El fix**: `_push_notify()` ahora llama `self.message_post(body=..., partner_ids=partners.ids, subtype_xmlid='mail.mt_note')` - el mismo mecanismo nativo que ya usa Odoo para menciones/mensajes directos (`_notify_thread_by_inbox`/`_notify_thread_by_web_push`, `mail_thread.py`). Una sola llamada logra tres cosas: (1) el mensaje queda para siempre en el chatter de la Orden; (2) dispara el mismo Web Push de antes (sin infraestructura nueva); (3) intenta dejar una notificación en la Bandeja de entrada (Conversaciones) de cada `partner`.
+
+**Bug real encontrado al verificar el punto (3), no resuelto solo con este cambio de código**: si el destinatario tiene su preferencia de notificación de Odoo (`res.users.notification_type`) en `'email'` (**el default de Odoo para cualquier usuario nuevo**, confirmado leyendo `mail/models/res_users.py` - nadie lo elige a propósito, así nace toda cuenta) el mensaje NUNCA aparece en su panel de Conversaciones - Odoo lo enruta como notificación de correo en su lugar (`_notify_thread_by_inbox()` solo crea el registro de Bandeja de entrada para `notif == 'inbox'`; el resto de destinatarios ni se intenta). El push (por `message_type='comment'`) sí le sigue llegando a todos, con o sin esta preferencia - pero el panel de Conversaciones no, hasta que la propia cuenta tenga `notification_type = 'inbox'` ("En Odoo", no "Por Correos"). **Los usuarios creados por el script de alta masiva de esta misma sesión (`alta_masiva_usuarios.py`) nunca tocaron este campo** - todos nacieron con el default `'email'`, así que ningún aprobador ve nada en Conversaciones hasta que se corrija esto.
+
+Verificado con `odoo-bin shell` en `construtec_test`, dos escenarios reales: un aprobador con `notification_type='email'` (default) recibe el mensaje en el chatter de la Orden pero la `mail.notification` creada es tipo `'email'`, no aparece en su bandeja/needaction; el mismo escenario con `notification_type='inbox'` sí crea una `mail.notification` tipo `'inbox'` y el mensaje aparece en su `needaction`/Conversaciones. `-u` limpio en `construtec_test`, sin `ERROR`/`CRITICAL` nuevos.
+
+**Script de una sola vez, entregado al usuario (no versionado en el módulo)** - mismo patrón que `alta_masiva_usuarios.py` (Acción de Servidor, pegar y correr una vez en Ajustes > Técnico > Acciones de Servidor): pone `notification_type = 'inbox'` a todos los usuarios en `group_payment_order_approver_medio`/`_alto` de un solo golpe, para que sus futuras notificaciones de Órdenes de Pago (y cualquier otra de Odoo) aparezcan en Conversaciones sin depender de que cada quien lo configure a mano en Ajustes > Mi Perfil > Preferencias. Validado con `safe_eval.test_python_expr()` y probado con `odoo-bin shell` (rollback) contra `construtec_test` - un usuario recién creado con el grupo Nivel Medio pasa de `'email'` a `'inbox'` correctamente.
+
+### 🔴 Corrección real, 2026-09-19: "el push sí llega a todos con `message_type='comment'`" (párrafo de arriba) - **`message_type='comment'` nunca se estaba pasando de verdad**
+
+Encontrado construyendo la notificación equivalente para Tickets (`construtec_helpdesk_mgmt`, ver su CLAUDE.md): el párrafo de arriba asumía, sin verificarlo con una prueba real, que `message_type='comment'` era **el default** de `message_post()` - falso. El default REAL (`mail_thread.py::message_post()`) es `message_type='notification'`, y `_push_notify()` nunca pasaba `message_type` explícito en su llamada - así que corría con `'notification'`, no `'comment'`, desde el primer despliegue (2026-09-18).
+
+**Impacto real**: `_notify_get_recipients_for_extra_notifications()` (`mail_thread.py`) trata `'notification'` distinto de `'comment'` - con `'notification'`, excluye del push a cualquier destinatario cuyo `notification_type` sea `'email'` (`notif_pids_notinbox`), que es **exactamente el mismo default de cuenta nueva** ya documentado arriba para el problema de Conversaciones. Es decir: el push **tampoco** le llegaba a un aprobador que no hubiera cambiado su preferencia a "En Odoo" - el mismo síntoma exacto, doble motivo. Confirmado con `odoo-bin shell` (mockeando `_web_push_get_partners_parameters`/`_web_push_send_notification` para capturar si se intenta enviar, sin red real): con `message_type` por defecto, cero intentos de push hacia un partner con `notification_type='email'`; forzando `message_type='comment'` en la misma llamada, sí se intenta.
+
+**El fix**: se agrega `message_type='comment'` explícito a la llamada de `message_post()` dentro de `_push_notify()`. El script de "Notificación En Odoo" de arriba sigue siendo necesario para Conversaciones (eso sí depende genuinamente de la preferencia) - pero a partir de este fix, el PUSH ya no depende de esa preferencia para nadie, se manda a todos los `partner_ids` explícitos salvo el autor, tal como se pretendía desde el diseño original.
+
+## Push al solicitante también en Aprobado/Aplicado/Liquidado/Rechazado - vía el pull, no vía `action_*` (2026-09-19)
+
+Pedido explícito del usuario, probando en producción (`erp.construtecasesores.com` = Community): "el usuario que ingresa la orden de pago también debe ser notificado cuando la orden es aprobada y aplicada". Los `_push_notify()` que ya existían dentro de `action_approve()`/`action_aplicar()`/`action_conciliar()` (agregados 2026-09-18) **nunca se disparaban en la práctica** para una Orden sincronizada - esos tres métodos corren de verdad sobre la copia de **Enterprise** (ahí es donde ocurre la aprobación real, ver "Cambio de arquitectura" más arriba), y encima `requested_by_id` ahí resuelve al **usuario de integración API** (el que hizo el `create()` remoto), no a la persona real - el id de `res.users` nunca viaja entre bases (regla de siempre en este módulo).
+
+**El fix real vive en el pull, no en los `action_*`**: `res.company._pull_payment_order_status()` es el ÚNICO lugar donde la copia LOCAL de Community de una Orden sincronizada se entera de que cambió de estado en Enterprise - ahí sí `requested_by_id` es el solicitante real (la copia nunca salió de esta base). Se agregó `AccountPaymentOrder._notify_estado_pull(estado_nuevo)` (nuevo, junto a `_push_notify()`), llamado desde el pull justo después del `write()` **solo si el `state` en sí cambió** (no si solo cambió `monto`) - notifica "aprobada"/"aplicada"/"liquidada"/"rechazada" (con motivo, si lo hay) a `self.requested_by_id.partner_id`. Los `_push_notify()` dentro de los `action_*` **no se tocaron/eliminaron** - siguen siendo correctos para una Orden 100% local, sin sincronización de por medio (ej. un Anticipo normal capturado directo en Enterprise).
+
+**"que la notificación aparezca a todos los aprobadores" (mismo mensaje del usuario)** - ya funciona sin cambios: es `_approver_partners()`, llamado desde `action_submit()` (que SÍ corre en Community, donde el técnico realmente envía) - confirmado en la misma prueba de producción que motivó este pedido (push de "Enviado" llegando correctamente). No se tocó nada de esa parte.
+
+Verificado con `odoo-bin shell` en `construtec_test`: una Orden local (`sync_state='synced'`, creada `with_user()` de un solicitante real) cuyo pull remoto (mockeado) reporta `state='aprobado'` termina con un mensaje "Orden de Pago aprobada" en el chatter y una `mail.notification` tipo `'inbox'` para el solicitante real (con `notification_type='inbox'` en su cuenta) - nunca para el usuario de integración. `-u` limpio en `construtec_test`, sin `ERROR`/`CRITICAL` nuevos.
+
+## `disponible_tickets`: filtro para que un Ticket solo vea cuentas analíticas aptas como "Ubicación" (2026-09-18)
+
+Pedido explícito del usuario: en Enterprise, `account.analytic.account` gana un Boolean nuevo, `disponible_tickets` ("Disponible para Tickets") - editable en la ficha de la cuenta analítica (`views/account_analytic_account_views.xml`, nuevo, hereda `analytic.view_account_analytic_account_form`, campo insertado junto a `code`). Viaja hacia Community por el MISMO mecanismo pull que ya trae el resto de la cuenta analítica (`tools/enterprise_sync_api.fetch_analytic_accounts()` ahora también pide `disponible_tickets`; `res.company._sync_analytic_accounts_from_enterprise()` lo agrega a `vals` sin ninguna resolución especial - a diferencia de `plan_id`/`partner_id`, es un valor plano, viaja tal cual).
+
+**Consumidor**: `construtec_helpdesk_field_service/models/helpdesk_ticket.py::analytic_account_id` - su `domain` (ya filtraba por `partner_id`, ver "Cuentas Analíticas ganan `partner_id` real..." más arriba) ahora también exige `('disponible_tickets', '=', True)`. Un cliente puede tener varias cuentas analíticas (proyectos internos, cuentas de otro uso) que nunca deben aparecer como "Ubicación" de un Ticket - este flag es la forma en que el contador en Enterprise decide, cuenta por cuenta, cuáles sí representan un sitio de servicio real. Se edita únicamente en Enterprise (dueño del dato, igual que `enterprise_analytic_ref`) - Community no tiene ninguna vista propia para tocarlo, solo lo recibe y lo usa como filtro.
+
+Verificado con `odoo-bin shell` en `construtec_test` (Enterprise y Community): el campo existe y aparece en el arch de la vista de formulario en Enterprise; el sync (mockeando `fetch_analytic_accounts()`) trae correctamente `disponible_tickets=True`/`False` para dos cuentas distintas del mismo `partner_id`; el domain de `helpdesk.ticket.analytic_account_id` en Community ya incluye el filtro nuevo. `-u`/`-i` limpio en las tres copias (`odoo19e`, `odoo19enterprise`, `odoo19c` + `construtec_helpdesk_field_service`), sin `ERROR`/`CRITICAL` nuevos.
+
+## Contacto nuevo desde WhatsApp: push hacia Enterprise (2026-09-23)
+
+Pedido del usuario: al chatear con un cliente por WhatsApp (Contact Center,
+`construtec_contact_center_base_19`), poder saber si el número ya es un contacto conocido y,
+si no, crear uno nuevo que también quede disponible en Enterprise - mismo patrón que el alta de
+empleados desde Community, pero para `res.partner`.
+
+- **`construtec_contact_center_base_19` gana una dependencia nueva hacia este módulo** (antes
+  solo dependía de `mail`) - necesaria para reusar `enterprise_partner_ref`, las credenciales de
+  sincronización (`payment_order_sync_*`/`payment_order_role`) y el mecanismo JSON-RPC ya
+  existentes aquí, en vez de duplicar un cliente de sync aparte solo para esto.
+- **`res.partner._push_new_partner_to_enterprise()`** (nuevo, este módulo) - a diferencia de
+  `hr.employee._create_employee_in_enterprise()` (que sincroniza CUALQUIER alta de empleado
+  desde `create()`), esto **nunca se dispara automáticamente** - un contacto se crea en Odoo por
+  muchísimos motivos normales (proveedores, direcciones, contactos de prueba) y no todos deben
+  viajar a Enterprise. Solo lo llaman explícitamente los puntos que sí corresponden (hoy,
+  únicamente `contact.conversation.action_create_contact()` en el módulo de Contact Center).
+  Manda solo `name`/`phone` - **nunca `mobile`**, `res.partner` en este Odoo 19 no tiene ese
+  campo (mismo gotcha ya documentado en este archivo para `hr.employee`/teléfono - se cayó en
+  el mismo error al construir esto, encontrado de inmediato al probar contra un Enterprise real).
+- **`res.partner.create_partner_from_community(vals)`** (nuevo, whitelisted) - mismo patrón que
+  `hr.employee.create_employee_from_community()`: lista blanca propia
+  (`PARTNER_FROM_COMMUNITY_ALLOWED_FIELDS = ('name', 'phone')`), fuerza `customer_rank=1` del
+  lado del servidor (nunca confía en lo que mande el llamador) y aplica
+  `_apply_construtec_tags()` de inmediato (queda etiquetado "Clientes" desde que se crea).
+- **`partner_sync_state`/`partner_sync_error`** + `action_retry_partner_sync()` +
+  `_cron_retry_partner_sync()` (cada 30 min, `data/partner_sync_retry_cron.xml`) - mismo
+  esqueleto de reintento que ya usa `hr.employee` para Datos Personales, aplicado aquí a
+  contactos. A diferencia de empleados, estos campos se quedan vacíos para el 99% de los
+  contactos normales (los que nunca pasaron por este flujo) - solo se llenan para uno que sí
+  intentó sincronizarse.
+- **`create_partner_in_enterprise()`** (`tools/enterprise_sync_api.py`) - mismo patrón que
+  `create_employee_in_enterprise()`.
+
+**⚠️ Hallazgo real al construir esto: la copia de Enterprise de `tools/enterprise_sync_api.py`
+llevaba tiempo desincronizada de la de Community** (le faltaban `create_employee_in_enterprise`/
+`push_employee_personal_data` por completo, entre otras diferencias en `fetch_employees`/
+`fetch_analytic_accounts`) - nunca se notó porque ninguna de esas funciones se llama desde el
+lado Enterprise (`payment_order_role='procesador'` ahí, esas funciones son exclusivas del lado
+Solicitante). Al agregar `create_partner_in_enterprise` solo en la copia de Community e
+importarlo a nivel de módulo en `res_partner.py` (archivo SÍ compartido verbatim), Enterprise
+truena con `ImportError` al cargar el módulo entero - un error real, encontrado únicamente
+porque se probó instalando de verdad en un Enterprise real, no solo en Community (`-u` limpio en
+Community no dice nada sobre si Enterprise carga). Se agregó `create_partner_in_enterprise`
+también a la copia de Enterprise (función dormida ahí, nunca se llama, pero necesita EXISTIR
+para que el `import` no truene) - el resto de la divergencia entre ambas copias de
+`enterprise_sync_api.py` se dejó tal cual, fuera de alcance de esta pasada (candidato real para
+una limpieza futura vía el script de sync Community→Enterprise, revisando primero qué más
+falta).
+
+Verificado con `odoo-bin shell` en `construtec_test` de **ambas** ediciones: en Enterprise,
+`create_partner_from_community()` crea el contacto, ignora campos fuera de la lista blanca
+(`is_company`, `customer_rank` forzado a 1), etiqueta "Clientes", y bloquea sin `name`. En
+Community, `_get_or_create_conversation()` auto-vincula un contacto ya existente por teléfono
+exacto, deja `partner_id` vacío si no hay match, `action_create_contact()` crea+vincula+empuja
+con éxito (mockeando `create_partner_in_enterprise`), bloquea un segundo intento sobre la misma
+conversación, y un fallo de red simulado deja `partner_sync_state='error'` sin tronar (la
+conversación se queda con su contacto local igual, listo para reintentar). `-u` limpio en ambas
+ediciones tras el fix del `ImportError`.
 
 ## Bug real: la protección contra el borrado de `work_email` nunca se activaba para empleados reales de Enterprise (2026-09-24)
 
-Reportado por el usuario: "se borran los correos de los usuarios... cuando se sincroniza Enterprise con Community". `hr.employee.write()` (`models/hr_employee.py`) ya protegía contra un bug real de Odoo core (vincular `user_id` reemplaza `work_contact_id` por el partner del usuario recién creado, sin teléfono ni correo, borrando lo que ya había) - pero solo para `self.filtered('enterprise_employee_ref')`, pensando que solo hacía falta proteger a los espejos de Community. **Ningún empleado real de Enterprise tiene `enterprise_employee_ref`** (ese campo solo existe del lado Community) - así que la protección nunca se activaba aquí, donde de hecho ocurre el alta normal de usuarios. El correo se borraba al vincular el usuario en Enterprise, y el siguiente pull de Community solo propagaba el vacío ya existente.
+Reportado por el usuario: "se borran los correos de los usuarios... cuando se sincroniza Enterprise con Community". El síntoma es real, pero el borrado NO ocurre durante la sincronización en sí - ocurre antes, en Enterprise, y la sincronización solo lo propaga.
 
-**El fix**: la protección ahora aplica a cualquier empleado (`synced = self` en vez de `self.filtered('enterprise_employee_ref')`) cuando `user_id` está en `vals` - ver el CLAUDE.md de la copia de Community para el detalle completo y la reproducción con `odoo-bin shell`. Un empleado que ya perdió su correo antes de este fix no se recupera solo - hay que volver a capturarlo a mano.
+**Causa raíz**: `hr.employee.write()` (este archivo, `models/hr_employee.py`) ya tenía una protección contra un bug real de Odoo core (`_sync_user()`/`_remove_work_contact_id()`, documentado extensamente más arriba en este mismo archivo bajo "Bug real de Odoo core... work_phone/work_email") - vincular `user_id` a un empleado reemplaza su `work_contact_id` por el partner del usuario recién creado, que no tiene teléfono ni correo, borrando en silencio lo que ya había. La protección original acotaba `self.filtered('enterprise_employee_ref')` - razonando que solo hacía falta proteger a los ESPEJOS sincronizados en Community, "nunca a empleados reales de Community, que no deberían existir de todas formas". **Ese razonamiento pasó por alto que ningún empleado real de ENTERPRISE tiene `enterprise_employee_ref` tampoco** (ese campo únicamente identifica, del lado Community, a qué registro de Enterprise corresponde un espejo - un empleado genuino, en cualquiera de las dos ediciones, simplemente nunca lo tiene). Resultado: la protección **nunca se activaba** para ningún empleado real de Enterprise - cada vez que RR.HH. vinculaba ahí un usuario nuevo a un empleado (el flujo normal de alta, no algo raro), `work_email` se borraba sin ninguna protección, y el siguiente pull periódico de Community (`_sync_employees_from_enterprise()`, que escribe `work_email`/`private_email` sin condición en cada corrida) copiaba fielmente ese vacío hacia Community - ahí es donde el usuario lo notaba, aunque el daño real ya estaba hecho del lado de Enterprise desde antes.
+
+**El fix**: `synced = self.filtered('enterprise_employee_ref') if 'user_id' in vals else self.browse()` → `synced = self if 'user_id' in vals else self.browse()` - la protección (guardar el valor antes del `write()` del núcleo, reaplicarlo solo si quedó vacío) ahora aplica a **cualquier** empleado, no solo a los sincronizados - es un mecanismo puramente defensivo (nunca sobreescribe un valor real con uno viejo, solo repara lo que el núcleo de Odoo acaba de vaciar), seguro de aplicar sin condición. Aplicado en ambas copias del archivo (Odoo19C y Odoo19E - archivo compartido verbatim).
+
+**Nota real de esta corrección**: cualquier empleado que YA haya perdido su `work_email`/`work_phone`/`mobile_phone` por este bug ANTES de este fix no se recupera solo - hay que volver a capturarlo a mano en Enterprise (RR.HH. ya sabe el dato real). El fix solo previene que vuelva a pasar hacia adelante, no repara retroactivamente lo que ya se perdió - mismo criterio de "sin migración de datos" ya aplicado varias veces en este módulo.
+
+Verificado con `odoo-bin shell` en **ambas** ediciones (`construtec_test`), reproduciendo el escenario exacto: un empleado creado directo (sin `enterprise_employee_ref`, igual que cualquier empleado real de Enterprise) con `work_email` puesto a mano vía su `work_contact_id` - antes del fix, vincularle un `user_id` nuevo borraba `work_email` (confirmado, bug reproducido); después del fix, el correo se conserva intacto. `-u` limpio en ambas ediciones, sin `ERROR`/`CRITICAL` nuevos relacionados a este módulo.
 
 ## Bug real de producción (crash de cron): `_push_new_partner_to_enterprise()` usaba `ensure_one()` sobre un recordset variable (2026-09-24)
 
-Encontrado por el usuario pegando logs reales de Docker de producción - un traceback real `ValueError: Expected singleton: res.partner()` dentro de `_cron_retry_partner_sync()` (`models/res_partner.py`), tumbando por completo ese cron cada vez que corría. Dos bugs en el mismo método (agregado en la pasada anterior de "Contacto nuevo desde WhatsApp" - nunca se probó el caso de 0 o 2+ registros, solo el caso feliz de un solo contacto): (1) `_push_new_partner_to_enterprise()` usaba `self.ensure_one()` pese a que sus llamadores lo invocan sobre un recordset de cualquier tamaño - con 0 (el caso normal, "nada pendiente") o 2+, truena; (2) `_cron_retry_partner_sync()` filtraba además `company_id.payment_order_role`, pero `res.partner.company_id` casi siempre está vacío para un contacto genérico, así que ese filtro nunca encontraba nada, explicando por qué el recordset vacío era el caso reproducible en cada corrida.
+Encontrado por el usuario pegando logs reales de Docker (`odoo19` en producción, `erp.construtecasesores.com`) - un WARNING repetido de sincronización de Datos Personales de empleados (ver sección siguiente, investigación separada) y, más grave, un traceback real: `ValueError: Expected singleton: res.partner()` dentro de `_cron_retry_partner_sync()`, tumbando por completo el cron "Contacto: reintentar sincronización hacia Enterprise" cada vez que corría.
 
-**El fix**: `_push_new_partner_to_enterprise()` ahora recorre `for partner in self:` (mismo patrón ya correcto de `hr.employee._sync_personal_data_to_enterprise()`) en vez de `ensure_one()`; `_cron_retry_partner_sync()` deja de filtrar por `company_id.payment_order_role` (ese chequeo ya lo hace el método interno vía `self.env.company`). Ver el CLAUDE.md de la copia de Community para el detalle completo y la verificación con `odoo-bin shell` (0 y 2 contactos en error). Copiado idéntico aquí (`diff` confirma byte-a-byte igual, archivo compartido verbatim).
+**Causa raíz, dos bugs en el mismo método** (agregado en la pasada anterior, "Contacto nuevo desde WhatsApp: push hacia Enterprise" - nunca se probó el caso de 0 o 2+ registros, solo el caso feliz de un solo contacto):
+1. `_push_new_partner_to_enterprise()` empezaba con `self.ensure_one()`, pero sus dos llamadores (`action_retry_partner_sync()` y `_cron_retry_partner_sync()`) lo invocan sobre un recordset de **cualquier** tamaño (0, 1 o varios contactos en error) - con 0 (el caso normal, cuando no hay nada pendiente) o 2+, `ensure_one()` truena. El traceback real mostraba exactamente `res.partner()` - un recordset VACÍO, confirmando que el caso más común en producción ("nada pendiente que reintentar") era el que reventaba.
+2. `_cron_retry_partner_sync()` filtraba también `('company_id.payment_order_role', '=', 'solicitante')` - pero `res.partner.company_id` casi siempre está vacío para un contacto genérico (ej. uno creado desde el Contact Center, que nunca se le asigna compañía) - ese filtro nunca encontraba nada, explicando por qué el recordset vacío era el caso reproducible en cada corrida del cron.
+
+**El fix**: `_push_new_partner_to_enterprise()` ahora recorre `for partner in self:` (mismo patrón ya correcto que usa `hr.employee._sync_personal_data_to_enterprise()` para el mismo tipo de reintento) en vez de `ensure_one()` - el chequeo de rol/sync (`self.env.company.payment_order_role`/`payment_order_sync_enabled`) se evalúa una sola vez antes del loop, ya que es la compañía de EJECUCIÓN del cron, no la de cada contacto. `_cron_retry_partner_sync()` deja de filtrar por `company_id.payment_order_role` - ese chequeo real ya lo hace `_push_new_partner_to_enterprise()` internamente, así que el domain del cron se simplifica a solo `[('partner_sync_state', '=', 'error')]`.
+
+Verificado con `odoo-bin shell` en `construtec_test` (Community): `env['res.partner']._cron_retry_partner_sync()` con CERO contactos en error (el caso real que tronaba en producción) ya no truena; con DOS contactos en error simultáneos (mockeando `create_partner_in_enterprise` para forzar `EnterpriseSyncError`), el cron procesa ambos sin `ensure_one()`, dejando a ambos correctamente en `partner_sync_state='error'`. Copiado idéntico a Enterprise (`diff` confirma byte-a-byte igual, mismo criterio "compartido verbatim" de siempre para este archivo). `-u` limpio en ambas ediciones (`construtec_test`), sin `ERROR`/`CRITICAL` nuevos.
+
+**Investigación separada, RESUELTA (2026-09-24, log posterior del mismo día)**: el WARNING "no devolvió resultado" resultó NO ser transitorio - el usuario pegó un segundo log real mostrando que ocurría para prácticamente TODOS los empleados, más un `TypeError` real de altas nuevas (`create_employee_from_community() takes 2 positional arguments but 3 were given`). Ambos eran bugs reales del lado Enterprise, en `construtec_hr_employee_19` - ver el CLAUDE.md de ese módulo, sección "🔴 Bug real de producción: dos fallas encontradas en logs reales de Docker". Resumen: (1) `sync_personal_data_from_community()` no tenía ningún `return` explícito - Odoo omite la clave `result` del JSON-RPC cuando el método devuelve `None`, así que Community interpretaba como error CUALQUIER edición de Datos Personales que en realidad sí se había aplicado correctamente en Enterprise (falso negativo, reintentado cada 30 min para siempre sin nunca "arreglarse"); (2) `create_employee_from_community()` tenía `@api.model`, incompatible con el patrón de llamada `args=[[], vals]` que usa `create_employee_in_enterprise()` (Community) - con `@api.model`, `call_kw()` no separa el `[]` de `vals`, así que llegaban 3 argumentos posicionales contra una firma de 2. Ninguno de los dos era un problema de conectividad real hacia el servidor Procesador.
+
+**Hallazgo aparte en el mismo log, sin corregir en código - es un dato huérfano, no un bug**: "Error sincronizando datos personales del empleado 55 hacia Enterprise: Record does not exist or has been deleted. (Record: hr.employee(113,), User: 2)" - el `enterprise_employee_ref` del empleado 55 de Community (`'113'`) apunta a un `hr.employee` que ya NO existe en Enterprise (borrado, no archivado - el mecanismo de baja de 2026-09-18 solo archiva, nunca hace `unlink()`, así que esto no es esa funcionalidad actuando). Mientras `enterprise_employee_ref` siga apuntando a un id inexistente, CADA intento de sincronizar Datos Personales de ese empleado 55 va a seguir fallando con este mismo error para siempre (no es un error transitorio, no se autorresuelve con ningún reintento). Pendiente: revisar en Enterprise quién es el empleado real que corresponde al 55 de Community (por nombre/DPI) y corregir a mano su `enterprise_employee_ref`, o si genuinamente ya no existe del todo, decidir qué hacer con ese registro en Community.
+
+## Pago Directo ahora se puede crear/enviar desde Community - Solicitud de Pago a Proveedor vinculada a una factura real (2026-09-28)
+
+Pedido explícito del usuario: un jefe de técnicos en Community necesita poder pedir el pago de
+una factura de proveedor ya existente (contabilizada en Enterprise), vinculándola realmente -
+no solo capturando proveedor/monto a mano - con dos reglas de seguridad explícitas: no permitir
+vincular una factura ya pagada, y avisar el saldo pendiente si está parcialmente pagada, para
+evitar la "brecha de seguridad" de pedir varios pagos contra la misma factura.
+
+**Decisión de diseño central**: se reusa `tipo='pago_directo'` tal cual (ya tenía la semántica
+correcta - cubre el 100% de una factura real vía `factura_ids`/`action_conciliar()`) en vez de
+inventar un tipo nuevo. Antes de este cambio, `action_submit()`/`_sync_to_enterprise()` excluían
+explícitamente cualquier `tipo` fuera de `ANTICIPO_TIPOS` - Pago Directo solo podía crearse
+directo en Enterprise. Ahora `SUBMITTABLE_TIPOS = ANTICIPO_TIPOS + ('pago_directo',)` reemplaza a
+`ANTICIPO_TIPOS` en `action_submit()`/`action_approve()`/`action_reject()`/
+`action_reset_to_draft()`/`action_cancel()`/`_sync_to_enterprise()`/`_cron_retry_sync()` - Pago
+Directo ahora comparte el mismo ciclo enviado→aprobado que ya tenían Anticipo/Viáticos/
+Materiales, pero **nunca pasa por `aplicado`** (de `aprobado` va directo a `liquidado` vía
+`action_conciliar()`, igual que su camino clásico de `borrador` a `liquidado` cuando se crea
+directo en Enterprise sin pasar por Community - ambos caminos conviven, `action_conciliar()`
+ahora acepta `state in ('borrador', 'aprobado')` para este tipo).
+
+**Hallazgo clave que simplificó el candado de seguridad**: `factura_ids` es un `One2many` sobre
+`account.move.payment_order_id` (`Many2one` normal) - una factura solo puede estar vinculada a
+UNA Orden a la vez, a nivel de esquema. El riesgo real no era que Odoo permitiera dos Órdenes con
+la misma factura (el campo ya es exclusivo) - era que vincular una factura ya tomada **le roba el
+vínculo a la Orden anterior en silencio**, sin ningún error, porque escribir `payment_order_id`
+no valida nada por sí solo. El fix es una validación explícita ANTES de escribir ese campo, no un
+mecanismo nuevo de "montos comprometidos".
+
+### Mirror de facturas de proveedor (`construtec_sat_catalog_sync_19`)
+
+Nuevo modelo `construtec.sat.invoice.mirror` (mismo patrón que `construtec.materials.catalog.
+mirror` de ese módulo - ver su propio CLAUDE.md) - copia de solo lectura de las facturas de
+proveedor ya contabilizadas en Enterprise (`account.move`, `move_type in (in_invoice, in_refund)`,
+`state=posted`), con `amount_residual`/`payment_state`/`linked_order_name` (el `name`, nunca un
+id, de la Orden que ya la tiene vinculada, si alguna). Se sincroniza TODO, incluidas las ya
+pagadas (a propósito - se ven en el picker, marcadas, no se ocultan) - el filtro real ("no se
+puede seleccionar") vive en la validación, no en qué se sincroniza. `tools/enterprise_sync_api.
+fetch_vendor_invoices()` (tres llamadas: facturas, luego `res.partner`/`construtec.sat.document`
+para resolver nombre/NIT/No. Autorización) + `res.company._sync_vendor_invoices_from_enterprise()`
+colgado del MISMO botón/cron "Sincronizar ahora" que ya existía para el Catálogo de Materiales -
+sin credenciales/toggle nuevos.
+
+### `factura_mirror_ids` - lo que el jefe de técnicos elige en Community
+
+Nuevo Many2many a `construtec.sat.invoice.mirror` en `account.payment.order`, visible solo en
+Community (`tipo == 'pago_directo' and not es_procesador`, pestaña nueva "Factura a Pagar",
+primera del notebook). `factura_ids` (el `One2many` real a `account.move`) no cambió - sigue
+siendo exclusivamente lo que Enterprise ve/usa; Community nunca tiene esos ids reales.
+
+### De Community a Enterprise: `factura_origin_ids` no es un campo real
+
+`_prepare_sync_vals()` agrega `'factura_origin_ids': self.factura_mirror_ids.mapped('origin_id')`
+(vacío para cualquier otro tipo) - son ids REALES de `account.move` en Enterprise (el
+`origin_id` del mirror ES ese id, a diferencia de `employee_enterprise_ref`/
+`analytic_enterprise_ref`, aquí no hace falta resolver por nombre). `create()` lo saca de `vals`
+ANTES de crear el registro (`factura_origin_ids_list = [vals.pop(...) for vals in vals_list]` -
+no es un campo del modelo, `super().create()` reventaría si se dejara ahí) y, tras crear, llama
+`record._resolve_factura_origin_ids(ids)` por cada registro que traía alguno.
+
+**`_resolve_factura_origin_ids()`** es donde vive el candado real: por cada factura, llama
+`_check_factura_disponible()` (bloquea si `payment_state == 'paid'`, o si `payment_order_id` ya
+apunta a OTRA Orden con `state not in ('rechazado', 'cancelado')`) ANTES de escribir
+`payment_order_id` - si cualquiera falla, la excepción se propaga y todo el `create()` se
+revierte (una sola transacción); del lado Community el fallo llega como cualquier otro error de
+sincronización (`sync_state='error'`, sin cambios en `_sync_to_enterprise()`).
+
+`_check_factura_mirror_disponible()` es el mismo candado, pero contra el mirror (Community no
+tiene el `account.move` real) - se llama dentro de `action_submit()` como aviso TEMPRANO, no
+autoritativo (el mirror puede estar desactualizado); la autoridad real siempre es
+`_check_factura_disponible()` en Enterprise, en el momento exacto de resolver el vínculo -
+cierra la brecha de seguridad incluso si dos Solicitudes salieron casi al mismo tiempo desde
+Community, porque la validación corre secuencialmente ahí, contra el dato real.
+
+**Sin campo de "monto solicitado"** - a propósito: Pago Directo siempre cubre el 100% del saldo
+de la factura (regla de negocio ya existente, ver `action_conciliar()` - "sin diferencia
+admitida, a diferencia de un Anticipo"), así que no hay ningún monto parcial que el jefe de
+técnicos elija o que validar contra el saldo - el saldo pendiente (`amount_residual`) es
+puramente informativo en el picker, resuelto de verdad al Conciliar/Crear Pago, como siempre.
+
+### `partner_id` (el proveedor) también viaja resuelto - `partner_enterprise_ref`
+
+Bug encontrado verificando esto de punta a punta: `_prepare_sync_vals()` nunca mandaba nada que
+resolviera `partner_id` para Pago Directo (solo lo hace para Anticipo, vía
+`employee_enterprise_ref` - un empleado, no un proveedor). Sin esto, Enterprise recibía la Orden
+sin ningún Contacto, y `action_crear_pago()` bloqueaba con "Define el Contacto antes de crear un
+pago." Fix: nuevo `partner_enterprise_ref` (solo para `pago_directo`), resuelto vía
+`res.partner.enterprise_partner_ref` - el mismo campo que ya puebla la sincronización de
+Contactos (Clientes/Proveedores, ver la sección de ese nombre más arriba) - un proveedor elegido
+en Community para `partner_id` YA es un contacto mirror con ese ref, así que
+`_resolve_partner_enterprise_ref()` (mismo patrón que `_resolve_analytic_enterprise_ref()`) lo
+resuelve directo por id, sin buscar por nombre.
+
+### `_check_journal_id()` relajado también para Pago Directo sincronizado
+
+Bug encontrado verificando esto: la constraint "Pago Directo siempre necesita un Diario" corría
+`@api.constrains` en CADA guardado, incluso el primero desde Community (donde el diario lo
+define el contador después de Aprobar, igual que Anticipo) - bloqueaba crear la Solicitud por
+completo. Se relajó a `tipo not in SUBMITTABLE_TIPOS` (afecta también al camino clásico
+directo-en-Enterprise, que en la práctica ya llenaba el diario de inmediato en el formulario, sin
+cambio de comportamiento real ahí) - y se agregó el chequeo explícito dentro de
+`action_conciliar()` (`if not self.journal_id: raise UserError(...)`) para que la ausencia de
+diario se detecte ahí con un mensaje claro, en vez de un error genérico de Odoo al crear el
+asiento.
+
+### Seguridad: `ir.rule` de visibilidad también ampliadas
+
+`account_payment_order_own_rule`/`account_payment_order_approver_rule`
+(`security/payment_order_request_security.xml`) filtraban `tipo in (anticipo, anticipo_viaticos,
+anticipo_materiales)` - sin agregar `pago_directo` ahí, una Solicitud creada en Community habría
+sido invisible para su propio solicitante y para los aprobadores (un `base.group_user` normal no
+ve nada fuera de esas reglas). Ampliado en ambas - cambio puramente aditivo a una tupla `in (...)`,
+sin riesgo de regresión para el resto de los tipos.
+
+**Verificado con `odoo-bin shell` en `construtec_test`** (factura real posteada simulando
+Enterprise, en la misma base): creación en Community sin factura real que vincular (solo el
+mirror) → Enviar → `_prepare_sync_vals()` trae `factura_origin_ids`/`partner_enterprise_ref`
+correctos → `create()` simulando la recepción en Enterprise vincula `factura_ids` al
+`account.move` real; una segunda Orden intentando la misma factura queda bloqueada sin robar el
+vínculo (la primera conserva `payment_order_id`); una factura `payment_state='paid'` bloquea
+`action_submit()` con el aviso temprano de Community; el flujo completo Aprobar → Crear Pago →
+Conciliar/Liquidar sobre la Orden recibida funciona de punta a punta, dejando la factura en
+`payment_state='paid'` y la Orden en `liquidado`.
+
+### Facturas pagadas en varios abonos - una factura puede pasar por más de una Orden, nunca al mismo tiempo
+
+Pedido explícito del usuario, razonando sobre facturas grandes: "¿una factura puede estar en más
+de una orden de pago?" - sí, ahora puede, pero **secuencial, nunca simultáneo** (decisión
+confirmada explícitamente vía `AskUserQuestion`, opción "Recomendada": "una a la vez, se libera
+al liquidar" en vez de permitir varias Órdenes abiertas al mismo tiempo contra la misma factura -
+más simple, sin riesgo de que dos abonos se calculen mal si se cruzan).
+
+**Segunda decisión, también confirmada explícitamente**: para que esto tenga algún sentido real,
+Pago Directo tuvo que dejar de exigir "cubrir el 100% exacto, sin Cuenta de Ajuste" (la regla
+original de esta misma sesión) - si cada Orden tuviera que cerrar el saldo COMPLETO para poder
+Conciliar, nunca podría existir un segundo abono (la primera Orden que se liquidara ya habría
+cerrado todo). Ahora Pago Directo puede cubrir **parte** del saldo - lo que nunca admite es
+**exceder** el saldo pendiente (eso sigue bloqueado, sin Cuenta de Ajuste, igual que antes).
+
+- **`action_conciliar()` reescrito para usar `amount_residual`, no el monto original de la
+  línea** (`line.credit - line.debit`) - una factura que ya recibió un abono de OTRA Orden llega
+  aquí con su línea de por pagar todavía sin `reconciled=True` (solo se marca así cuando el
+  residual llega a cero), pero con un `amount_residual` YA reducido - usar el monto original
+  volvería a intentar netear lo que la Orden anterior ya cubrió.
+- **Cuando el pago cubre menos que el saldo** (`pago_directo` únicamente): el neteo se recorta a
+  exactamente lo que el pago cubre (`abs(pago_total)`), tomando las líneas de factura en el orden
+  en que aparecen hasta agotar ese monto - deja el resto del saldo genuinamente sin conciliar
+  (`amount_residual` de la factura queda mayor a cero), disponible para una Orden futura. Si el
+  pago **excede** el saldo (`round(total, 2) < 0`), se bloquea con el monto exacto del exceso -
+  nunca se acepta una diferencia hacia ese lado.
+- **`_liberar_facturas_con_saldo()`** (nuevo, llamado al final de `action_conciliar()` solo para
+  `pago_directo`): por cada factura de la Orden que NO quedó en `payment_state='paid'`, limpia
+  `payment_order_id` - queda libre para que otra Orden la reclame. Una factura que sí quedó
+  pagada al 100% se deja vinculada a la Orden que la cerró (registro histórico de "quién la
+  pagó") - inofensivo, porque `_check_payment_order_disponible()` (ver abajo) igual bloquea
+  cualquier intento de tomarla en cuanto `payment_state == 'paid'`, esté o no vinculada.
+- **El candado real se movió a `account.move.write()`** (`account_move.py::
+  _check_payment_order_disponible()`), no solo al código de sincronización - encontrado
+  revisando esto: el candado original (`_check_factura_disponible()`, solo llamado desde
+  `_resolve_factura_origin_ids()`) no protegía el camino MANUAL - un contador en Enterprise
+  usando el widget `many2many` normal de `factura_ids` para vincular una factura a mano nunca
+  pasaba por esa validación, pudiendo robarle el vínculo a otra Orden en silencio exactamente
+  igual que por sync. Ahora el chequeo vive en el `write()` de `account.move` (dispara para
+  CUALQUIER escritura de `payment_order_id`, sin importar el origen) - `_resolve_factura_origin_ids()`
+  ya no necesita su propia validación, solo escribe y deja que el `write()` la bloquee si hace falta.
+
+Verificado con `odoo-bin shell`: una factura de Q30,000 pagada en 2 abonos (Q10,000 luego
+Q20,000, cada uno su propia Orden) - el primer abono deja la factura en `payment_state='partial'`,
+residual Q20,000, liberada; el segundo la toma, la deja en `payment_state='paid'`, residual 0;
+un intento de vincular a mano (widget `factura_ids`) una factura todavía tomada por otra Orden
+viva queda bloqueado nombrando esa Orden; un pago que excede el saldo pendiente (Q150 contra
+Q100) se bloquea mostrando el exceso exacto (Q50); el caso de siempre (una sola Orden cubre el
+100% de una factura chica) sigue funcionando idéntico, factura queda vinculada a esa Orden como
+registro histórico.
+
+**Pendiente (Fase 3 del plan, no cerrado en esta pasada)**: habilitar
+`payment_order_habilitar_pago_directo` en la compañía de Community real (hoy deshabilitado a
+mano desde la Fase 1 original de este módulo, junto con `anticipo`) - cambio de configuración,
+no de código; y una prueba real de punta a punta con las dos instalaciones reales (Community y
+Enterprise) corriendo por separado, no solo simulada en una sola base como aquí.
+
+## `construtec_account_payment_order_19` y `construtec_sat_catalog_sync_19` llevaban semanas
+## desincronizados con Enterprise - toda la funcionalidad de Pago Directo (2026-09-28)
+
+Al retomar este mismo diseño para agregar Documentos SAT pendientes (ver la sección siguiente),
+se descubrió que las dos copias de Enterprise (`odoo19e`/`odoo19enterprise`) nunca habían
+recibido NADA de "Pago Directo desde Community" - ni `SUBMITTABLE_TIPOS`, ni `factura_mirror_ids`,
+ni el candado de `account_move.py`, ni `action_conciliar()` con soporte de pago parcial, ni el
+propio modelo `construtec.sat.invoice.mirror`. Confirmado con `diff -rq`: 14 archivos entre
+ambos módulos diferían, casi todos cambios puramente aditivos de sesiones previas que nunca se
+copiaron. Esto significaba que, literalmente, ningún intento real de sincronizar un Pago Directo
+desde Community habría funcionado - Enterprise habría rechazado el `tipo`/los campos nuevos al
+recibirlo por `create()`.
+
+**Corregido copiando Community → ambos repos Enterprise**, con dos merges deliberados en vez de
+copia ciega: `__manifest__.py` conserva `'views/account_analytic_account_views.xml'` (exclusivo
+de Enterprise, ver `construtec_account_19` más abajo) y `security/ir.model.access.csv` conserva
+`access_hr_employee_sync` (exclusivo de Enterprise, y ya backporteado también a Community, ya
+que no hace daño ahí). De paso se encontró y cerró una divergencia previa e independiente en
+`models/res_partner.py` (la funcionalidad "Contacto nuevo desde WhatsApp", 2026-09-24, nunca se
+había propagado al repo `odoo19enterprise`). Verificado con `-u --stop-after-init` limpio en
+ambos repos Enterprise antes de seguir con cualquier cambio nuevo.
+
+**Lección para el resto de esta sesión y las futuras**: "compartido verbatim" es una promesa que
+hay que verificar activamente (`diff -rq` entre los dos árboles), no asumir porque el CLAUDE.md
+del módulo lo diga - claramente puede desincronizarse por varias sesiones sin que nada lo avise
+(no hay ningún CI/test que lo detecte en este workspace).
+
+## Documentos SAT Pendientes en Pago Directo - el Contador convierte al Aprobar (2026-09-28/29)
+
+Corrección explícita del usuario sobre el diseño de "Facturas de Proveedor" de arriba: "Odoo
+Enterprise descarga de la agencia virtual de SAT la información de facturas y las convierte en
+Documentos SAT. Estos Documentos SAT, para que se conviertan en facturas, deben pasar... que el
+jefe de técnicos solicite que esa factura se pague [aunque siga pendiente]... [o] que el
+Contador determine... pasar la factura y después pagarla." Es decir, un Documento SAT todavía
+`state='pendiente'` (SAT ya lo certificó, Enterprise todavía no lo convirtió a `account.move`)
+debe poder aparecer en el picker de Community - la conversión real la dispara **el Contador al
+Aprobar la Solicitud** (confirmado explícitamente por el usuario, no automático al sincronizar).
+Además, una factura ya pagada al 100% debe **excluirse del todo** del picker (no solo bloquearse
+al seleccionar, como el diseño anterior).
+
+**Restricción arquitectónica clave, resuelta sin tocar el archivo compartido**:
+`construtec.sat.document` solo existe en Enterprise - el archivo compartido `account_payment_
+order.py` no puede declarar ningún campo/import hacia ese modelo, o Community truena al
+cargarlo. Toda la lógica que sí necesita conocerlo vive en un archivo NUEVO, exclusivo de
+Enterprise (`construtec_account_19/models/account_payment_order_sat_document.py`, `_inherit =
+'account.payment.order'`) - el archivo compartido solo gana un hook genérico en `create()`
+(`_resolve_sat_document_pendiente_ids`, invocado vía `hasattr()`, nunca una referencia directa).
+
+- **`construtec.sat.document.payment_order_id`** (nuevo, Enterprise): el candado mientras el
+  documento sigue `pendiente` - equivalente a `account.move.payment_order_id`, pero vive en el
+  propio Documento SAT porque todavía no existe ningún `account.move` donde vivir ese candado.
+  `write()` gana un guard (`_check_payment_order_disponible_pendiente()`) - mismo patrón que
+  `account_move.py`, bloquea si otra Orden viva ya lo reclamó.
+- **`construtec_account_19` gana `construtec_account_payment_order_19` como dependencia** (sin
+  circularidad - ese módulo no depende de `construtec_account_19`).
+- **`AccountPaymentOrder.action_approve()`** (override en el archivo nuevo): tras el `super()`
+  normal, busca los Documentos SAT pendientes que esta Orden reclamó
+  (`search([('payment_order_id','=',rec.id), ('state','=','pendiente')])`) y por cada uno llama
+  `action_convertir_a_factura()` (método YA existente, verificado, crea el `account.move` en
+  **borrador** - nunca lo postea solo) y enlaza el resultado (`move.write({'payment_order_id':
+  rec.id})`, pasando por el candado de `account_move.py` como defensa adicional). El Contador
+  sigue teniendo que revisar/postear la factura a mano antes de poder Conciliar - ningún atajo
+  nuevo salta ese paso manual ya documentado en `construtec_account_19` ("botón manual, no
+  automático").
+- **`construtec.sat.invoice.mirror`** (Community): `origin_id` cambia de significado - pasa a
+  ser SIEMPRE el id del `construtec.sat.document` (nunca del `account.move`, que puede no existir
+  todavía). Campo nuevo `move_origin_id` (vacío si pendiente) y `state` (`pendiente`/
+  `convertido_factura`, badge en el picker). `fetch_vendor_invoices()` (`construtec_sat_catalog_
+  sync_19`) ahora trae ambos estados, excluyendo en Python cualquier `convertido_factura` con
+  `move_payment_state == 'paid'` o cuyo `move` no calce (`move_type`/`state` no posted).
+- **`_prepare_sync_vals()`** separa `factura_mirror_ids` por `state`: los `convertido_factura`
+  siguen mandando `factura_origin_ids` (`move_origin_id`, sin cambios de fondo);  los `pendiente`
+  mandan `sat_document_pendiente_ids` (`origin_id`, el id del propio Documento SAT).
+
+Verificado con `odoo-bin shell` (Community y Enterprise, `construtec_test`, savepoint/rollback):
+`fetch_vendor_invoices()` mockeada trae ambos estados y separa correctamente en
+`_prepare_sync_vals()`; en Enterprise, `create()` con `sat_document_pendiente_ids` reclama el
+Documento SAT (candado puesto, sigue `pendiente`, sin convertir); una segunda Orden intentando
+reclamar el MISMO documento pendiente queda bloqueada nombrando a la primera; `action_approve()`
+sobre la primera Orden convierte el documento (`state='convertido_factura'`, `move_id` creado en
+borrador) y vincula el `move` resultante (`payment_order_id`) a esa misma Orden.
+
+## El picker filtra por el Proveedor ya elegido, ordenado del más reciente al más antiguo (2026-09-29)
+
+Pedido explícito del usuario: "una orden de pago es solo para un proveedor y no para varios" -
+`factura_mirror_ids` mezclaba facturas de cualquier proveedor sin ningún filtro. Dos capas, mismo
+criterio de siempre en este módulo (filtro de vista + candado real en Python):
+
+- **Vista**: `factura_mirror_ids` gana `domain="[('partner_vat', '=', partner_id.vat)]"` - el
+  jefe de técnicos elige primero el Proveedor (`partner_id`, ya existía en el encabezado) y el
+  picker solo ofrece Documentos SAT de ese mismo NIT. Navegar `partner_id.vat` (un Many2one hacia
+  un campo escalar) es seguro - el bug real ya documentado sobre navegar un `domain=` por punto
+  (`journal_id.outbound_payment_method_line_ids`) era específico de un Many2many vacío, no aplica
+  aquí. La lista embebida gana `default_order="fecha desc"` (explícito, aunque el modelo ya tiene
+  `_order='fecha desc'`) - más reciente primero.
+- **`_check_factura_mirror_disponible()`**: gana un tercer chequeo - bloquea si `mirror.
+  partner_vat` no coincide con `self.partner_id.vat` (ambos presentes) - defensa real por si se
+  elige por API/script o `partner_id` cambia después de ya elegir facturas, ya que un `domain=`
+  de vista no protege ese camino.
+
+Verificado con `odoo-bin shell`: el mirror ordena `fecha desc` por defecto (confirmado sin ningún
+`default_order` explícito todavía, y de nuevo con él); dos facturas del mismo proveedor pasan sin
+bloqueo; una tercera de otro proveedor queda bloqueada nombrando ambos proveedores.
 
 ## Common commands
 

@@ -118,17 +118,20 @@
                     <notebook>
                         <page string="Factura a Pagar" invisible="tipo != 'pago_directo' or es_procesador">
                             <p class="text-muted">
-                                Elige el Documento SAT del proveedor que se debe pagar - puede ser una
-                                factura ya contabilizada en Enterprise, o un Documento SAT que la SAT ya
-                                certificó pero que el Contador todavía no ha convertido a factura (se
-                                convierte al Aprobar esta Solicitud). Si es una factura grande, se puede
-                                pagar en varios abonos (varias Solicitudes) - en cuanto una Orden cubre
-                                parte del saldo, la factura queda libre para que otra Orden cubra el resto
-                                despues. Una factura ya pagada al 100% no aparece en esta lista.
+                                Elige primero el Proveedor arriba - aquí solo se muestran sus Documentos
+                                SAT, del más reciente al más antiguo (una Solicitud de Pago Directo es para
+                                un solo proveedor, nunca para varios). Puede ser una factura ya contabilizada
+                                en Enterprise, o un Documento SAT que la SAT ya certificó pero que el
+                                Contador todavía no ha convertido a factura (se convierte al Aprobar esta
+                                Solicitud). Si es una factura grande, se puede pagar en varios abonos
+                                (varias Solicitudes) - en cuanto una Orden cubre parte del saldo, la factura
+                                queda libre para que otra Orden cubra el resto despues. Una factura ya
+                                pagada al 100% no aparece en esta lista.
                             </p>
                             <field name="factura_mirror_ids" widget="many2many" nolabel="1"
-                                   readonly="state != 'borrador'">
-                                <list>
+                                   readonly="state != 'borrador'"
+                                   domain="[('partner_vat', '=', partner_id.vat)]">
+                                <list default_order="fecha desc">
                                     <field name="numero_autorizacion" string="No. Autorización"/>
                                     <field name="partner_name" string="Proveedor"/>
                                     <field name="fecha"/>
