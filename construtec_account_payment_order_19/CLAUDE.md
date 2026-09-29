@@ -1644,6 +1644,33 @@ poblado. `fetch_partners()`/`_sync_partners_from_enterprise()` volvieron a su fo
 sección para el detalle vigente. **Esta es la versión final/correcta** - no volver a cambiarla sin
 que el usuario lo pida explícitamente de nuevo.
 
+## Bug real de producción: proveedores archivados desaparecían en silencio de la sincronización (2026-09-29)
+
+Reportado por el usuario en producción real: agrupando Documentos SAT (`direction=recibida` o
+`tipo_dte=FESP`) por Contacto en Enterprise, salían ~1800 proveedores distintos de Construtec -
+pero solo 187 contactos llegaban a sincronizarse a Community, incluso después de corregir el
+permiso de `construtec.sat.document` (sección anterior) y confirmar que el código correcto ya
+estaba desplegado en ambos lados (Odoo.sh para Enterprise, contenedor reiniciado en AWS para
+Community). Se descartó primero una hipótesis de multi-compañía (el usuario de integración SÍ
+tiene `Construtec Asesores Guatemala` como empresa predeterminada, correctamente).
+
+**Causa real, confirmada con un test**: ninguna de las dos llamadas de `fetch_partners()` pasaba
+`context={'active_test': False}` - por defecto, `search`/`search_read` en Odoo **excluye en
+silencio cualquier registro archivado** (`active=False`), sin ningún error ni aviso. Un proveedor
+de un solo proyecto/contrato ya cerrado normalmente queda archivado en Enterprise con el tiempo -
+su Documento SAT sigue siendo real, pero el contacto ya no aparecía en ninguna búsqueda sin ese
+context. Confirmado con un test real: un `res.partner` archivado, buscado por su id exacto, no
+aparece en absoluto sin `active_test=False` en el contexto.
+
+**El fix**: `context={'active_test': False}` agregado a ambas llamadas (`construtec.sat.document`
+y `res.partner`) - un proveedor archivado en Enterprise sigue sincronizándose a Community como
+contacto normal (activo ahí), porque su Documento SAT real no dejó de existir solo porque el
+contacto se archivó después.
+
+Verificado con `odoo-bin shell` (Community, `construtec_test`): mock de `_jsonrpc` confirmando que
+ambas llamadas llevan el context correcto, y que un proveedor archivado (simulado) sí llega en el
+resultado con `es_proveedor_sat=True`.
+
 ## Common commands
 
 ```
