@@ -261,27 +261,18 @@ def fetch_partners(url, db, login, api_key):
             'Sincronización de Contactos incompleta (falta URL, base de datos, usuario o '
             'API Key).')
     uid = authenticate(url, db, login, api_key)
-    # `active_test: False` en ambas llamadas - bug real de producción (2026-09-29): un proveedor
-    # de un solo proyecto/contrato ya cerrado suele quedar archivado (`active=False`) en
-    # Enterprise, pero su Documento SAT sigue siendo real - sin este context, Odoo EXCLUYE en
-    # silencio cualquier registro archivado de cualquier `search`/`search_read` (confirmado con
-    # un test real: un partner archivado no aparece en absoluto sin `active_test=False`, ni
-    # siquiera por id exacto) - esto dejaba fuera una fracción real de los proveedores esperados
-    # (usuario reportó ~1800 Documentos SAT/proveedores reales de Construtec, pero solo 187
-    # contactos llegaban a sincronizarse).
     documentos = _jsonrpc(
         url, 'object', 'execute_kw',
         [db, uid, api_key, 'construtec.sat.document', 'search_read',
          [['|', ('direction', '=', 'recibida'), ('tipo_dte', '=', 'FESP')]],
-         {'fields': ['partner_id'], 'context': {'active_test': False}}])
+         {'fields': ['partner_id']}])
     proveedor_ids = {d['partner_id'][0] for d in documentos if d.get('partner_id')}
     partners = _jsonrpc(
         url, 'object', 'execute_kw',
         [db, uid, api_key, 'res.partner', 'search_read',
          [['|', ('customer_rank', '>', 0), ('id', 'in', sorted(proveedor_ids))]],
          {'fields': ['name', 'email', 'phone', 'vat', 'street', 'city',
-                     'is_company', 'customer_rank'],
-          'context': {'active_test': False}}])
+                     'is_company', 'customer_rank']}])
     for p in partners:
         p['es_proveedor_sat'] = p['id'] in proveedor_ids
     return partners

@@ -1644,32 +1644,28 @@ poblado. `fetch_partners()`/`_sync_partners_from_enterprise()` volvieron a su fo
 sección para el detalle vigente. **Esta es la versión final/correcta** - no volver a cambiarla sin
 que el usuario lo pida explícitamente de nuevo.
 
-## Bug real de producción: proveedores archivados desaparecían en silencio de la sincronización (2026-09-29)
+## Investigando: ~1800 proveedores reales de Construtec vs solo 187 sincronizados (2026-09-29)
 
 Reportado por el usuario en producción real: agrupando Documentos SAT (`direction=recibida` o
 `tipo_dte=FESP`) por Contacto en Enterprise, salían ~1800 proveedores distintos de Construtec -
 pero solo 187 contactos llegaban a sincronizarse a Community, incluso después de corregir el
 permiso de `construtec.sat.document` (sección anterior) y confirmar que el código correcto ya
 estaba desplegado en ambos lados (Odoo.sh para Enterprise, contenedor reiniciado en AWS para
-Community). Se descartó primero una hipótesis de multi-compañía (el usuario de integración SÍ
-tiene `Construtec Asesores Guatemala` como empresa predeterminada, correctamente).
+Community).
 
-**Causa real, confirmada con un test**: ninguna de las dos llamadas de `fetch_partners()` pasaba
-`context={'active_test': False}` - por defecto, `search`/`search_read` en Odoo **excluye en
-silencio cualquier registro archivado** (`active=False`), sin ningún error ni aviso. Un proveedor
-de un solo proyecto/contrato ya cerrado normalmente queda archivado en Enterprise con el tiempo -
-su Documento SAT sigue siendo real, pero el contacto ya no aparecía en ninguna búsqueda sin ese
-context. Confirmado con un test real: un `res.partner` archivado, buscado por su id exacto, no
-aparece en absoluto sin `active_test=False` en el contexto.
+**Hipótesis descartadas, con evidencia real, en orden**:
+1. Multi-compañía - el usuario de integración SÍ tiene `Construtec Asesores Guatemala` como
+   empresa predeterminada, correctamente.
+2. Contactos archivados (`active=False`) excluidos en silencio por `search`/`search_read` sin
+   `active_test=False` en el context - se probó agregar ese context a ambas llamadas de
+   `fetch_partners()`, pero el usuario confirmó explícitamente que **ninguno** de sus contactos
+   de Enterprise está archivado - **revertido, no era la causa real**.
 
-**El fix**: `context={'active_test': False}` agregado a ambas llamadas (`construtec.sat.document`
-y `res.partner`) - un proveedor archivado en Enterprise sigue sincronizándose a Community como
-contacto normal (activo ahí), porque su Documento SAT real no dejó de existir solo porque el
-contacto se archivó después.
-
-Verificado con `odoo-bin shell` (Community, `construtec_test`): mock de `_jsonrpc` confirmando que
-ambas llamadas llevan el context correcto, y que un proveedor archivado (simulado) sí llega en el
-resultado con `es_proveedor_sat=True`.
+**Todavía sin resolver** - la brecha (1800 vs 187) sigue sin explicación confirmada. Antes de
+seguir probando hipótesis a ciegas, la próxima vez que se retome esto: verificar con un dato
+concreto de producción (ej. contar cuántos `partner_id` distintos devuelve en la práctica el
+propio `search_read` sobre `construtec.sat.document` con las credenciales de integración reales -
+no asumir que el número coincide con lo que ve un Administrador en la UI).
 
 ## Common commands
 
