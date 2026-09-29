@@ -256,12 +256,23 @@ días atrás."
 
 Deliberadamente NO reemplaza a `construtec.sat.invoice.mirror` (el modelo ya usado por
 `construtec_account_payment_order_19` para el picker de Pago Directo) - es una réplica informativa
-más completa/fiel, sin conectar (todavía) a ningún flujo de Solicitud de Pago. Tampoco cambia
-(todavía) cómo se resuelve "quién es Proveedor" para el sync de Contactos - eso sigue consultando
-`construtec.sat.document` en Enterprise directo (ver CLAUDE.md de
-`construtec_account_payment_order_19`, "Simplifica de vuelta"). Si más adelante se quiere que el
-sync de Contactos use esta réplica local en vez de una consulta en vivo, es un cambio aparte, a
-pedir explícitamente.
+más completa/fiel, sin conectar (todavía) a ningún flujo de Solicitud de Pago.
+
+**Actualización el mismo día**: el usuario SÍ pidió conectar esta réplica al sync de Contactos -
+ver "'Proveedor' ahora se resuelve contra la réplica LOCAL de Documentos SAT" en el CLAUDE.md de
+`construtec_account_payment_order_19`. `_sync_partners_from_enterprise()` (ese módulo) ahora
+fuerza una corrida de `_sync_sat_documents_from_enterprise()` (este método) antes de leer esta
+réplica, así que aunque los dos toggles (`payment_order_sync_enabled`/
+`materials_catalog_sync_enabled`) son independientes, la réplica siempre queda fresca justo antes
+de usarse para resolver Proveedores.
+
+**Bug real encontrado al verificar esa conexión**: `_sync_sat_documents_from_enterprise()` nunca
+fijaba `company_id` en el upsert - el campo tiene una restricción `NOT NULL` a nivel de base de
+datos (confirmado con `information_schema.columns`) aunque el campo Python no declara
+`required=True` explícito. El primer `create()` real revienta con `psycopg2.errors.
+NotNullViolation`. Fix: `company_id` cae en la compañía activa de quien sincroniza (`self.id`)
+cuando Enterprise no la manda - mismo criterio que el resto de los mirrors de este módulo, nunca
+se manda un id de compañía de Enterprise (no significa nada en Community).
 
 Verificado con `odoo-bin shell` (Community, `construtec_test`, savepoint/rollback):
 `fetch_sat_documents()` mockeada confirma el domain con `write_date`/`create_date`; el upsert por

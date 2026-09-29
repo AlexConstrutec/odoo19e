@@ -227,54 +227,46 @@ def fetch_order_status(url, db, login, api_key, external_refs):
          {'fields': ['external_ref', 'state', 'monto', 'reject_reason', 'approve_date', 'reject_date']}])
 
 
-def fetch_partners(url, db, login, api_key):
+def fetch_partners(url, db, login, api_key, proveedor_vats=()):
     """Read-only pull de los contactos que ya son Clientes o Proveedores reales en Enterprise -
     deliberadamente NO todos los `res.partner` (decisión explícita del usuario, ver el plan de
     esta feature).
 
-    **Proveedor se define por tener al menos un Documento SAT de compra** (`construtec.sat.
-    document`, `direction='recibida'` o `tipo_dte='FESP'` - mismo criterio que `_sat_es_compra()`
-    en Enterprise), NO por `supplier_rank > 0` - corrección explícita del usuario (2026-09-29):
-    "sincroniza los contactos que son proveedores de documentos SAT de Enterprise a Community" -
-    la fuente real es Enterprise (su propio `construtec.sat.document`), consultada directo en
-    cada corrida - no una copia local en Community que podría no estar poblada todavía (un
-    intento intermedio de esta misma sesión probó resolverlo desde el mirror de facturas ya
-    sincronizado en Community, pero el usuario lo simplificó de vuelta a esto). `supplier_rank`
-    puede subir por motivos que no son un Documento SAT real (ej. una factura de proveedor
-    capturada a mano) y no se usa para esta calificación. **Cliente sigue usando
-    `customer_rank > 0`** sin cambios - el usuario solo corrigió el lado de Proveedores.
+    **Proveedor se resuelve por NIT, usando la réplica LOCAL de `construtec.sat.document` que ya
+    existe en Community** (`construtec_sat_catalog_sync_19.models.sat_document`, poblada por
+    `_sync_sat_documents_from_enterprise()`) - decisión explícita del usuario (2026-09-29): "que
+    use esta nueva réplica" - en vez de preguntarle a Enterprise "quién es proveedor" con una
+    llamada RPC aparte en cada corrida. `proveedor_vats` es la lista de NITs (`nit_contacto`) ya
+    conocidos en esa réplica - `_sync_partners_from_enterprise()` la calcula y, antes de
+    calcularla, fuerza una sincronización fresca de la réplica (`_sync_sat_documents_from_
+    enterprise()`) para no depender del orden en que corran los cron/botones. `supplier_rank` NO
+    se usa para esta calificación - puede subir por motivos que no son un Documento SAT real (ej.
+    una factura capturada a mano). **Cliente sigue usando `customer_rank > 0`** sin cambios.
 
-    Dos llamadas: (1) `search_read` sobre `construtec.sat.document` para los `partner_id`
-    distintos que califican como compra, (2) `search_read` sobre `res.partner` con el domain
-    combinado (`customer_rank > 0` OR id en esa lista). `es_proveedor_sat` (Boolean, calculado
-    aquí mismo) viaja en el resultado en vez de `supplier_rank` - `_construtec_tag_names_for()`
-    (Community) lo usa directo para la etiqueta "Proveedores".
+    Una sola llamada: `search_read` sobre `res.partner` con el domain combinado (`customer_rank >
+    0` OR `vat` en `proveedor_vats`). `es_proveedor_sat` (Boolean, calculado aquí mismo) viaja en
+    el resultado - `_construtec_tag_names_for()` (Community) lo usa directo para la etiqueta
+    "Proveedores".
 
     Deliberadamente NO se pide `category_id` aquí - las etiquetas Empleados/Proveedores/
     Clientes las deriva Community por su cuenta (`_construtec_tag_names_for()`), nunca copiando
     las etiquetas reales de Enterprise (que podrían incluir "Empleados" u otras ajenas a este
-    mecanismo). Requiere que el usuario de integración tenga acceso a `construtec.sat.document`
-    (`account.group_account_invoice` en Enterprise) - mismas credenciales ya usadas por
-    `fetch_vendor_catalog()`/`fetch_vendor_invoices()` en `construtec_sat_catalog_sync_19`."""
+    mecanismo)."""
     if not (url and db and login and api_key):
         raise EnterpriseSyncError(
             'Sincronización de Contactos incompleta (falta URL, base de datos, usuario o '
             'API Key).')
     uid = authenticate(url, db, login, api_key)
-    documentos = _jsonrpc(
-        url, 'object', 'execute_kw',
-        [db, uid, api_key, 'construtec.sat.document', 'search_read',
-         [['|', ('direction', '=', 'recibida'), ('tipo_dte', '=', 'FESP')]],
-         {'fields': ['partner_id']}])
-    proveedor_ids = {d['partner_id'][0] for d in documentos if d.get('partner_id')}
+    proveedor_vats = sorted({v for v in proveedor_vats if v})
     partners = _jsonrpc(
         url, 'object', 'execute_kw',
         [db, uid, api_key, 'res.partner', 'search_read',
-         [['|', ('customer_rank', '>', 0), ('id', 'in', sorted(proveedor_ids))]],
+         [['|', ('customer_rank', '>', 0), ('vat', 'in', proveedor_vats)]],
          {'fields': ['name', 'email', 'phone', 'vat', 'street', 'city',
                      'is_company', 'customer_rank']}])
+    proveedor_vats_set = set(proveedor_vats)
     for p in partners:
-        p['es_proveedor_sat'] = p['id'] in proveedor_ids
+        p['es_proveedor_sat'] = bool(p.get('vat')) and p['vat'] in proveedor_vats_set
     return partners
 
 

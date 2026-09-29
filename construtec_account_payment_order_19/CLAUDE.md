@@ -1667,6 +1667,41 @@ concreto de producción (ej. contar cuántos `partner_id` distintos devuelve en 
 propio `search_read` sobre `construtec.sat.document` con las credenciales de integración reales -
 no asumir que el número coincide con lo que ve un Administrador en la UI).
 
+## "Proveedor" ahora se resuelve contra la réplica LOCAL de Documentos SAT (2026-09-29)
+
+Pedido explícito del usuario, tras construirse la réplica completa de `construtec.sat.document`
+en Community (ver CLAUDE.md de `construtec_sat_catalog_sync_19`, "Réplica completa de
+`construtec.sat.document` en Community"): "que use esta nueva réplica" - en vez de que
+`fetch_partners()` le pregunte a Enterprise "quién es proveedor" con una llamada RPC aparte
+(`construtec.sat.document`) en cada corrida, ahora resuelve el NIT desde la copia local ya
+sincronizada en Community.
+
+- **`fetch_partners(url, db, login, api_key, proveedor_vats=())`** - recupera el parámetro
+  `proveedor_vats` (de la sección "Proveedor se resuelve por el NIT ya conocido..." de arriba,
+  que se había revertido) - ya NO consulta `construtec.sat.document` en Enterprise en absoluto;
+  una sola llamada a `res.partner` con `customer_rank > 0 OR vat in proveedor_vats`.
+- **`_sync_partners_from_enterprise()`**: antes de calcular `proveedor_vats`, **fuerza una
+  sincronización fresca de la réplica** (`self._sync_sat_documents_from_enterprise()`) - resuelve
+  el problema real de orden entre los dos toggles independientes (`payment_order_sync_enabled`
+  para Contactos, `materials_catalog_sync_enabled` para la réplica de Documentos SAT) sin
+  necesitar coordinarlos manualmente: cada vez que corre la sync de Contactos, la réplica queda
+  garantizada al día justo antes de leerla. Luego calcula `proveedor_vats` con
+  `env['construtec.sat.document'].search([('nit_contacto', '!=', False)]).mapped('nit_contacto')`.
+- **Bug real encontrado al verificar esto**: `_sync_sat_documents_from_enterprise()`
+  (`construtec_sat_catalog_sync_19`) nunca fijaba `company_id` en el upsert - el campo tiene una
+  restricción `NOT NULL` a nivel de base de datos aunque el campo Python no es `required=True`
+  explícito; el primer `create()` real revienta con `NotNullViolation`. Fix: mismo criterio que
+  el resto de los mirrors de este módulo - `company_id` cae en la compañía activa de quien
+  sincroniza cuando Enterprise no la manda (nunca se manda, un id de compañía de Enterprise no
+  significa nada en Community).
+
+Verificado con `odoo-bin shell` (Community, `construtec_test`, mockeando AMBOS clientes JSON-RPC -
+`construtec_account_payment_order_19` y `construtec_sat_catalog_sync_19` tienen cada uno su
+propia copia de `tools/enterprise_sync_api.py`, deliberadamente no compartida): `_sync_partners_
+from_enterprise()` dispara primero la sync de la réplica (confirmado por el orden de llamadas),
+la réplica local queda poblada, y el contacto resuelto por ese NIT llega correctamente etiquetado
+"Proveedores" - sin ninguna llamada a `construtec.sat.document` en Enterprise desde este camino.
+
 ## Common commands
 
 ```

@@ -544,23 +544,32 @@ class ResCompany(models.Model):
         return True, message
 
     def _sync_partners_from_enterprise(self):
-        """Pull de los contactos que ya son Clientes/Proveedores reales en Enterprise
-        (`fetch_partners()` consulta directo `construtec.sat.document` allá para saber quién
-        califica como Proveedor - pedido explícito del usuario, 2026-09-29: "sincroniza los
-        contactos que son proveedores de documentos SAT de Enterprise a Community") - upsert por
-        `enterprise_partner_ref`, igual patrón que empleados/cuentas analíticas. Las etiquetas
-        (`category_id`) se derivan de `customer_rank`/`es_proveedor_sat` YA recibidos en el
-        payload - nunca se recalculan localmente (los campos de rango de Community no significan
-        nada real, esta base no factura contra estos contactos, y `construtec.sat.document` no
-        existe aquí)."""
+        """Pull de los contactos que ya son Clientes/Proveedores reales en Enterprise - upsert
+        por `enterprise_partner_ref`, igual patrón que empleados/cuentas analíticas. Las
+        etiquetas (`category_id`) se derivan de `customer_rank`/`es_proveedor_sat` YA recibidos
+        en el payload - nunca se recalculan localmente.
+
+        **Proveedor se resuelve por NIT usando la réplica LOCAL de `construtec.sat.document`**
+        (`construtec_sat_catalog_sync_19`, ya instalada en Community) - decisión explícita del
+        usuario (2026-09-29): "que use esta nueva réplica", en vez de que `fetch_partners()`
+        le pregunte a Enterprise "quién es proveedor" con una llamada RPC aparte en cada corrida.
+
+        **Se fuerza una sincronización fresca de esa réplica justo antes de leerla** -
+        `_sync_sat_documents_from_enterprise()` (mismo criterio de siempre en este módulo para no
+        depender de en qué orden corran los distintos cron/botones de Ajustes - esta sync de
+        Contactos corre bajo `payment_order_sync_enabled`, la réplica de Documentos SAT bajo
+        `materials_catalog_sync_enabled`, dos toggles independientes)."""
         self.ensure_one()
         if self.payment_order_role != 'solicitante' or not self.payment_order_sync_enabled:
             return True, self.env._('Sincronización de Contactos no aplica (rol o '
                                      'sincronización no configurados).')
+        self._sync_sat_documents_from_enterprise()
+        proveedor_vats = self.env['construtec.sat.document'].sudo().search(
+            [('nit_contacto', '!=', False)]).mapped('nit_contacto')
         try:
             partners = fetch_partners(
                 self.payment_order_sync_url, self.payment_order_sync_db,
-                self.payment_order_sync_login, self.payment_order_sync_api_key)
+                self.payment_order_sync_login, self.payment_order_sync_api_key, proveedor_vats)
         except EnterpriseSyncError as exc:
             _logger.warning('Sincronización de Contactos falló para %s: %s', self.name, exc)
             return False, str(exc)

@@ -168,7 +168,10 @@ class ResCompany(models.Model):
 
         Document = self.env['construtec.sat.document'].sudo()
         for doc in documentos:
-            vals = dict(doc, received_date=fields.Datetime.now())
+            # Enterprise no manda company_id (un id de compañía de allá no significa nada aquí,
+            # mismo criterio que el resto de los mirrors de este módulo) - cae en la compañía
+            # activa de quien sincroniza.
+            vals = dict(doc, received_date=fields.Datetime.now(), company_id=self.id)
             entry = Document.search([('origin_id', '=', vals['origin_id'])], limit=1)
             if entry:
                 entry.write(vals)
