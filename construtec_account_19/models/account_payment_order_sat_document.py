@@ -1,4 +1,4 @@
-from odoo import models
+from odoo import api, fields, models
 
 
 class AccountPaymentOrder(models.Model):
@@ -11,6 +11,29 @@ class AccountPaymentOrder(models.Model):
     explícita del usuario, 2026-09-29: "de Enterprise a Community solo deben copiarse los
     documentos SAT")."""
     _inherit = 'account.payment.order'
+
+    sat_document_ids = fields.Many2many(
+        'construtec.sat.document', compute='_compute_sat_document_ids',
+        string='Documentos SAT Incluidos',
+        help='Todos los Documentos SAT que el jefe de técnicos eligió para esta Solicitud en '
+             'Community (Pago Directo) - tanto los que ya son factura real (resueltos vía '
+             'factura_ids.sat_document_id) como los que siguen Pendientes de conversión '
+             '(reclamados vía construtec.sat.document.payment_order_id mientras no exista '
+             'move_id todavía). Puramente informativo - el candado real de cada uno vive donde '
+             'corresponda según su estado, ver _resolve_sat_document_ids().')
+
+    @api.depends('factura_ids.sat_document_id')
+    def _compute_sat_document_ids(self):
+        """No-stored, recalculado en cada lectura (mismo criterio ya usado en este módulo para
+        `diferencia_conciliacion`/`viaticos_sin_liquidar_count`) - un Documento SAT todavía
+        Pendiente no dispara ningún `@api.depends` hacia esta Orden (su `payment_order_id` es
+        un campo de OTRO modelo, escrito por `_resolve_sat_document_ids()`/`action_approve()`),
+        así que se busca en vivo en vez de depender de un tracking exacto."""
+        Document = self.env['construtec.sat.document']
+        for rec in self:
+            pendientes = Document.search([
+                ('payment_order_id', '=', rec.id), ('state', '=', 'pendiente')])
+            rec.sat_document_ids = rec.factura_ids.sat_document_id | pendientes
 
     def _resolve_sat_document_ids(self, sat_document_ids):
         """Vincula esta Orden (tipo pago_directo, recién creada/recibida por sincronización

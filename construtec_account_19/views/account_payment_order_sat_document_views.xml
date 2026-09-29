@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Extensión Enterprise-only de la vista compartida (construtec_account_payment_order_19)
+         - agrega una pestaña nueva "Documentos SAT" mostrando qué Documentos SAT eligió el jefe
+         de técnicos en Community para una Solicitud de Pago Directo, incluyendo los que todavía
+         siguen Pendientes de convertir a factura (invisibles hasta ahora: factura_ids solo
+         refleja account.move reales, y un Documento SAT Pendiente no tiene move_id todavía - ver
+         sat_document_ids/_compute_sat_document_ids en account_payment_order_sat_document.py).
+         Vive aquí, no en el archivo compartido, por la misma razón de siempre: ese modelo no
+         existe en Community. -->
+    <record id="view_account_payment_order_form_sat_document" model="ir.ui.view">
+        <field name="name">account.payment.order.form.sat.document</field>
+        <field name="model">account.payment.order</field>
+        <field name="inherit_id" ref="construtec_account_payment_order_19.view_account_payment_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='facturas_y_pagos']" position="before">
+                <page string="Documentos SAT" invisible="tipo != 'pago_directo'">
+                    <field name="sat_document_ids" nolabel="1" readonly="1">
+                        <list create="false" delete="false">
+                            <field name="numero_autorizacion" string="No. Autorización"/>
+                            <field name="partner_id" string="Proveedor"/>
+                            <field name="fecha_certificacion" string="Fecha"/>
+                            <field name="monto_total" string="Monto"/>
+                            <field name="state" string="Estado del Documento SAT" widget="badge"
+                                   decoration-warning="state == 'pendiente'"
+                                   decoration-success="state == 'convertido_factura'"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

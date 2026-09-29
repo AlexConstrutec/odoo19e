@@ -169,7 +169,7 @@
                              Mí" con un usuario sin permisos de Contabilidad. account.group_account_invoice
                              es uno de los grupos que el propio mensaje de error de Odoo ya listaba como
                              con acceso a account.move. -->
-                        <page string="Facturas y Pagos" invisible="not es_procesador"
+                        <page name="facturas_y_pagos" string="Facturas y Pagos" invisible="not es_procesador"
                               groups="account.group_account_invoice">
                             <div class="oe_title">
                                 <h2>Facturas</h2>

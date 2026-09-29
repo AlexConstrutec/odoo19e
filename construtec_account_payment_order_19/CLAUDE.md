@@ -1702,6 +1702,43 @@ from_enterprise()` dispara primero la sync de la réplica (confirmado por el ord
 la réplica local queda poblada, y el contacto resuelto por ese NIT llega correctamente etiquetado
 "Proveedores" - sin ninguna llamada a `construtec.sat.document` en Enterprise desde este camino.
 
+## Pestaña "Documentos SAT" en Enterprise - qué eligió el jefe de técnicos en Community (2026-09-29)
+
+Pedido explícito del usuario: en Enterprise, una Solicitud de Pago Directo debía reflejar qué
+Documentos SAT vinculó el jefe de técnicos en Community - hasta ahora esto era invisible para un
+Documento SAT todavía Pendiente (sin `move_id`, así que no aparecía en `factura_ids`, que solo
+refleja `account.move` reales) - el aprobador no tenía forma de ver, antes de Aprobar, qué
+documento se estaba reclamando.
+
+- **`sat_document_ids`** (Many2many, `compute='_compute_sat_document_ids'`, no-stored - Enterprise-only,
+  `construtec_account_19/models/account_payment_order_sat_document.py`): unión de
+  `factura_ids.sat_document_id` (documentos ya convertidos, resueltos vía el campo `account.move.
+  sat_document_id` que `action_convertir_a_factura()` ya poblaba) y una búsqueda en vivo de
+  `construtec.sat.document` con `payment_order_id = self.id` y `state = 'pendiente'` - mismo
+  criterio "no-stored, recalculado en cada lectura" que ya usan `diferencia_conciliacion`/
+  `viaticos_sin_liquidar_count` en este módulo, porque el `payment_order_id` de un Documento SAT
+  pendiente es un campo de OTRO modelo y no dispara ningún `@api.depends` hacia la Orden.
+- **Nueva pestaña "Documentos SAT"** (Enterprise-only, `construtec_account_19/views/
+  account_payment_order_sat_document_views.xml`, `inherit_id` hacia la vista compartida) -
+  `invisible="tipo != 'pago_directo'"`, lista de solo lectura (No. Autorización/Proveedor/Fecha/
+  Monto/Estado con badge pendiente-amarillo / convertido-verde). Vive en un archivo NUEVO,
+  nunca en el compartido - mismo criterio de siempre: `construtec.sat.document` no existe en
+  Community.
+- **Bug real encontrado insertando esta pestaña**: Odoo 19 rechaza `string` como selector de
+  `xpath` en una vista heredada ("View inheritance may not use attribute 'string' as a selector")
+  - la página "Facturas y Pagos" del archivo COMPARTIDO no tenía `name=`, solo `string=`. Fix:
+  se agregó `name="facturas_y_pagos"` a esa página (cambio puramente aditivo, sin efecto en
+  Community, que no hereda nada de esta vista) - el `xpath` de la pestaña nueva apunta a
+  `//page[@name='facturas_y_pagos']`, posicionándose justo antes.
+
+Verificado con `odoo-bin shell` en `construtec_test` (Enterprise): un Documento SAT ya
+`convertido_factura` (resuelto antes de vincularse) y uno `pendiente` en la misma Orden aparecen
+ambos en `sat_document_ids`; al Aprobar, el pendiente se convierte (`action_convertir_a_factura()`,
+ya existente) y sigue apareciendo en `sat_document_ids`, ahora con `state='convertido_factura'`.
+`get_view()` confirma la pestaña "Documentos SAT" en el arch, posicionada entre "Factura a Pagar"
+(oculta en Enterprise) y "Facturas y Pagos". `-u` limpio en ambos repos Enterprise y en Community
+(por el `name=` agregado al archivo compartido), sin `ERROR`/`CRITICAL` nuevos.
+
 ## Common commands
 
 ```
