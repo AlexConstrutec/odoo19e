@@ -1739,6 +1739,23 @@ ya existente) y sigue apareciendo en `sat_document_ids`, ahora con `state='conve
 (oculta en Enterprise) y "Facturas y Pagos". `-u` limpio en ambos repos Enterprise y en Community
 (por el `name=` agregado al archivo compartido), sin `ERROR`/`CRITICAL` nuevos.
 
+**Edición masiva de `cuenta_contable_id`/`cuenta_analitica_id` desde esta pestaña** (pedido
+explícito del usuario): la lista pasó a `editable="bottom"`, con esos dos campos editables SOLO
+mientras el documento sigue `state == 'pendiente'` (los demás - No. Autorización/Proveedor/Fecha/
+Monto/Estado - quedan `readonly="1"`, informativos). Esto habilita gratis la edición masiva
+nativa del cliente web de Odoo (selección múltiple por checkbox + editar una celda + "¿Aplicar a
+los N registros seleccionados?") porque el `write()` resultante va directo contra
+`construtec.sat.document` (el modelo real detrás del Many2many, no contra el campo compute del
+padre) - `sat_document.write()` YA existía y ya propaga `cuenta_contable_id` hacia
+`line_ids.account_id` de las líneas sin cuenta propia (ver sat_document.py), que es justo lo que
+`action_convertir_a_factura()` exige antes de convertir - el Contador puede resolver de un jalón
+la cuenta contable de varios Documentos SAT Pendientes de la misma Orden, sin abrir cada uno.
+
+Verificado con `odoo-bin shell`: un `write({'cuenta_contable_id': ...})` sobre DOS Documentos SAT
+a la vez (simulando exactamente la edición masiva del cliente web) deja a ambos con la cuenta
+puesta y propaga correctamente a las líneas de cada uno. `-u` limpio, sin `ERROR`/`CRITICAL`
+nuevos.
+
 ## Common commands
 
 ```
