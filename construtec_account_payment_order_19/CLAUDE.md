@@ -1491,6 +1491,60 @@ Verificado con `odoo-bin shell`: el mirror ordena `fecha desc` por defecto (conf
 `default_order` explícito todavía, y de nuevo con él); dos facturas del mismo proveedor pasan sin
 bloqueo; una tercera de otro proveedor queda bloqueada nombrando ambos proveedores.
 
+## El campo `partner_id` se etiqueta "Proveedor" en Pago Directo, no "Contacto" (2026-09-29)
+
+Pedido explícito del usuario: "Contacto" confunde en la Orden de Pago Directo, donde `partner_id`
+siempre representa al proveedor real que se le va a pagar - nunca un contacto genérico como en
+Anticipo. **Solo cambia la etiqueta visible en ESTE formulario** - el campo Python sigue siendo
+`partner_id`/`string='Contacto'` a nivel de modelo (sin tocar, mismo criterio ya usado en este
+módulo para renombres de UI: "renombrar el identificador técnico no aporta nada funcional y sí
+agrega riesgo/churn" - ver "Anticipo Materiales" → "Solicitud de Materiales").
+
+**Mecanismo**: dos `<field name="partner_id">` mutuamente excluyentes por `invisible=` (mismo
+patrón ya usado en este archivo para "Proveedor Sugerido"/`user_id` en la pestaña Información) -
+uno con `string="Proveedor"` visible solo para `tipo == 'pago_directo'`, el otro (sin cambios,
+domain/readonly de Viáticos/Materiales intactos) visible para el resto. Verificado con
+`get_view()`: ambos nodos aparecen en el arch con su `string`/`invisible` correcto, sin
+`ParseError` por el nombre de campo repetido (Odoo lo permite - mismo mecanismo que las otras dos
+apariciones ya existentes en este archivo, de `account.move.partner_id`/`account.payment.
+partner_id` dentro de las listas embebidas de Facturas/Pagos, un modelo distinto que solo
+coincide en el nombre del campo).
+
+## Un contacto es "Proveedor" solo con al menos un Documento SAT de compra, no por `supplier_rank` (2026-09-29)
+
+Corrección explícita del usuario, viendo su Community de producción: "deben ser contactos con al
+menos un documento SAT, para ser proveedores" - `supplier_rank > 0` (el criterio original de la
+sección "Sincronización de Contactos", 2026-09-03) puede subir por motivos que no son un
+Documento SAT real (ej. una factura de proveedor capturada a mano en Enterprise, sin pasar por la
+bandeja de Documentos SAT) - ya no califica por sí solo. Cliente sigue usando `customer_rank > 0`
+sin cambios - el usuario solo corrigió el lado de Proveedores.
+
+- **`fetch_partners()`** (`tools/enterprise_sync_api.py`): ahora hace DOS llamadas - primero
+  `search_read` sobre `construtec.sat.document` (`direction='recibida'` o `tipo_dte='FESP'`,
+  mismo criterio que `_sat_es_compra()` en Enterprise) para los `partner_id` que califican como
+  compra real; luego `search_read` sobre `res.partner` con el domain combinado (`customer_rank >
+  0` OR id en esa lista). El resultado incluye `es_proveedor_sat` (Boolean) en vez de
+  `supplier_rank`, que ya no se pide.
+- **`_construtec_tag_names_for()`** (`models/res_partner.py`): su segundo parámetro pasó de
+  `supplier_rank` a `es_proveedor_sat` (Boolean) - firma y semántica más simples.
+- **`ResPartner._apply_construtec_tags()`** (Enterprise, etiquetando sus propios contactos):
+  calcula `es_proveedor_sat` localmente con un `search()` sobre `construtec.sat.document`, pero
+  **solo si ese modelo está registrado** (`'construtec.sat.document' in self.env`) - este archivo
+  es COMPARTIDO con Community (no depende de `construtec_account_19`), así que nunca se referencia
+  el modelo directo a nivel de import; en Community esa consulta simplemente no corre (mismo
+  comportamiento no-op que ya tenía antes para contactos locales).
+- **`_sync_partners_from_enterprise()`** (Community, `res_company.py`): usa `p.get(
+  'es_proveedor_sat')` en vez de `p.get('supplier_rank')` al derivar las etiquetas - nunca
+  escribía `supplier_rank` al propio `res.partner` de Community de todas formas (dato transitorio,
+  solo usado para la etiqueta).
+
+Verificado con `odoo-bin shell`: en Enterprise, un contacto con `supplier_rank=5` pero SIN ningún
+Documento SAT ya no se etiqueta "Proveedores"; uno con un Documento SAT `direction='recibida'` sí;
+uno con solo un FESP (`direction='emitida'` mismo criterio que `_sat_es_compra()`) también. En
+Community, `fetch_partners()` mockeada (dos llamadas `_jsonrpc`) resuelve `es_proveedor_sat`
+correctamente, y `_construtec_tag_names_for()` lo usa igual de bien que antes usaba
+`supplier_rank`.
+
 ## Common commands
 
 ```

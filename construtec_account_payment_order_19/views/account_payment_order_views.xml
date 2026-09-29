@@ -92,7 +92,15 @@
                             <field name="proveedor_materiales_id"
                                    invisible="tipo != 'anticipo_materiales' or not es_procesador"
                                    help="A quién se le va a pagar - se autosugiere solo (al recibir 'Proveedor Sugerido' por sincronización, y de nuevo al Aprobar/Aplicar/Crear Pago) buscando un contacto existente con ese nombre exacto o, si no hay ninguno exacto, uno parecido (solo si resulta en un único candidato, nunca adivina entre varios) - corrígelo si no es el correcto. Requerido antes de Generar Orden de Compra, y también antes de Aplicar si 'Pagar a' está en Proveedor Directo."/>
+                            <!-- Mismo campo (partner_id), dos etiquetas - "Contacto" confundía en
+                                 Pago Directo, donde siempre representa al proveedor real que se le
+                                 va a pagar, no un contacto genérico (pedido explícito del usuario).
+                                 Dos <field> mutuamente excluyentes por invisible=, mismo patrón ya
+                                 usado en este archivo para "Proveedor Sugerido"/user_id. -->
+                            <field name="partner_id" string="Proveedor"
+                                   invisible="tipo != 'pago_directo'"/>
                             <field name="partner_id"
+                                   invisible="tipo == 'pago_directo'"
                                    readonly="tipo in ('anticipo_viaticos', 'anticipo_materiales')"
                                    domain="[('employee', '=', True)] if tipo in ('anticipo_viaticos', 'anticipo_materiales') else []"/>
                         </group>

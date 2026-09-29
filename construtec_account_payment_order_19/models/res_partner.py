@@ -12,21 +12,28 @@ CATEGORIA_PROVEEDORES = 'Proveedores'
 CATEGORIA_CLIENTES = 'Clientes'
 
 
-def _construtec_tag_names_for(customer_rank, supplier_rank, is_employee):
+def _construtec_tag_names_for(customer_rank, es_proveedor_sat, is_employee):
     """Nombres de `res.partner.category` que le tocan a un contacto, derivados 100% de
-    campos nativos de Odoo - nunca etiquetado manual (decisión explícita del usuario,
-    2026-09-03). Un contacto puede calificar para más de uno a la vez (ej. un empleado que
-    también es proveedor). Reutilizada tanto por `ResPartner._apply_construtec_tags()`
-    (Enterprise, sobre sus propios contactos) como por `res.company._sync_partners_from_
-    enterprise()` (Community, sobre los valores YA recibidos en el payload del pull - nunca
-    se recalculan localmente ahí, `customer_rank`/`supplier_rank` locales de Community no
-    significan nada real)."""
+    campos/datos reales - nunca etiquetado manual (decisión explícita del usuario, 2026-09-03).
+    Un contacto puede calificar para más de uno a la vez (ej. un empleado que también es
+    proveedor). Reutilizada tanto por `ResPartner._apply_construtec_tags()` (Enterprise, sobre
+    sus propios contactos) como por `res.company._sync_partners_from_enterprise()` (Community,
+    sobre los valores YA recibidos en el payload del pull).
+
+    **Proveedor ya NO usa `supplier_rank`** (corrección explícita del usuario, 2026-09-29):
+    `es_proveedor_sat` es un Boolean que indica si el contacto tiene al menos un Documento SAT
+    de compra real (`construtec.sat.document`, `direction='recibida'` o `tipo_dte='FESP'`) - ver
+    `ResPartner._apply_construtec_tags()` (Enterprise) y `fetch_partners()` (el cálculo que
+    Community recibe ya resuelto, `tools/enterprise_sync_api.py`). `supplier_rank` podía subir
+    por motivos que no son un Documento SAT real (ej. una factura de proveedor capturada a mano
+    en Enterprise, sin pasar por la bandeja de Documentos SAT) - ya no califica por sí solo.
+    Cliente sigue usando `customer_rank > 0` sin cambios - el usuario solo corrigió Proveedores."""
     names = []
     if is_employee:
         names.append(CATEGORIA_EMPLEADOS)
     if customer_rank and customer_rank > 0:
         names.append(CATEGORIA_CLIENTES)
-    if supplier_rank and supplier_rank > 0:
+    if es_proveedor_sat:
         names.append(CATEGORIA_PROVEEDORES)
     return names
 
@@ -134,17 +141,31 @@ class ResPartner(models.Model):
         return partner.id
 
     def _apply_construtec_tags(self):
-        """Autoetiquetado local (Empleados/Proveedores/Clientes) desde campos nativos -
+        """Autoetiquetado local (Empleados/Proveedores/Clientes) desde datos reales -
         idempotente y ADITIVO ÚNICAMENTE: nunca quita una etiqueta ya puesta, ni siquiera si
-        el contacto deja de calificar después (ej. customer_rank vuelve a 0) - simplificación
-        aceptada explícitamente, ver el plan de esta feature. Corre en ambas ediciones sin
-        distinción de rol (mismo criterio ya documentado en este módulo para Solicitante/
-        Procesador) - en Community, los contactos locales normalmente tienen customer_rank=0,
-        así que esto es esencialmente no-op salvo para contactos creados a mano ahí."""
+        el contacto deja de calificar después - simplificación aceptada explícitamente, ver el
+        plan de esta feature. Corre en ambas ediciones sin distinción de rol (mismo criterio ya
+        documentado en este módulo para Solicitante/Procesador) - en Community, los contactos
+        locales normalmente tienen customer_rank=0 y nunca tienen Documento SAT propio, así que
+        esto es esencialmente no-op salvo para contactos creados a mano ahí.
+
+        `construtec.sat.document` (Proveedor real) solo existe en Enterprise
+        (`construtec_account_19`) - este archivo es COMPARTIDO con Community (no depende de ese
+        módulo), así que nunca se referencia el modelo directo, solo se consulta si está
+        registrado (`in self.env`) - en Community esa consulta simplemente no corre, y ningún
+        contacto califica como Proveedor por este camino ahí (ya no era su fuente de verdad de
+        todas formas, ver _sync_partners_from_enterprise())."""
         Category = self.env['res.partner.category'].sudo()
+        proveedor_ids = set()
+        if 'construtec.sat.document' in self.env:
+            documentos = self.env['construtec.sat.document'].sudo().search([
+                ('partner_id', 'in', self.ids),
+                '|', ('direction', '=', 'recibida'), ('tipo_dte', '=', 'FESP'),
+            ])
+            proveedor_ids = set(documentos.partner_id.ids)
         for partner in self:
             names = _construtec_tag_names_for(
-                partner.customer_rank, partner.supplier_rank, partner.employee)
+                partner.customer_rank, partner.id in proveedor_ids, partner.employee)
             if not names:
                 continue
             existing_names = set(partner.category_id.mapped('name'))

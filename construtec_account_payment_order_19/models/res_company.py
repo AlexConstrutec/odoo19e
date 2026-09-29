@@ -545,11 +545,12 @@ class ResCompany(models.Model):
 
     def _sync_partners_from_enterprise(self):
         """Pull de los contactos que ya son Clientes/Proveedores reales en Enterprise
-        (`fetch_partners()` ya filtra por `customer_rank`/`supplier_rank` > 0) - upsert por
-        `enterprise_partner_ref`, igual patrón que empleados/cuentas analíticas. Las etiquetas
-        (`category_id`) se derivan de los `customer_rank`/`supplier_rank` YA recibidos en el
-        payload - nunca se recalculan localmente (los campos de rango de Community no
-        significan nada real, esta base no factura contra estos contactos)."""
+        (`fetch_partners()` ya filtra por `customer_rank > 0` o tener al menos un Documento SAT
+        de compra) - upsert por `enterprise_partner_ref`, igual patrón que empleados/cuentas
+        analíticas. Las etiquetas (`category_id`) se derivan de `customer_rank`/`es_proveedor_sat`
+        YA recibidos en el payload - nunca se recalculan localmente (los campos de rango de
+        Community no significan nada real, esta base no factura contra estos contactos, y
+        `construtec.sat.document` no existe aquí)."""
         self.ensure_one()
         if self.payment_order_role != 'solicitante' or not self.payment_order_sync_enabled:
             return True, self.env._('Sincronización de Contactos no aplica (rol o '
@@ -568,7 +569,7 @@ class ResCompany(models.Model):
         for p in partners:
             enterprise_ref = p['id']
             category_names = _construtec_tag_names_for(
-                p.get('customer_rank'), p.get('supplier_rank'), False)
+                p.get('customer_rank'), p.get('es_proveedor_sat'), False)
             categories = Category.browse()
             for name in category_names:
                 category = Category.search([('name', '=', name)], limit=1)
