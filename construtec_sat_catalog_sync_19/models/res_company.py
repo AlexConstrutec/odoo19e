@@ -3,7 +3,8 @@ import logging
 from odoo import api, fields, models
 
 from ..tools.enterprise_sync_api import (
-    EnterpriseSyncError, fetch_materials_catalog, fetch_vendor_catalog, fetch_vendor_invoices,
+    EnterpriseSyncError, fetch_materials_catalog, fetch_sat_documents, fetch_vendor_catalog,
+    fetch_vendor_invoices,
 )
 
 _logger = logging.getLogger(__name__)
@@ -143,6 +144,53 @@ class ResCompany(models.Model):
         message = self.env._('%(count)s facturas procesadas.', count=len(facturas))
         return True, message
 
+    def _sync_sat_documents_from_enterprise(self):
+        """Pull de una réplica CASI completa de `construtec.sat.document` (Enterprise) - mismo
+        `_name`/mismos campos del lado Community (ver `models/sat_document.py`) - pedido
+        explícito del usuario (2026-09-29): "el modelo Documento SAT de Enterprise, replícalo
+        tal cual en Community". Se cuelga del MISMO toggle que el resto de este módulo
+        (`materials_catalog_sync_enabled`) - mismas credenciales, mismo concern. Solo trae
+        documentos creados/modificados en los últimos 7 días en cada corrida (ver
+        `fetch_sat_documents()`) - corridas sucesivas (cron/botón) van completando el histórico
+        real solas, sin que cada corrida individual tenga que releer todo. Upsert por
+        `origin_id`."""
+        self.ensure_one()
+        if not self.materials_catalog_sync_enabled:
+            return True, self.env._('Sincronización de Documentos SAT no habilitada.')
+        try:
+            documentos = fetch_sat_documents(
+                self.materials_catalog_sync_url, self.materials_catalog_sync_db,
+                self.materials_catalog_sync_login, self.materials_catalog_sync_api_key)
+        except EnterpriseSyncError as exc:
+            _logger.warning(
+                'Sincronización de Documentos SAT falló para %s: %s', self.name, exc)
+            return False, str(exc)
+
+        Document = self.env['construtec.sat.document'].sudo()
+        for doc in documentos:
+            vals = dict(doc, received_date=fields.Datetime.now())
+            entry = Document.search([('origin_id', '=', vals['origin_id'])], limit=1)
+            if entry:
+                entry.write(vals)
+            else:
+                Document.create(vals)
+        message = self.env._('%(count)s Documentos SAT procesados.', count=len(documentos))
+        return True, message
+
+    def action_sync_sat_documents_now(self):
+        self.ensure_one()
+        ok, message = self._sync_sat_documents_from_enterprise()
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': self.env._('Sincronizar Documentos SAT'),
+                'message': message,
+                'sticky': not ok,
+                'type': 'success' if ok else 'danger',
+            },
+        }
+
     def action_sync_materials_catalog_now(self):
         self.ensure_one()
         ok_materiales, message_materiales = self._sync_materials_catalog_from_enterprise()
@@ -171,6 +219,7 @@ class ResCompany(models.Model):
             company._sync_materials_catalog_from_enterprise()
             company._sync_vendor_catalog_from_enterprise()
             company._sync_vendor_invoices_from_enterprise()
+            company._sync_sat_documents_from_enterprise()
 
     @api.model_create_multi
     def create(self, vals_list):

@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_construtec_sat_document_mirror_list" model="ir.ui.view">
+        <field name="name">construtec.sat.document.list</field>
+        <field name="model">construtec.sat.document</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0" decoration-success="state == 'convertido_factura'"
+                  decoration-warning="state == 'pendiente'">
+                <field name="numero_autorizacion"/>
+                <field name="tipo_dte"/>
+                <field name="partner_name"/>
+                <field name="nit_contacto"/>
+                <field name="fecha_certificacion"/>
+                <field name="monto_total"/>
+                <field name="move_amount_residual"/>
+                <field name="move_payment_state"/>
+                <field name="state"/>
+                <field name="received_date" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_construtec_sat_document_mirror_form" model="ir.ui.view">
+        <field name="name">construtec.sat.document.form</field>
+        <field name="model">construtec.sat.document</field>
+        <field name="arch" type="xml">
+            <form create="0" edit="0" delete="0">
+                <sheet>
+                    <group>
+                        <group string="Documento">
+                            <field name="numero_autorizacion"/>
+                            <field name="tipo_dte"/>
+                            <field name="direction"/>
+                            <field name="serie"/>
+                            <field name="numero_documento"/>
+                            <field name="fecha_certificacion"/>
+                            <field name="fecha_vencimiento"/>
+                            <field name="state"/>
+                        </group>
+                        <group string="Proveedor">
+                            <field name="partner_name"/>
+                            <field name="nit_contacto"/>
+                            <field name="nombre_emisor"/>
+                            <field name="nit_emisor"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Montos">
+                            <field name="currency_name"/>
+                            <field name="monto_total"/>
+                            <field name="monto_iva"/>
+                        </group>
+                        <group string="Estado de la Factura">
+                            <field name="move_amount_residual"/>
+                            <field name="move_payment_state"/>
+                        </group>
+                    </group>
+                    <group string="Sincronización">
+                        <field name="origin_id"/>
+                        <field name="enterprise_write_date"/>
+                        <field name="received_date"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_construtec_sat_document_mirror_search" model="ir.ui.view">
+        <field name="name">construtec.sat.document.search</field>
+        <field name="model">construtec.sat.document</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="partner_name"/>
+                <field name="numero_autorizacion"/>
+                <field name="nit_contacto"/>
+                <filter string="Pendientes" name="pendientes" domain="[('state', '=', 'pendiente')]"/>
+                <filter string="Convertidos a Factura" name="convertidos"
+                        domain="[('state', '=', 'convertido_factura')]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_construtec_sat_document_mirror" model="ir.actions.act_window">
+        <field name="name">Documentos SAT</field>
+        <field name="res_model">construtec.sat.document</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Todavía no hay ningún Documento SAT sincronizado.
+            </p>
+        </field>
+    </record>
+
+    <menuitem action="action_construtec_sat_document_mirror"
+              id="menu_construtec_sat_document_mirror"
+              parent="menu_construtec_sat_catalog_sync_root" sequence="15"/>
+</odoo>

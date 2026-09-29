@@ -215,6 +215,60 @@ guardaba el id real del `account.move` en Enterprise, aunque nunca se usara para
 `construtec_account_payment_order_19` para el detalle completo (`sat_document_ids` unificado,
 reemplazando a `factura_origin_ids`/`sat_document_pendiente_ids`).
 
+## Réplica completa de `construtec.sat.document` en Community (2026-09-29)
+
+Pedido explícito del usuario, para dejar de investigar a ciegas la brecha entre Documentos SAT
+reales en Enterprise y contactos sincronizados en Community: "el modelo Documento SAT de Odoo
+Enterprise, replícalo tal cual en Odoo Community. Que se llame igual, que tenga los mismos
+campos y que se sincronice a raíz de la última modificación o la fecha de creación de hoy, siete
+días atrás."
+
+- **`models/sat_document.py`** (nuevo) - modelo `construtec.sat.document` (mismo `_name` que
+  Enterprise, `construtec_account_19`) con casi todos sus mismos campos (nombre y significado
+  idénticos) - excluidos deliberadamente: adjuntos (`xml_attachment_id`/`pdf_attachment_id`),
+  `cuenta_analitica_id`/`cuenta_contable_id`, `line_ids` (detalle), y cualquier id de
+  `account.move`/`purchase.order`/`sale.order` (nunca cruzan a Community, ver CLAUDE.md de
+  `construtec_account_payment_order_19`). `partner_id`/`currency_id` (Many2one en Enterprise) se
+  resuelven a texto plano (`partner_name`/`currency_name`), mismo criterio que el resto de los
+  mirrors de este módulo. `origin_id` (el id real en Enterprise) es la clave de upsert.
+- **`tools/enterprise_sync_api.py::fetch_sat_documents(since_days=7)`** (nuevo) - domain:
+  `direction='recibida' OR tipo_dte='FESP'` (documentos de compra) Y (`write_date >= cutoff` O
+  `create_date >= cutoff`), `cutoff = hoy - since_days`. Deliberadamente NO trae todo el
+  histórico en cada corrida (podrían ser miles) - corridas sucesivas (cron/botón) van completando
+  el histórico real solas, sin que una corrida individual tenga que releer todo.
+- **`res.company._sync_sat_documents_from_enterprise()`** (nuevo) - se cuelga del MISMO toggle
+  (`materials_catalog_sync_enabled`) y credenciales que el resto de este módulo - mismo criterio
+  ya usado para Proveedores/Facturas. Se agregó también al cron periódico existente
+  (`_cron_sync_materials_catalog_from_enterprise()`).
+- **Botón propio, no el genérico "Sincronizar ahora"** - pedido explícito del usuario: un botón
+  nuevo, "Sincronizar Documentos SAT" (`action_sync_sat_documents_now()`), en Ajustes >
+  Facturación > Catálogo de Materiales - vive en `construtec_account_payment_order_19` (la UI de
+  configuración de este módulo siempre vivió ahí, nunca aquí - ver "Ajustes del pull del Catálogo
+  de Materiales" en ese CLAUDE.md). **Bug real encontrado al instalar**: un botón de
+  `res.config.settings` necesita su propio método proxy hacia `self.company_id` - llamar
+  directo a un método de `res.company` desde ese botón revienta con "... is not a valid action on
+  res.config.settings" (mismo patrón ya usado por `action_sync_materials_catalog_now`/
+  `action_sync_employees_now`, replicado aquí para el nuevo botón).
+- **Segundo bug real de vista, encontrado al instalar**: un `<group expand="0">` de "Agrupar Por"
+  dentro de un `<search>` (patrón común en muchos módulos de Odoo) reventó la validación RNG del
+  arch en este módulo - se quitó esa sección del `<search>` de este modelo (se quedó solo con
+  filtros simples) en vez de perseguir la causa exacta; no era esencial para lo pedido.
+
+Deliberadamente NO reemplaza a `construtec.sat.invoice.mirror` (el modelo ya usado por
+`construtec_account_payment_order_19` para el picker de Pago Directo) - es una réplica informativa
+más completa/fiel, sin conectar (todavía) a ningún flujo de Solicitud de Pago. Tampoco cambia
+(todavía) cómo se resuelve "quién es Proveedor" para el sync de Contactos - eso sigue consultando
+`construtec.sat.document` en Enterprise directo (ver CLAUDE.md de
+`construtec_account_payment_order_19`, "Simplifica de vuelta"). Si más adelante se quiere que el
+sync de Contactos use esta réplica local en vez de una consulta en vivo, es un cambio aparte, a
+pedir explícitamente.
+
+Verificado con `odoo-bin shell` (Community, `construtec_test`, savepoint/rollback):
+`fetch_sat_documents()` mockeada confirma el domain con `write_date`/`create_date`; el upsert por
+`origin_id` crea el documento con TODOS los campos replicados correctamente (`numero_autorizacion`,
+`partner_name`, `monto_total`, `move_amount_residual`, `move_payment_state`, `state`,
+`currency_name`, `enterprise_write_date`); una segunda corrida actualiza sin duplicar.
+
 ## Status as of this writing (2026-09-01)
 
 **Verificado con `odoo-bin shell` contra `construtec_test` (Enterprise), incluyendo el navegador real**: se sincroniza tanto una entrada tipo Bien como una tipo Servicio (ambas generan espejo local, `bien_o_servicio` viaja correctamente), la copia local en Enterprise (sin red, `company_id` incluido), el `name_search` con preferencia por proveedor (preferido primero, el resto sigue visible), y el autocompletado real en la pestaña Materiales de `construtec_account_payment_order_19` (elegir una entrada del catálogo llena Material/Proveedor Sugerido/Precio Estimado y recalcula los totales, y el picker de esa línea solo ofrece Bienes por su propio `domain=`) — todo funcionando de punta a punta en un solo Odoo (Enterprise).

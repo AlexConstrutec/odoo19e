@@ -11,6 +11,7 @@ construtec_account_payment_order_19 nor construtec_account_19), so it keeps its 
 URL/credentials, revocable independently of any other integration.
 """
 import logging
+from datetime import datetime, timedelta
 
 import requests
 
@@ -261,4 +262,70 @@ def fetch_vendor_invoices(url, db, login, api_key):
                 'linked_order_name': (
                     doc['payment_order_id'][1] if doc.get('payment_order_id') else False),
             })
+    return result
+
+
+# Campos de construtec.sat.document (Enterprise) que se copian TAL CUAL (mismo nombre) hacia el
+# Documento SAT réplica de Community - todos escalares, sin necesitar ninguna resolución de
+# relación. Deliberadamente excluidos: adjuntos (xml/pdf), cuenta_analitica_id/cuenta_contable_id,
+# line_ids, y cualquier id de account.move/purchase.order/sale.order (nunca cruzan a Community,
+# ver construtec_account_payment_order_19/CLAUDE.md "Community nunca vuelve a conocer ningún id
+# de account.move").
+_SAT_DOCUMENT_PLAIN_FIELDS = [
+    'direction', 'numero_autorizacion', 'tipo_dte', 'tipo_compra',
+    'numero_autorizacion_referencia', 'motivo_ajuste_nota', 'serie', 'numero_documento',
+    'fecha_certificacion', 'fecha_vencimiento', 'nit_emisor', 'nombre_emisor', 'nit_receptor',
+    'nombre_receptor', 'nit_contacto', 'moneda_codigo', 'monto_total', 'monto_iva',
+    'monto_petroleo', 'monto_turismo_hospedaje', 'monto_turismo_pasajes', 'monto_timbre_prensa',
+    'monto_bomberos', 'monto_tasa_municipal', 'monto_bebidas_alcoholicas', 'monto_tabaco',
+    'monto_cemento', 'monto_bebidas_no_alcoholicas', 'monto_tarifa_portuaria',
+    'monto_retencion_isr_fesp', 'monto_retencion_iva_fesp', 'monto_neto_pagado_fesp',
+    'codigo_establecimiento', 'nombre_establecimiento', 'nombre_comercial_emisor',
+    'direccion_emisor', 'nit_certificador', 'nombre_certificador', 'clasificacion_emisor',
+    'exportacion', 'estado_sat', 'anulado', 'fecha_anulacion', 'state', 'move_amount_residual',
+    'move_payment_state',
+]
+
+
+def fetch_sat_documents(url, db, login, api_key, since_days=7):
+    """Read-only pull de una réplica CASI completa de `construtec.sat.document` (Enterprise) -
+    mismo `_name`/mismos campos del lado Community (`construtec_sat_catalog_sync_19.models.
+    sat_document`) - pedido explícito del usuario (2026-09-29): "el modelo Documento SAT de
+    Enterprise, replícalo tal cual en Community... que tenga los mismos campos".
+
+    Solo documentos de compra (`direction='recibida'` o `tipo_dte='FESP'`, mismo criterio que
+    `_sat_es_compra()` en Enterprise) creados O modificados en los últimos `since_days` días
+    (`write_date >= cutoff OR create_date >= cutoff`) - NO se vuelve a traer el histórico
+    completo en cada corrida (podrían ser miles de documentos); corridas sucesivas (cron/botón)
+    van completando el histórico real solas, mientras cada corrida individual se queda rápida.
+    `origin_id` (el `id` real en Enterprise) es la clave de upsert - un documento que ya se trajo
+    antes y no ha vuelto a cambiar simplemente no vuelve a aparecer en corridas siguientes, sin
+    que eso signifique que "desapareció" del lado Community.
+
+    La mayoría de los campos viajan TAL CUAL (mismo nombre, mismo valor escalar) - solo
+    `partner_id`/`currency_id` (Many2one en Enterprise) se resuelven aquí a texto plano
+    (`partner_name`/`currency_name`), mismo criterio que el resto de los mirrors de este módulo
+    (un id de Enterprise no significa nada en Community)."""
+    if not (url and db and login and api_key):
+        raise EnterpriseSyncError(
+            'Sincronización de Documentos SAT incompleta (falta URL, base de datos, usuario o '
+            'API Key).')
+    uid = authenticate(url, db, login, api_key)
+    cutoff = (datetime.now() - timedelta(days=since_days)).strftime('%Y-%m-%d %H:%M:%S')
+    documentos = _jsonrpc(
+        url, 'object', 'execute_kw',
+        [db, uid, api_key, DOCUMENT_MODEL, 'search_read',
+         [['&', '|', ('direction', '=', 'recibida'), ('tipo_dte', '=', 'FESP'),
+           '|', ('write_date', '>=', cutoff), ('create_date', '>=', cutoff)]],
+         {'fields': _SAT_DOCUMENT_PLAIN_FIELDS + ['id', 'partner_id', 'currency_id', 'write_date']}])
+    result = []
+    for doc in documentos:
+        vals = {field: doc.get(field) for field in _SAT_DOCUMENT_PLAIN_FIELDS}
+        vals.update({
+            'origin_id': doc['id'],
+            'partner_name': doc['partner_id'][1] if doc.get('partner_id') else False,
+            'currency_name': doc['currency_id'][1] if doc.get('currency_id') else False,
+            'enterprise_write_date': doc.get('write_date') or False,
+        })
+        result.append(vals)
     return result

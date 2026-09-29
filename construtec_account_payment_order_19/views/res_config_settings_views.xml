@@ -141,6 +141,17 @@
                         <button name="action_sync_materials_catalog_now" type="object"
                                 string="Sincronizar ahora" class="btn btn-secondary mt8" icon="fa-refresh"/>
                     </setting>
+                    <setting id="sat_document_sync" string="Documentos SAT"
+                             invisible="not materials_catalog_sync_enabled"
+                             help="Réplica de solo lectura de los Documentos SAT de compra de Enterprise
+                                   (mismo modelo, mismos campos) - solo los creados o modificados en los
+                                   últimos 7 días en cada corrida, para no releer todo el histórico cada vez.
+                                   Corridas sucesivas (este botón, o el mismo intervalo de arriba) van
+                                   completando el histórico real solas.">
+                        <button name="action_sync_sat_documents_now" type="object"
+                                string="Sincronizar Documentos SAT" class="btn btn-secondary mt8"
+                                icon="fa-refresh"/>
+                    </setting>
                 </block>
                 <block title="IA para Cotizaciones (Anthropic)" name="quote_import_ai_settings"
                        invisible="payment_order_role != 'solicitante'">

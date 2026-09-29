@@ -53,6 +53,10 @@ class ResConfigSettings(models.TransientModel):
         self.ensure_one()
         return self.company_id.action_sync_materials_catalog_now()
 
+    def action_sync_sat_documents_now(self):
+        self.ensure_one()
+        return self.company_id.action_sync_sat_documents_now()
+
     def action_pull_payment_order_status_now(self):
         self.ensure_one()
         return self.company_id.action_pull_payment_order_status_now()

@@ -15,6 +15,7 @@
         'views/sat_product_catalog_mirror_views.xml',
         'views/sat_vendor_catalog_mirror_views.xml',
         'views/sat_invoice_mirror_views.xml',
+        'views/sat_document_views.xml',
     ],
     'installable': True,
     'application': False,
