@@ -1475,13 +1475,25 @@ Pedido explícito del usuario: "una orden de pago es solo para un proveedor y no
 `factura_mirror_ids` mezclaba facturas de cualquier proveedor sin ningún filtro. Dos capas, mismo
 criterio de siempre en este módulo (filtro de vista + candado real en Python):
 
-- **Vista**: `factura_mirror_ids` gana `domain="[('partner_vat', '=', partner_id.vat)]"` - el
-  jefe de técnicos elige primero el Proveedor (`partner_id`, ya existía en el encabezado) y el
-  picker solo ofrece Documentos SAT de ese mismo NIT. Navegar `partner_id.vat` (un Many2one hacia
-  un campo escalar) es seguro - el bug real ya documentado sobre navegar un `domain=` por punto
-  (`journal_id.outbound_payment_method_line_ids`) era específico de un Many2many vacío, no aplica
-  aquí. La lista embebida gana `default_order="fecha desc"` (explícito, aunque el modelo ya tiene
-  `_order='fecha desc'`) - más reciente primero.
+- **Vista**: `factura_mirror_ids` gana un `domain=` filtrando por el NIT del Proveedor ya elegido
+  (`partner_id`, en el encabezado) - el jefe de técnicos elige primero el Proveedor y el picker
+  solo ofrece Documentos SAT de ese mismo NIT. La lista embebida gana `default_order="fecha
+  desc"` (explícito, aunque el modelo ya tiene `_order='fecha desc'`) - más reciente primero.
+
+**Bug real de producción, corregido el mismo día**: la primera versión de esto usaba
+`domain="[('partner_vat', '=', partner_id.vat)]"` directo - navegar `partner_id.vat` (un Many2one
+hacia un campo escalar) **dentro de un `domain=` en string SÍ puede reventar en el cliente**
+(`InvalidDomainError: Invalid domain representation: partner_vat,=,`, reportado en
+`erp.construtecasesores.com`) en cuanto `partner_id` está vacío o su `vat` no está cargado
+todavía - la suposición de que el bug ya documentado arriba (`journal_id.outbound_payment_
+method_line_ids`) era exclusivo de navegar un Many2many resultó incorrecta: CUALQUIER navegación
+por punto en un `domain=` de vista es frágil cuando el valor final puede faltar, sea una lista o
+un escalar. **El fix, mismo patrón exacto**: campo calculado intermedio
+(`partner_vat_actual = fields.Char(compute=...)`, `@api.depends('partner_id.vat')`), agregado a
+la vista con `invisible="1"` (necesario para que el evaluador de dominio lo encuentre cargado), y
+el `domain=` apunta a ESE campo top-level (`[('partner_vat', '=', partner_vat_actual)]`) - nunca
+a la ruta punteada directa. Verificado que el compute devuelve `False` (no `undefined`) sin
+`partner_id`, y el valor real del NIT con `partner_id` puesto.
 - **`_check_factura_mirror_disponible()`**: gana un tercer chequeo - bloquea si `mirror.
   partner_vat` no coincide con `self.partner_id.vat` (ambos presentes) - defensa real por si se
   elige por API/script o `partner_id` cambia después de ya elegir facturas, ya que un `domain=`

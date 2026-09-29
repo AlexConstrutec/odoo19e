@@ -153,6 +153,16 @@ class AccountPaymentOrder(models.Model):
              'action_payment_order_sat_document.py, construtec_account_19). Sin efecto en '
              'Enterprise mismo (es_procesador=True) - ahí se usa `factura_ids` directo, como '
              'siempre.')
+    partner_vat_actual = fields.Char(
+        compute='_compute_partner_vat_actual',
+        help='Auxiliar para el dominio de `factura_mirror_ids` - navegar `partner_id.vat` '
+             'directo dentro de un `domain=` en string revienta en el cliente '
+             '(`InvalidDomainError: partner_vat,=,`) en cuanto `partner_id` está vacío o su '
+             '`vat` no está cargado todavía - bug real de producción (2026-09-29), mismo motivo '
+             'documentado arriba para `available_payment_method_line_ids` '
+             '(`journal_id.outbound_payment_method_line_ids`) - cualquier navegación por punto '
+             'en un domain de vista necesita este mismo patrón de campo calculado intermedio, no '
+             'solo las que atraviesan un Many2many.')
     pago_ids = fields.One2many('account.payment', 'payment_order_id', string='Pagos/Cheques')
     diferencia_conciliacion = fields.Monetary(
         string='Diferencia (a conciliar)', compute='_compute_diferencia_conciliacion',
@@ -424,6 +434,11 @@ class AccountPaymentOrder(models.Model):
     def _compute_available_payment_method_line_ids(self):
         for rec in self:
             rec.available_payment_method_line_ids = rec.journal_id.outbound_payment_method_line_ids
+
+    @api.depends('partner_id.vat')
+    def _compute_partner_vat_actual(self):
+        for rec in self:
+            rec.partner_vat_actual = rec.partner_id.vat
 
     @api.onchange('journal_id')
     def _onchange_journal_id_payment_method(self):

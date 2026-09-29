@@ -136,9 +136,10 @@
                                 queda libre para que otra Orden cubra el resto despues. Una factura ya
                                 pagada al 100% no aparece en esta lista.
                             </p>
+                            <field name="partner_vat_actual" invisible="1"/>
                             <field name="factura_mirror_ids" widget="many2many" nolabel="1"
                                    readonly="state != 'borrador'"
-                                   domain="[('partner_vat', '=', partner_id.vat)]">
+                                   domain="[('partner_vat', '=', partner_vat_actual)]">
                                 <list default_order="fecha desc">
                                     <field name="numero_autorizacion" string="No. Autorización"/>
                                     <field name="partner_name" string="Proveedor"/>
