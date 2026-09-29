@@ -35,6 +35,9 @@
                 <field name="codigo_empleado" optional="show"/>
                 <field name="job_id" optional="show"/>
                 <field name="department_id" optional="show"/>
+                <field name="cuenta_bancaria" optional="show"/>
+                <field name="codigo_banco" optional="show"/>
+                <field name="tipo_cuenta" optional="show"/>
                 <field name="payslip_run_id" optional="show"/>
                 <field name="date_from" optional="show"/>
                 <field name="date_to" optional="show"/>

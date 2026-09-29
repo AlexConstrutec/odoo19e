@@ -2,7 +2,22 @@ import base64
 
 from odoo import fields, models
 
-FIXED_HEADERS = ['Empleado', 'Código', 'Puesto', 'Departamento', 'Lote', 'Del', 'Al']
+FIXED_HEADERS = ['Empleado', 'Código', 'Puesto', 'Departamento', 'Cuenta Bancaria', 'Código Banco',
+                  'Tipo de Cuenta', 'Lote', 'Del', 'Al']
+
+
+def _employee_bank_info(employee):
+    """Cuenta bancaria y tipo de cuenta del primer registro de `bank_account_ids` (nativo de
+    hr.employee). `tipo_cuenta` (res.partner.bank) lo agrega construtec_account_payment_order_19
+    - no es una dependencia formal de este módulo, así que se lee de forma defensiva (el campo
+    puede no existir si ese módulo no está instalado)."""
+    bank = employee.bank_account_ids[:1]
+    cuenta_bancaria = bank.acc_number or ''
+    tipo_cuenta = ''
+    if bank and 'tipo_cuenta' in bank._fields and bank.tipo_cuenta:
+        selection = dict(bank._fields['tipo_cuenta'].selection)
+        tipo_cuenta = selection.get(bank.tipo_cuenta, '')
+    return cuenta_bancaria, tipo_cuenta
 
 # Códigos de reglas salariales excluidos del detalle por completo (reservas/provisiones
 # contables que no forman parte del pago real al empleado, a pedido del usuario) - ni
@@ -103,11 +118,15 @@ class WizardReporteDetalleNomina(models.TransientModel):
             for line in payslip.line_ids:
                 if line.code:
                     codes[line.code] = codes.get(line.code, 0.0) + line.total
+            cuenta_bancaria, tipo_cuenta = _employee_bank_info(employee)
             row = [
                 employee.name,
                 employee.codigo_empleado or '',
                 employee.job_id.name or '',
                 employee.department_id.name or '',
+                cuenta_bancaria,
+                employee.codigo_banco or '',
+                tipo_cuenta,
                 payslip.payslip_run_id.name or '',
                 payslip.date_from.strftime('%d/%m/%Y'),
                 payslip.date_to.strftime('%d/%m/%Y'),
@@ -198,11 +217,15 @@ class WizardReporteDetalleNomina(models.TransientModel):
         line_vals = []
         for row, payslip in zip(rows, payslips):
             employee = payslip.employee_id
+            cuenta_bancaria, tipo_cuenta = _employee_bank_info(employee)
             vals = {
                 'employee_id': employee.id,
                 'codigo_empleado': employee.codigo_empleado or '',
                 'job_id': employee.job_id.id,
                 'department_id': employee.department_id.id,
+                'cuenta_bancaria': cuenta_bancaria,
+                'codigo_banco': employee.codigo_banco or '',
+                'tipo_cuenta': tipo_cuenta,
                 'payslip_run_id': payslip.payslip_run_id.id,
                 'date_from': payslip.date_from,
                 'date_to': payslip.date_to,
@@ -237,6 +260,9 @@ class WizardReporteDetalleNominaLine(models.TransientModel):
     codigo_empleado = fields.Char(string='Código')
     job_id = fields.Many2one('hr.job', string='Puesto')
     department_id = fields.Many2one('hr.department', string='Departamento')
+    cuenta_bancaria = fields.Char(string='Cuenta Bancaria')
+    codigo_banco = fields.Char(string='Código Banco')
+    tipo_cuenta = fields.Char(string='Tipo de Cuenta')
     payslip_run_id = fields.Many2one('hr.payslip.run', string='Lote')
     date_from = fields.Date(string='Del')
     date_to = fields.Date(string='Al')
