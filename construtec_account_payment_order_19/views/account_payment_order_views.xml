@@ -141,19 +141,22 @@
                                    readonly="state != 'borrador'"
                                    domain="[('partner_vat', '=', partner_vat_actual)]">
                                 <list default_order="fecha desc">
-                                    <field name="numero_autorizacion" string="No. Autorización"/>
                                     <field name="partner_name" string="Proveedor"/>
-                                    <field name="fecha"/>
-                                    <field name="monto_total" string="Monto Total"/>
-                                    <field name="amount_residual" string="Saldo Pendiente"/>
-                                    <field name="state" string="Estado del Documento" widget="badge"
+                                    <field name="numero_documento" string="Número de Factura"/>
+                                    <field name="serie" string="Serie de Factura"/>
+                                    <field name="fecha" string="Fecha"/>
+                                    <field name="monto_total" string="Monto"/>
+                                    <field name="amount_residual" string="Saldo"/>
+                                    <field name="state" string="Estado de Documento" widget="badge"
                                            decoration-warning="state == 'pendiente'"
                                            decoration-success="state == 'convertido_factura'"/>
-                                    <field name="payment_state" widget="badge"
+                                    <field name="payment_state" string="Estado de Pago" widget="badge"
                                            decoration-danger="payment_state == 'not_paid'"
                                            decoration-warning="payment_state in ('partial', 'in_payment')"
                                            decoration-success="payment_state in ('paid', 'reversed')"/>
                                     <field name="linked_order_name" string="Ya Vinculada A"/>
+                                    <field name="numero_autorizacion" string="No. Autorización"
+                                           optional="hide"/>
                                 </list>
                             </field>
                         </page>

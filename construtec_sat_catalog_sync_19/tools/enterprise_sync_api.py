@@ -210,9 +210,12 @@ def fetch_vendor_invoices(url, db, login, api_key):
         [db, uid, api_key, DOCUMENT_MODEL, 'search_read',
          [['&', '|', ('direction', '=', 'recibida'), ('tipo_dte', '=', 'FESP'),
            ('state', 'in', ('pendiente', 'convertido_factura'))]],
-         {'fields': ['move_id', 'state', 'numero_autorizacion', 'partner_id', 'nit_contacto',
-                     'fecha_certificacion', 'monto_total', 'currency_id',
-                     'move_amount_residual', 'move_payment_state', 'payment_order_id']}])
+         {'fields': ['move_id', 'state', 'numero_autorizacion', 'numero_documento', 'serie',
+                     'partner_id', 'nit_contacto', 'fecha_certificacion', 'monto_total',
+                     'currency_id', 'move_amount_residual', 'move_payment_state',
+                     'payment_order_id']}])
+    # numero_documento/serie (No. de Factura/Serie) agregados 2026-09-29 - pedido explícito del
+    # usuario para poder ver esos datos en el picker de "Factura a Pagar" en Community.
     if not documentos:
         return []
 
@@ -230,6 +233,8 @@ def fetch_vendor_invoices(url, db, login, api_key):
         base = {
             'origin_id': doc['id'],
             'numero_autorizacion': doc.get('numero_autorizacion') or False,
+            'numero_documento': doc.get('numero_documento') or False,
+            'serie': doc.get('serie') or False,
             'partner_name': doc['partner_id'][1] if doc.get('partner_id') else False,
             'partner_vat': doc.get('nit_contacto') or False,
             'fecha': doc['fecha_certificacion'][:10] if doc.get('fecha_certificacion') else False,

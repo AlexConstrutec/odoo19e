@@ -39,6 +39,13 @@ class ConstructecSatInvoiceMirror(models.Model):
         string='No. Autorización SAT',
         help='De construtec.sat.document.numero_autorizacion (Enterprise) - solo informativo '
              'aquí, nunca se usa como clave.')
+    numero_documento = fields.Char(
+        string='No. de Factura',
+        help='De construtec.sat.document.numero_documento (Enterprise) - el número de factura '
+             'propiamente dicho (distinto del No. de Autorización SAT), solo informativo aquí.')
+    serie = fields.Char(
+        string='Serie de Factura',
+        help='De construtec.sat.document.serie (Enterprise) - solo informativo aquí.')
     partner_name = fields.Char(
         string='Proveedor',
         help='Texto plano, no un res.partner real - mismo criterio que el resto de los mirrors '
