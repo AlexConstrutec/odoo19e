@@ -212,6 +212,15 @@ class ConstructecSatDocument(models.Model):
     # ("selection attribute will be ignored as the field is related") - bug real encontrado en
     # el primer `-u` real en producción, nunca se manifestó en las pruebas locales porque no
     # generan ese WARNING de arranque.
+    payment_order_id = fields.Many2one(
+        'account.payment.order', string='Orden de Pago (Solicitud)', copy=False,
+        help='Candado mientras este documento sigue Pendiente (sin convertir a factura real) - '
+             'una Solicitud de Pago tipo Pago Directo, sincronizada desde Community, lo reclama '
+             'aquí para evitar que otra Solicitud pida el pago del mismo documento antes de que '
+             'el Contador lo apruebe/convierta. Una vez convertido a factura '
+             '(state=convertido_factura), el candado real pasa a account.move.payment_order_id '
+             '(construtec_account_payment_order_19) y este campo deja de tener efecto - ver '
+             'write() más abajo y account_payment_order_sat_document.py.')
     purchase_order_id = fields.Many2one(
         'purchase.order', string='Orden de Compra Generada', readonly=True, copy=False)
     sale_order_id = fields.Many2one(
@@ -263,7 +272,28 @@ class ConstructecSatDocument(models.Model):
                 if not line.account_id:
                     line.account_id = self.cuenta_contable_id
 
+    def _check_payment_order_disponible_pendiente(self, new_order_id):
+        """Candado equivalente a account.move._check_payment_order_disponible() (ver
+        construtec_account_payment_order_19), pero para un Documento SAT todavía Pendiente (sin
+        move_id, así que no hay ningún account.move donde vivir ese candado todavía) - evita que
+        dos Solicitudes de Pago distintas reclamen el mismo documento antes de que cualquiera lo
+        convierta a factura real. Un documento ya convertido no pasa por aquí - su candado real
+        es el de account.move, ya construido."""
+        for document in self:
+            if document.state != 'pendiente':
+                continue
+            if document.payment_order_id and document.payment_order_id.id != new_order_id:
+                otra = document.payment_order_id
+                if otra.state not in ('rechazado', 'cancelado'):
+                    raise UserError(document.env._(
+                        'El Documento SAT %(documento)s ya está vinculado a la Orden de Pago '
+                        '%(orden)s (estado: %(estado)s) - libéralo ahí primero.',
+                        documento=document.numero_autorizacion, orden=otra.name,
+                        estado=otra.state))
+
     def write(self, vals):
+        if vals.get('payment_order_id'):
+            self._check_payment_order_disponible_pendiente(vals['payment_order_id'])
         res = super().write(vals)
         if 'cuenta_contable_id' in vals:
             for document in self:

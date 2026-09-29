@@ -15,8 +15,9 @@ APPROVER_ALTO_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_o
 # arma directo en Enterprise, sin relación a viáticos ni materiales.
 ANTICIPO_TIPOS = ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')
 # Pago Directo ahora también se puede crear/enviar desde Community (una Solicitud de Pago a
-# Proveedor vinculada a una factura real - ver factura_mirror_ids/_check_factura_disponible más
-# abajo), reusando el mismo ciclo enviado/aprobado que ya tenían los tres de ANTICIPO_TIPOS - a
+# Proveedor vinculada a un Documento SAT real, ya factura o todavía pendiente - ver
+# factura_mirror_ids/_check_factura_mirror_disponible más abajo), reusando el mismo ciclo
+# enviado/aprobado que ya tenían los tres de ANTICIPO_TIPOS - a
 # diferencia de esos tres, Pago Directo nunca pasa por `aplicado` (va directo de `aprobado` a
 # `liquidado` vía action_conciliar(), igual que su camino clásico de `borrador` a `liquidado`
 # cuando se crea directo en Enterprise, sin pasar por Community).
@@ -141,12 +142,17 @@ class AccountPaymentOrder(models.Model):
     factura_mirror_ids = fields.Many2many(
         'construtec.sat.invoice.mirror', string='Facturas (Catálogo SAT)',
         help='Lo que un jefe de técnicos en Community realmente elige para un Pago Directo - '
-             'facturas reales de Enterprise, vía el mirror de solo lectura de '
-             'construtec_sat_catalog_sync_19 (Community no tiene account.move reales que '
-             'vincular). Al Enviar, sus `origin_id` viajan en _prepare_sync_vals() y Enterprise '
-             'los resuelve hacia `factura_ids` real (ver _resolve_factura_origin_ids()). Sin '
-             'efecto en Enterprise mismo (es_procesador=True) - ahí se usa `factura_ids` '
-             'directo, como siempre.')
+             'Documentos SAT reales de Enterprise (ya factura, o todavía pendientes de '
+             'convertir), vía el mirror de solo lectura de construtec_sat_catalog_sync_19 '
+             '(Community no tiene construtec.sat.document/account.move reales que vincular). '
+             'Al Enviar, cada mirror viaja según su estado - los ya `convertido_factura` como '
+             '`factura_origin_ids` (Enterprise los resuelve hacia `factura_ids` real, ver '
+             '_resolve_factura_origin_ids()); los todavía `pendiente` como '
+             '`sat_document_pendiente_ids` (Enterprise los reclama y el Contador los convierte '
+             'a factura real al Aprobar, ver _resolve_sat_document_pendiente_ids() y '
+             'action_payment_order_sat_document.py, construtec_account_19). Sin efecto en '
+             'Enterprise mismo (es_procesador=True) - ahí se usa `factura_ids` directo, como '
+             'siempre.')
     pago_ids = fields.One2many('account.payment', 'payment_order_id', string='Pagos/Cheques')
     diferencia_conciliacion = fields.Monetary(
         string='Diferencia (a conciliar)', compute='_compute_diferencia_conciliacion',
@@ -636,6 +642,8 @@ class AccountPaymentOrder(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         factura_origin_ids_list = [vals.pop('factura_origin_ids', None) for vals in vals_list]
+        sat_pendiente_ids_list = [
+            vals.pop('sat_document_pendiente_ids', None) for vals in vals_list]
         for vals in vals_list:
             if vals.get('tipo', 'anticipo') in (
                     'anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') \
@@ -664,6 +672,13 @@ class AccountPaymentOrder(models.Model):
         for record, origin_ids in zip(records, factura_origin_ids_list):
             if origin_ids:
                 record._resolve_factura_origin_ids(origin_ids)
+        for record, pendiente_ids in zip(records, sat_pendiente_ids_list):
+            # `_resolve_sat_document_pendiente_ids()` solo existe si construtec_account_19
+            # (Enterprise-only) está instalado - ver account_payment_order_sat_document.py ahí.
+            # Este archivo compartido nunca referencia construtec.sat.document directamente, así
+            # que Community puede seguir cargándolo sin ese modelo instalado.
+            if pendiente_ids and hasattr(record, '_resolve_sat_document_pendiente_ids'):
+                record._resolve_sat_document_pendiente_ids(pendiente_ids)
         return records
 
     def _resolve_factura_origin_ids(self, origin_ids):
@@ -1295,12 +1310,23 @@ class AccountPaymentOrder(models.Model):
             'observaciones': self.observaciones or '',
             'anticipo_previo': self.anticipo_previo,
             'proveedor_materiales_name': self.proveedor_materiales_name or '',
-            # Ids REALES de account.move en Enterprise (no requieren resolución por nombre - ver
-            # _resolve_factura_origin_ids()) - el jefe de técnicos los eligió del mirror de solo
-            # lectura construtec.sat.invoice.mirror, cuyo origin_id ES el id real allá. Vacío
-            # para cualquier tipo que no sea Pago Directo.
+            # Ids REALES en Enterprise, separados según si el mirror ya es una factura real o
+            # sigue siendo un Documento SAT pendiente - el jefe de técnicos los eligió del mirror
+            # de solo lectura construtec.sat.invoice.mirror. `factura_origin_ids` (move_origin_id
+            # de cada mirror ya `convertido_factura`) los resuelve _resolve_factura_origin_ids()
+            # hacia `account.move` real; `sat_document_pendiente_ids` (origin_id de cada mirror
+            # todavía `pendiente`) los resuelve _resolve_sat_document_pendiente_ids() (Enterprise-
+            # only, construtec_account_19) hacia `construtec.sat.document` - el Contador los
+            # convierte a factura real al Aprobar. Vacíos para cualquier tipo que no sea Pago
+            # Directo.
             'factura_origin_ids': (
-                self.factura_mirror_ids.mapped('origin_id') if self.tipo == 'pago_directo' else []),
+                self.factura_mirror_ids.filtered(lambda m: m.state == 'convertido_factura')
+                    .mapped('move_origin_id')
+                if self.tipo == 'pago_directo' else []),
+            'sat_document_pendiente_ids': (
+                self.factura_mirror_ids.filtered(lambda m: m.state == 'pendiente')
+                    .mapped('origin_id')
+                if self.tipo == 'pago_directo' else []),
             # 'enviado', no 'aprobado': la aprobación ocurre en la instalación Procesadora
             # (Enterprise), donde están los usuarios Nivel Medio/Alto reales - ver
             # action_submit()/action_approve() más arriba.

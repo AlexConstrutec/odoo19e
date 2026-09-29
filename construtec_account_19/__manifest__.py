@@ -14,6 +14,7 @@
         'purchase_stock',
         'sale',
         'construtec_sat_catalog_sync_19',
+        'construtec_account_payment_order_19',
     ],
     'data': [
         'security/ir.model.access.csv',

@@ -142,20 +142,28 @@ def fetch_vendor_catalog(url, db, login, api_key):
 
 
 def fetch_vendor_invoices(url, db, login, api_key):
-    """Read-only pull de los Documentos SAT ya convertidos a factura en Enterprise - la fuente
-    real para que una Solicitud de Pago tipo Pago Directo, creada en Community, pueda vincularse
-    a una factura real en vez de a un monto capturado a mano. Ver
-    construtec_account_payment_order_19, _resolve_factura_origin_ids().
+    """Read-only pull de los Documentos SAT de proveedor en Enterprise - pendientes o ya
+    convertidos a factura - la fuente real para que una Solicitud de Pago tipo Pago Directo,
+    creada en Community, pueda vincularse a un Documento SAT real en vez de a un monto capturado
+    a mano. Ver construtec_account_payment_order_19, _resolve_factura_origin_ids()/
+    _resolve_sat_document_pendiente_ids() (Enterprise, construtec_account_19).
 
-    La fuente de la BÚSQUEDA es `construtec.sat.document` - pedido explícito del usuario,
-    corrigiendo un intento anterior de esta misma pasada que había vuelto a `account.move`
-    directo por asumir (sin confirmarlo con el usuario) que podían existir facturas sin ningún
-    Documento SAT detrás: "lo que existe es el Documento SAT - el Documento SAT se convierte en
-    una factura de Odoo". El saldo pendiente/estado de pago vive de forma nativa en la factura,
-    pero se "copia" hacia el Documento SAT vía los campos `related`
+    La fuente de la BÚSQUEDA es `construtec.sat.document` - pedido explícito del usuario:
+    "lo que existe es el Documento SAT - el Documento SAT se convierte en una factura de Odoo".
+    El saldo pendiente/estado de pago de un documento YA convertido vive de forma nativa en la
+    factura, pero se "copia" hacia el Documento SAT vía los campos `related`
     `move_amount_residual`/`move_payment_state` (`construtec_account_19/models/sat_document.py`)
-    - se mantienen solos, sin ningún cron ni sincronización propia, cada vez que la factura
-    cambia (Odoo recalcula un `related` automáticamente).
+    - se mantienen solos, sin ningún cron ni sincronización propia. Un documento todavía
+    Pendiente no tiene ninguna factura de la que copiar nada - su saldo es simplemente
+    `monto_total` (nada se ha pagado) y su estado de pago se reporta como `not_paid`.
+
+    Un documento se INCLUYE en el picker si `state in ('pendiente', 'convertido_factura')` - un
+    jefe de técnicos puede pedir el pago de un documento todavía pendiente (el Contador lo
+    convierte a factura real al Aprobar la Solicitud, ver account_payment_order_sat_document.py).
+    Se EXCLUYE del todo (no solo se bloquea al seleccionar - pedido explícito del usuario) si ya
+    está `payment_state == 'paid'` (100% pagada), o si su `move_id` no calza con lo esperado
+    (`move_type` fuera de in_invoice/in_refund, o no `posted` - un documento convertido pero cuya
+    factura sigue en borrador todavía no es pagable).
 
     `direction='recibida' OR tipo_dte='FESP'` (no solo `direction='recibida'`) - bug real
     encontrado por el usuario probando esto en producción (solo aparecían 13 facturas de las
@@ -175,15 +183,11 @@ def fetch_vendor_invoices(url, db, login, api_key):
     otra parte. `nit_contacto` (related a `partner_id.vat`, ya `store=True` en el propio
     Documento SAT) evita una tercera llamada solo para el NIT.
 
-    Deliberadamente SIN filtrar por `move_payment_state` - una factura ya pagada sigue siendo
-    visible/consultable en el mirror (para que el jefe de técnicos entienda por qué no puede
-    elegirla), solo queda bloqueada al intentar vincularla, no oculta.
-
     Dos llamadas: (1) `search_read` sobre `construtec.sat.document` (todo resuelto en un solo
-    lugar: `numero_autorizacion`/`partner_id`/`nit_contacto`/`monto_total`/
-    `move_amount_residual`/`move_payment_state`), (2) `read` sobre `account.move` (por los
-    `move_id` recolectados) solo para `currency_id`/`payment_order_id`, que no se duplicaron en
-    el Documento SAT. Requiere que el usuario de integración tenga acceso a
+    lugar - incluido `payment_order_id`, el candado propio de un documento aún pendiente), (2)
+    `read` sobre `account.move` (por los `move_id` recolectados, solo para los ya convertidos)
+    para `currency_id`/`move_type`/`state`/`payment_order_id`, que no se duplican en el
+    Documento SAT. Requiere que el usuario de integración tenga acceso a
     `construtec.sat.document`/`account.move` (`account.group_account_invoice` en Enterprise),
     igual que `fetch_vendor_catalog()`."""
     if not (url and db and login and api_key):
@@ -194,13 +198,11 @@ def fetch_vendor_invoices(url, db, login, api_key):
     documentos = _jsonrpc(
         url, 'object', 'execute_kw',
         [db, uid, api_key, DOCUMENT_MODEL, 'search_read',
-         [['|', ('direction', '=', 'recibida'), ('tipo_dte', '=', 'FESP'),
-           ('state', '=', 'convertido_factura'),
-           ('move_id.move_type', 'in', ('in_invoice', 'in_refund')),
-           ('move_id.state', '=', 'posted')]],
-         {'fields': ['move_id', 'numero_autorizacion', 'partner_id', 'nit_contacto',
-                     'fecha_certificacion', 'monto_total', 'move_amount_residual',
-                     'move_payment_state']}])
+         [['&', '|', ('direction', '=', 'recibida'), ('tipo_dte', '=', 'FESP'),
+           ('state', 'in', ('pendiente', 'convertido_factura'))]],
+         {'fields': ['move_id', 'state', 'numero_autorizacion', 'partner_id', 'nit_contacto',
+                     'fecha_certificacion', 'monto_total', 'currency_id',
+                     'move_amount_residual', 'move_payment_state', 'payment_order_id']}])
     if not documentos:
         return []
 
@@ -210,25 +212,46 @@ def fetch_vendor_invoices(url, db, login, api_key):
         moves = _jsonrpc(
             url, 'object', 'execute_kw',
             [db, uid, api_key, INVOICE_MODEL, 'read', [move_ids],
-             {'fields': ['currency_id', 'payment_order_id']}])
+             {'fields': ['currency_id', 'move_type', 'state', 'payment_order_id']}])
         moves_by_id = {m['id']: m for m in moves}
 
     result = []
     for doc in documentos:
-        if not doc.get('move_id'):
-            continue
-        move = moves_by_id.get(doc['move_id'][0]) or {}
-        result.append({
-            'origin_id': doc['move_id'][0],
+        base = {
+            'origin_id': doc['id'],
             'numero_autorizacion': doc.get('numero_autorizacion') or False,
             'partner_name': doc['partner_id'][1] if doc.get('partner_id') else False,
             'partner_vat': doc.get('nit_contacto') or False,
             'fecha': doc['fecha_certificacion'][:10] if doc.get('fecha_certificacion') else False,
-            'currency_name': move['currency_id'][1] if move.get('currency_id') else False,
             'monto_total': doc.get('monto_total') or 0.0,
-            'amount_residual': doc.get('move_amount_residual') or 0.0,
-            'payment_state': doc.get('move_payment_state') or False,
-            'linked_order_name': (
-                move['payment_order_id'][1] if move.get('payment_order_id') else False),
-        })
+        }
+        if doc['state'] == 'convertido_factura':
+            if not doc.get('move_id'):
+                continue
+            move = moves_by_id.get(doc['move_id'][0]) or {}
+            if move.get('move_type') not in ('in_invoice', 'in_refund') or move.get('state') != 'posted':
+                continue
+            if doc.get('move_payment_state') == 'paid':
+                continue
+            result.append({
+                **base,
+                'move_origin_id': doc['move_id'][0],
+                'state': 'convertido_factura',
+                'currency_name': move['currency_id'][1] if move.get('currency_id') else False,
+                'amount_residual': doc.get('move_amount_residual') or 0.0,
+                'payment_state': doc.get('move_payment_state') or False,
+                'linked_order_name': (
+                    move['payment_order_id'][1] if move.get('payment_order_id') else False),
+            })
+        else:
+            result.append({
+                **base,
+                'move_origin_id': False,
+                'state': 'pendiente',
+                'currency_name': doc['currency_id'][1] if doc.get('currency_id') else False,
+                'amount_residual': doc.get('monto_total') or 0.0,
+                'payment_state': 'not_paid',
+                'linked_order_name': (
+                    doc['payment_order_id'][1] if doc.get('payment_order_id') else False),
+            })
     return result

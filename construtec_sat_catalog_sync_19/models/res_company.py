@@ -118,7 +118,8 @@ class ResCompany(models.Model):
         existe para el Catálogo de Materiales (`materials_catalog_sync_enabled`), mismo criterio
         ya usado para `_sync_vendor_catalog_from_enterprise()`: es el mismo concern ("mantener
         fresca mi copia de referencia de Enterprise"), no amerita un bloque de Ajustes aparte.
-        Upsert directo por `origin_id` (el id real del account.move en Enterprise)."""
+        Upsert directo por `origin_id` (el id real del construtec.sat.document en Enterprise,
+        pendiente o ya convertido a factura - ver fetch_vendor_invoices())."""
         self.ensure_one()
         if not self.materials_catalog_sync_enabled:
             return True, self.env._('Sincronización de Facturas de Proveedor no habilitada.')

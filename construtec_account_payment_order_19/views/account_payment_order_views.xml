@@ -118,11 +118,13 @@
                     <notebook>
                         <page string="Factura a Pagar" invisible="tipo != 'pago_directo' or es_procesador">
                             <p class="text-muted">
-                                Elige la factura del proveedor que se debe pagar - solo se muestran
-                                facturas reales ya contabilizadas en Enterprise. Si es una factura grande,
-                                se puede pagar en varios abonos (varias Solicitudes) - en cuanto una Orden
-                                cubre parte del saldo, la factura queda libre para que otra Orden cubra el
-                                resto despues.
+                                Elige el Documento SAT del proveedor que se debe pagar - puede ser una
+                                factura ya contabilizada en Enterprise, o un Documento SAT que la SAT ya
+                                certificó pero que el Contador todavía no ha convertido a factura (se
+                                convierte al Aprobar esta Solicitud). Si es una factura grande, se puede
+                                pagar en varios abonos (varias Solicitudes) - en cuanto una Orden cubre
+                                parte del saldo, la factura queda libre para que otra Orden cubra el resto
+                                despues. Una factura ya pagada al 100% no aparece en esta lista.
                             </p>
                             <field name="factura_mirror_ids" widget="many2many" nolabel="1"
                                    readonly="state != 'borrador'">
@@ -132,6 +134,9 @@
                                     <field name="fecha"/>
                                     <field name="monto_total" string="Monto Total"/>
                                     <field name="amount_residual" string="Saldo Pendiente"/>
+                                    <field name="state" string="Estado del Documento" widget="badge"
+                                           decoration-warning="state == 'pendiente'"
+                                           decoration-success="state == 'convertido_factura'"/>
                                     <field name="payment_state" widget="badge"
                                            decoration-danger="payment_state == 'not_paid'"
                                            decoration-warning="payment_state in ('partial', 'in_payment')"

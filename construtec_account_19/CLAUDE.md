@@ -976,6 +976,40 @@ nativa (`amount_residual`/`payment_state`).
   (`construtec.sat.invoice.mirror`, la vinculación de una Solicitud de Pago a la factura real,
   y el candado contra pedir el pago de una factura ya pagada o ya comprometida en otra Orden).
 
+## Documentos SAT Pendientes reclamados por una Solicitud de Pago (Community) - conversión al Aprobar (2026-09-29)
+
+Extensión del punto anterior: un Documento SAT todavía `state='pendiente'` (sin `account.move`
+propio) también puede recibir una Solicitud de Pago desde Community - el Contador lo convierte a
+factura real recién al Aprobarla, nunca automático. Ver el CLAUDE.md de
+`construtec_account_payment_order_19` (Odoo19C), sección "Documentos SAT Pendientes en Pago
+Directo", para el diseño completo y el razonamiento de negocio (decisión explícita del usuario:
+"El Contador la convierte al Aprobar").
+
+- **`construtec.sat.document.payment_order_id`** (nuevo, Many2one a `account.payment.order`) - el
+  candado mientras el documento sigue pendiente (equivalente al `payment_order_id` que
+  `construtec_account_payment_order_19` ya agrega a `account.move`, pero aquí porque todavía no
+  hay ningún `account.move` real). `write()` gana un guard
+  (`_check_payment_order_disponible_pendiente()`) que bloquea si otra Orden viva ya lo reclamó.
+- **Nueva dependencia**: `construtec_account_payment_order_19` (sin circularidad - ese módulo no
+  depende de este).
+- **`models/account_payment_order_sat_document.py`** (archivo nuevo, `_inherit =
+  'account.payment.order'`) - toda la lógica que necesita conocer `construtec.sat.document` vive
+  aquí, nunca en el archivo COMPARTIDO de `construtec_account_payment_order_19` (ese módulo
+  también se instala en Community, donde este modelo no existe - una referencia directa ahí
+  tronaría al cargar). El archivo compartido solo gana un hook genérico en `create()`
+  (`_resolve_sat_document_pendiente_ids`, invocado vía `hasattr()`).
+  - `_resolve_sat_document_pendiente_ids()`: reclama los documentos (el `write()` de arriba ya
+    valida).
+  - `action_approve()` (override): tras `super()`, por cada Orden `pago_directo` busca sus
+    documentos pendientes reclamados y llama `action_convertir_a_factura()` (ya existente,
+    verificado, crea el `account.move` en **borrador** - nunca lo postea solo) sobre cada uno,
+    enlazando el `move` resultante a la Orden.
+
+Verificado con `odoo-bin shell` (`construtec_test`): `create()` con `sat_document_pendiente_ids`
+reclama el documento sin convertirlo; una segunda Orden intentando el mismo documento pendiente
+queda bloqueada nombrando a la primera; `action_approve()` convierte el documento
+(`state='convertido_factura'`) y vincula el `move` resultante a la Orden.
+
 ## Common commands
 
 ```
