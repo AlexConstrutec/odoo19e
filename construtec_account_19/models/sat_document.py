@@ -733,6 +733,18 @@ class ConstructecSatDocument(models.Model):
             'sat_tipo_dte': self.tipo_dte,
             'sat_tipo_compra': self.tipo_compra,
         }
+        # Si este Documento SAT ya estaba reclamado por una Orden de Pago (candado de
+        # construtec_account_payment_order_19, mientras seguía Pendiente - ver payment_order_id
+        # arriba), la factura recién creada hereda ese mismo vínculo de una vez - sin esto,
+        # convertir a mano desde el propio formulario del Documento SAT (en vez de vía
+        # action_approve(), que antes hacía este mismo write() por separado) dejaba la factura
+        # sin payment_order_id: desaparecía de la pestaña "Documentos SAT" de la Orden (su
+        # cálculo depende de factura_ids, que a su vez depende de este campo) sin aparecer nunca
+        # en "Facturas" tampoco - bug real reportado por el usuario 2026-09-30. Al ponerlo aquí,
+        # en el ÚNICO lugar que crea la factura, cualquier camino de conversión (a mano o vía
+        # Aprobar) queda cubierto por igual - action_approve() ya no necesita repetir este write.
+        if self.payment_order_id:
+            move_vals['payment_order_id'] = self.payment_order_id.id
         if documento_referencia and documento_referencia.move_id:
             if es_nota_credito:
                 move_vals['reversed_entry_id'] = documento_referencia.move_id.id

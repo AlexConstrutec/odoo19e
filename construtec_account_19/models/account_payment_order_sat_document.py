@@ -70,16 +70,15 @@ class AccountPaymentOrder(models.Model):
         cualquier Documento SAT todavía pendiente que esta Orden haya reclamado (ver
         _resolve_sat_document_ids()) - decisión explícita del usuario ("El Contador la convierte
         al Aprobar"), nunca automático al sincronizar. action_convertir_a_factura()
-        (sat_document.py) ya existe, ya está verificado, y crea el account.move en borrador -
-        aquí solo se enlaza ese move resultante a la Orden, pasando por el candado normal de
-        account_move.py (_check_payment_order_disponible()) como defensa adicional, aunque ya
-        debería estar libre por construcción (nadie más pudo reclamar el Documento SAT
-        mientras seguía pendiente)."""
+        (sat_document.py) ya existe, ya está verificado, y crea el account.move ya vinculado a
+        esta Orden (payment_order_id) - hereda el vínculo directo desde
+        documento.payment_order_id (el candado que dejó _resolve_sat_document_ids() al reclamar
+        el documento mientras seguía pendiente), sin que este método necesite repetir ningún
+        write() aparte."""
         res = super().action_approve()
         for rec in self.filtered(lambda r: r.tipo == 'pago_directo'):
             pendientes = self.env['construtec.sat.document'].search([
                 ('payment_order_id', '=', rec.id), ('state', '=', 'pendiente')])
             for documento in pendientes:
                 documento.action_convertir_a_factura()
-                documento.move_id.write({'payment_order_id': rec.id})
         return res

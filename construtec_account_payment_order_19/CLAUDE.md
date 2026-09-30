@@ -1779,6 +1779,42 @@ transfiere el teléfono al usuario de inmediato; cambiar `work_phone` DESPUÉS d
 sigue propagando correctamente (no solo al momento del vínculo inicial). `-u` limpio en las tres
 copias del módulo, sin `ERROR`/`CRITICAL` nuevos.
 
+## Bug real: convertir un Documento SAT a mano (no vía Aprobar) lo hacía desaparecer de "Documentos SAT" (2026-09-30)
+
+Reportado por el usuario en Enterprise: tomó una Orden de Pago Directo, convirtió a mano el
+Documento SAT a factura (desde el propio formulario del Documento SAT, botón "Convertir a
+Factura" - **no** desde "Aprobar" la Orden), y el documento desapareció de la pestaña
+"Documentos SAT" de esa Orden. Esperaba lo contrario: que siguiera ahí, mostrando "Convertido a
+Factura", y que la factura resultante apareciera automáticamente en "Facturas" - "si está
+vinculado a una orden de pago, en automático, cuando se convierta a factura, que lo traslade".
+
+**Causa real**: `sat_document.py::action_convertir_a_factura()` creaba el `account.move` sin
+copiar `payment_order_id` - ese vínculo solo se ponía en un paso APARTE, dentro de
+`account_payment_order_sat_document.py::action_approve()`
+(`documento.move_id.write({'payment_order_id': rec.id})`), que solo corre en el camino de
+Aprobar. Al convertir desde el propio Documento SAT (fuera de ese camino), la factura nueva se
+creaba con `payment_order_id` vacío - y como `sat_document_ids`
+(`_compute_sat_document_ids()`) depende de `factura_ids.sat_document_id` (facturas YA vinculadas
+a la Orden) más una búsqueda de Documentos SAT `state='pendiente'` (el documento ya no calificaba,
+`state` pasó a `convertido_factura`), el documento quedaba fuera de ambas fuentes - desaparecía
+sin dejar rastro en la Orden.
+
+**El fix**: `action_convertir_a_factura()` ahora incluye `payment_order_id` en el propio
+`move_vals` al crear la factura, tomándolo de `self.payment_order_id` (el candado que
+`_resolve_sat_document_ids()` ya dejó puesto al reclamar el documento mientras seguía pendiente) -
+si el documento no estaba vinculado a ninguna Orden, simplemente no se agrega la clave, sin
+cambio de comportamiento. Esto cubre CUALQUIER camino de conversión (a mano o vía Aprobar) desde
+un solo lugar - `action_approve()` (`account_payment_order_sat_document.py`) se simplificó,
+quitando el `write()` que ahora es redundante.
+
+Verificado con `odoo-bin shell`: reclamar un Documento SAT pendiente hacia una Orden
+(`_resolve_sat_document_ids()`) y convertirlo A MANO (simulando exactamente lo que el usuario
+hizo, sin pasar por `action_approve()`) deja la factura resultante con `payment_order_id`
+correcto de inmediato; tras invalidar el caché de los computados, el documento sigue apareciendo
+en `sat_document_ids` (ahora con `state='convertido_factura'`) y la factura aparece en
+`factura_ids` - ambos requisitos que pidió el usuario. `-u` limpio en ambos repos Enterprise, sin
+`ERROR`/`CRITICAL` nuevos.
+
 ## Common commands
 
 ```
