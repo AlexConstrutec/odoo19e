@@ -96,6 +96,10 @@
                         <group>
                             <field name="xml_attachment_id" readonly="1"/>
                             <field name="pdf_attachment_id" readonly="1"/>
+                            <field name="payment_order_id" readonly="1"
+                                   invisible="not payment_order_id"/>
+                            <field name="payment_order_ids" widget="many2many_tags" readonly="1"
+                                   invisible="not payment_order_ids"/>
                         </group>
                     </group>
                     <notebook>

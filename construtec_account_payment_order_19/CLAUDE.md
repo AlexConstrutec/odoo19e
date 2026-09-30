@@ -1872,6 +1872,51 @@ lo resuelve correctamente. Del lado receptor: `create_analytic_account_from_comm
 el plan ya creado (no lo duplica). `-u` limpio en las tres copias del módulo, sin
 `ERROR`/`CRITICAL` nuevos.
 
+## Historial de Órdenes de Pago en facturas y Documentos SAT (2026-09-30)
+
+Pedido explícito del usuario, razonando sobre "Facturas pagadas en varios abonos" (ver esa
+sección más arriba): como `_liberar_facturas_con_saldo()` limpia `payment_order_id` de una
+factura parcialmente pagada para que otra Orden la reclame, **el vínculo con la Orden anterior se
+perdía por completo** en cuanto eso pasaba - una factura pagada en 3 abonos por 3 Órdenes
+distintas solo dejaba rastro de la ÚLTIMA. El usuario pidió un campo para poder ver, en cualquier
+momento, TODAS las Órdenes que alguna vez reclamaron un documento/factura - "también esto es para
+las facturas" (no solo Documentos SAT).
+
+- **`account.move.payment_order_ids`** (Many2many nuevo, `construtec_account_payment_order_19/
+  models/account_move.py`) y **`construtec.sat.document.payment_order_ids`** (Many2many nuevo,
+  `construtec_account_19/models/sat_document.py`, Enterprise-only) - ambos aditivos (`copy=False`,
+  nunca se limpian) junto al `payment_order_id` (Many2one) ya existente de cada modelo, que sigue
+  siendo el candado ACTUAL sin ningún cambio de comportamiento.
+- **Mecanismo, idéntico en los dos modelos**: cada vez que `payment_order_id` se escribe con un
+  valor real (vía `write()`, el único camino que YA pasaba por el candado de seguridad
+  `_check_payment_order_disponible()`/`_check_payment_order_disponible_pendiente()`), se agrega
+  ese id al historial con `(4, id)` - nunca se quita nada, ni siquiera cuando el candado actual se
+  limpia (`_liberar_facturas_con_saldo()`, o el candado de Documento SAT al convertir). Un
+  `(4, id)` repetido es idempotente (Odoo no duplica el vínculo), así que reclamar-liberar-
+  reclamar la MISMA Orden dos veces no ensucia el historial con duplicados.
+- **`account.move` también gana un `create()` override** - el único camino que asigna
+  `payment_order_id` sin pasar por `write()`: `sat_document.py::action_convertir_a_factura()`
+  pone `payment_order_id` directo en `move_vals` al crear la factura (para que herede el candado
+  que el Documento SAT ya tenía mientras seguía Pendiente - ver el bug real de conversión manual,
+  sección anterior). Sin este `create()`, esa factura habría nacido con el candado puesto pero SIN
+  entrada en el historial. `construtec.sat.document` no necesitó un `create()` equivalente -
+  nunca nace ya con `payment_order_id` puesto, siempre se reclama después vía `write()`.
+- **Vistas**: `payment_order_ids` se muestra de solo lectura (`widget="many2many_tags"`) junto al
+  campo `payment_order_id` ya existente, en `account_move_views.xml` (factura) y
+  `sat_document_views.xml` (Documento SAT, que además ahora también expone por primera vez el
+  propio `payment_order_id` - antes no aparecía en ningún formulario, solo se usaba
+  programáticamente). Ambos ocultos por completo cuando están vacíos.
+
+Verificado con `odoo-bin shell` en `construtec_test` (Community y Enterprise, savepoint/rollback):
+una factura reclamada por la Orden A vía `write()`, liberada (`payment_order_id = False`,
+simulando `_liberar_facturas_con_saldo()`), y reclamada de nuevo por la Orden B - el historial
+conserva AMBAS órdenes en todo momento, incluso mientras el candado actual está vacío entre medio;
+una factura creada con `payment_order_id` ya en los vals (camino de
+`action_convertir_a_factura()`) puebla el historial igual que si hubiera pasado por `write()`; el
+mismo ciclo reclamar/liberar/reclamar se verificó igual para `construtec.sat.document` en
+Enterprise. `-u` limpio en las tres copias de `construtec_account_payment_order_19` y en las dos
+copias de `construtec_account_19`, sin `ERROR`/`CRITICAL` nuevos.
+
 ## Common commands
 
 ```

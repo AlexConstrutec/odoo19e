@@ -8,6 +8,9 @@
             <xpath expr="//group[@id='header_left_group']" position="inside">
                 <field name="payment_order_id" invisible="move_type not in ('in_invoice', 'in_refund')"
                        options="{'no_create': True}"/>
+                <field name="payment_order_ids" widget="many2many_tags"
+                       invisible="move_type not in ('in_invoice', 'in_refund') or not payment_order_ids"
+                       readonly="1"/>
             </xpath>
         </field>
     </record>

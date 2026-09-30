@@ -221,6 +221,13 @@ class ConstructecSatDocument(models.Model):
              '(state=convertido_factura), el candado real pasa a account.move.payment_order_id '
              '(construtec_account_payment_order_19) y este campo deja de tener efecto - ver '
              'write() más abajo y account_payment_order_sat_document.py.')
+    payment_order_ids = fields.Many2many(
+        'account.payment.order', string='Historial de Órdenes de Pago', copy=False,
+        help='Todas las Órdenes de Pago que alguna vez reclamaron este documento mientras seguía '
+             'Pendiente (ver payment_order_id) - a diferencia de ese campo, este nunca se limpia. '
+             'Una vez convertido a factura, el historial de pagos reales sigue en '
+             'account.move.payment_order_ids (construtec_account_payment_order_19), donde la '
+             'factura resultante puede seguir pasando por varias Órdenes si se paga en abonos.')
     purchase_order_id = fields.Many2one(
         'purchase.order', string='Orden de Compra Generada', readonly=True, copy=False)
     sale_order_id = fields.Many2one(
@@ -295,6 +302,8 @@ class ConstructecSatDocument(models.Model):
         if vals.get('payment_order_id'):
             self._check_payment_order_disponible_pendiente(vals['payment_order_id'])
         res = super().write(vals)
+        if vals.get('payment_order_id'):
+            self.payment_order_ids = [(4, vals['payment_order_id'])]
         if 'cuenta_contable_id' in vals:
             for document in self:
                 if document.cuenta_contable_id:

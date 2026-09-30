@@ -1,4 +1,4 @@
-from odoo import fields, models
+from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 
@@ -7,6 +7,22 @@ class AccountMove(models.Model):
 
     payment_order_id = fields.Many2one('account.payment.order', string='Orden de Pago', ondelete='restrict',
                                         store=True)
+    payment_order_ids = fields.Many2many(
+        'account.payment.order', string='Historial de Órdenes de Pago', copy=False,
+        help='Todas las Órdenes de Pago que alguna vez reclamaron esta factura - a diferencia de '
+             'payment_order_id (el candado ACTUAL, que _liberar_facturas_con_saldo() limpia al '
+             'liberar una factura parcialmente pagada para que otra Orden la tome, ver "Facturas '
+             'pagadas en varios abonos" en el CLAUDE.md de este módulo), este campo nunca se '
+             'limpia: es un registro histórico aditivo de cada Orden que alguna vez pagó (total o '
+             'parcialmente) esta factura, incluidas las que ya se liberaron.')
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        moves = super().create(vals_list)
+        for vals, move in zip(vals_list, moves):
+            if vals.get('payment_order_id'):
+                move.payment_order_ids = [(4, vals['payment_order_id'])]
+        return moves
 
     def _check_payment_order_disponible(self, new_order_id):
         """Candado central contra la brecha de seguridad de vincular una factura ya pagada, o ya
@@ -38,6 +54,8 @@ class AccountMove(models.Model):
                 lambda m: m.state == 'posted' and m.payment_order_id
                 and m.payment_order_id.state == 'liquidado')
         res = super().write(vals)
+        if vals.get('payment_order_id'):
+            self.payment_order_ids = [(4, vals['payment_order_id'])]
         if afectadas:
             nuevo_state_label = dict(self._fields['state'].selection).get(vals['state'], vals['state'])
             for orden in afectadas.mapped('payment_order_id'):
