@@ -341,6 +341,33 @@ def create_partner_in_enterprise(url, db, login, api_key, vals):
         [db, uid, api_key, 'res.partner', 'create_partner_from_community', [[], vals]])
 
 
+def create_analytic_account_in_enterprise(url, db, login, api_key, vals):
+    """Crea un `account.analytic.account` NUEVO en Enterprise a partir de una cuenta creada en
+    Community - decisión explícita del usuario 2026-09-30: hasta ahora las cuentas analíticas
+    SOLO se creaban en Enterprise (ver `enterprise_analytic_ref`, `account_analytic_account.py`)
+    y Community solo las recibía por el pull ya existente (`_sync_analytic_accounts_from_
+    enterprise()`) - esto agrega el camino contrario, para cuando alguien crea una cuenta nueva
+    directo en Community.
+
+    Mismo patrón que `create_employee_in_enterprise()`/`create_partner_in_enterprise()`: sin
+    ningún id existente que resolver, se llama al método whitelisted `create_analytic_account_
+    from_community` (mismo módulo, mismo archivo - a diferencia de empleados, no hace falta
+    ningún archivo Enterprise-only aparte, `account.analytic.account` ya vive en el módulo
+    compartido) con una lista de ids VACÍA (`[[], vals]`) - internamente hace `.sudo().create(...)`
+    (con su propia lista blanca de campos aceptados, resolviendo `plan_name`/`partner_ref` por
+    nombre/id real del otro lado) y devuelve el id de la cuenta recién creada. Community lo
+    guarda como `enterprise_analytic_ref`."""
+    if not (url and db and login and api_key):
+        raise EnterpriseSyncError(
+            'Sincronización de Cuentas Analíticas incompleta (falta URL, base de datos, usuario '
+            'o API Key).')
+    uid = authenticate(url, db, login, api_key)
+    return _jsonrpc(
+        url, 'object', 'execute_kw',
+        [db, uid, api_key, 'account.analytic.account', 'create_analytic_account_from_community',
+         [[], vals]])
+
+
 def fetch_companies(url, db, login, api_key):
     """Read-only pull of the Enterprise company list - usado para el desplegable "Compañía por
     defecto" (`res.company.payment_order_default_company_id`), el respaldo cuando el empleado

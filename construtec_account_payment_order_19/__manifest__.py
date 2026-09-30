@@ -25,6 +25,7 @@
         'data/employee_personal_data_sync_cron.xml',
         'data/partner_auto_tag_cron.xml',
         'data/partner_sync_retry_cron.xml',
+        'data/analytic_account_sync_retry_cron.xml',
         'views/account_payment_order_quote_import_wizard_views.xml',
         'views/account_payment_order_bulk_import_wizard_views.xml',
         'views/account_payment_order_views.xml',

@@ -36,13 +36,25 @@
                         <field name="payment_order_approval_threshold"/>
                     </setting>
                 </block>
-                <block title="Sincronización de Solicitudes de Pago" name="payment_order_sync_settings"
+
+                <!-- Pedido explícito del usuario (2026-09-30): "ordena un poquito los botones de
+                     sincronización que estén más juntos... cada botón tenga una descripción qué es
+                     lo que sincroniza... y los logs estén también en un apartado, pero algo juntos."
+                     Antes esto vivía repartido en 3 bloques separados ("Sincronización de
+                     Solicitudes de Pago"/"Sincronización de Empleados"/"Catálogo de Materiales"),
+                     cada uno con su propio botón mezclado entre credenciales/toggles - fácil
+                     perderse buscando cuál botón hace qué. Ahora es UN solo bloque con las
+                     credenciales arriba (compartidas por los 4 botones) y cada "Sincronizar ahora"
+                     con su propia descripción de una línea justo encima - el registro (log) se
+                     separó a su propio bloque, al final, para no interrumpir la lista de botones. -->
+                <block title="Sincronización con Enterprise" name="payment_order_sync_settings"
                        invisible="payment_order_role != 'solicitante'">
                     <setting id="payment_order_sync_enabled" string="Sincronización Habilitada"
-                             help="Al aprobar una Solicitud de Pago, la envía a la instalación Procesadora configurada abajo.">
+                             help="Interruptor maestro - con esto apagado, ninguna de las sincronizaciones de abajo hace nada (ni botones, ni los cron automáticos).">
                         <field name="payment_order_sync_enabled"/>
                     </setting>
-                    <setting string="Credenciales de la instalación Procesadora"
+                    <setting string="Credenciales de la instalación Procesadora (Enterprise)"
+                             help="Usadas por TODAS las sincronizaciones de este bloque - una sola vez, no hay que repetirlas por cada una."
                              invisible="not payment_order_sync_enabled">
                         <div class="content-group">
                             <div class="row mt16">
@@ -73,12 +85,12 @@
                             </div>
                         </div>
                     </setting>
+
                     <setting id="payment_order_status_sync_interval"
-                             string="Sincronizar estado de Órdenes de Pago cada"
-                             help="Cada cuánto se consulta a la instalación Procesadora el estado real
-                                   (Enviado/Aprobado/Rechazado/Aplicado) de las Órdenes de Pago ya enviadas -
-                                   sin esto, el registro original se quedaría congelado en 'Enviado' para
-                                   siempre, sin enterarse de nada de lo que pase después en Enterprise."
+                             string="1. Estado de Órdenes de Pago"
+                             help="Consulta si tus Solicitudes ya enviadas fueron Aprobadas, Rechazadas o
+                                   Aplicadas en Enterprise - sin esto, quedarían congeladas en 'Enviado'
+                                   para siempre en esta instalación."
                              invisible="not payment_order_sync_enabled">
                         <div class="d-flex">
                             <field name="payment_order_status_sync_interval_number" class="me-2" style="width: 80px"/>
@@ -87,23 +99,13 @@
                         <button name="action_pull_payment_order_status_now" type="object"
                                 string="Sincronizar ahora" class="btn btn-secondary mt8" icon="fa-refresh"/>
                     </setting>
-                    <setting string="Registro de sincronización" invisible="not payment_order_sync_enabled">
-                        <field name="payment_order_sync_log_ids" nolabel="1">
-                            <list create="0" delete="0">
-                                <field name="create_date" string="Fecha"/>
-                                <field name="success"/>
-                                <field name="message"/>
-                            </list>
-                        </field>
-                    </setting>
-                </block>
-                <block title="Sincronización de Empleados" name="employee_sync_settings"
-                       invisible="payment_order_role != 'solicitante'">
-                    <setting id="employee_sync_interval" string="Sincronizar directorio de empleados cada"
-                             help="Nombre, departamento y puesto de los empleados activos se jalan desde la
-                                   instalación Procesadora (Enterprise) con esta frecuencia. Los empleados
-                                   siempre se crean en Enterprise - aquí solo se reciben como referencia,
-                                   nunca se crean manualmente."
+
+                    <setting id="employee_sync_interval" string="2. Directorio (Empleados, Contactos, Cuentas Analíticas, Compañías)"
+                             help="Trae desde Enterprise: nombre/departamento/puesto de empleados,
+                                   contactos etiquetados Cliente/Proveedor, el catálogo de Cuentas
+                                   Analíticas (Proyectos/Ubicaciones) y la lista de compañías - los
+                                   empleados y cuentas analíticas siempre se crean en Enterprise, nunca
+                                   a mano aquí."
                              invisible="not payment_order_sync_enabled">
                         <div class="d-flex">
                             <field name="employee_sync_interval_number" class="me-2" style="width: 80px"/>
@@ -122,17 +124,14 @@
                         <field name="payment_order_default_company_id"
                                placeholder="Sincronice para ver la lista de compañías"/>
                     </setting>
-                </block>
-                <block title="Catálogo de Materiales" name="materials_catalog_sync_settings"
-                       invisible="payment_order_role != 'solicitante'">
-                    <setting id="materials_catalog_sync_enabled" string="Sincronización Habilitada"
+
+                    <setting id="materials_catalog_sync_enabled" string="3. Catálogo de Materiales"
                              help="Jala periódicamente (y bajo demanda) la copia local de Enterprise del
-                                   Catálogo de Materiales (derivado de los Documentos SAT) - usa las MISMAS
-                                   credenciales de Enterprise ya configuradas arriba para Solicitudes de
-                                   Pago (misma instalación Enterprise), sin pedirlas de nuevo.">
+                                   Catálogo de Materiales, Proveedores y Facturas (derivados de los
+                                   Documentos SAT) - usa las mismas credenciales de arriba.">
                         <field name="materials_catalog_sync_enabled"/>
                     </setting>
-                    <setting id="materials_catalog_sync_interval" string="Sincronizar Catálogo de Materiales cada"
+                    <setting id="materials_catalog_sync_interval" string="&#160;"
                              invisible="not materials_catalog_sync_enabled">
                         <div class="d-flex">
                             <field name="materials_catalog_sync_interval_number" class="me-2" style="width: 80px"/>
@@ -141,18 +140,32 @@
                         <button name="action_sync_materials_catalog_now" type="object"
                                 string="Sincronizar ahora" class="btn btn-secondary mt8" icon="fa-refresh"/>
                     </setting>
-                    <setting id="sat_document_sync" string="Documentos SAT"
+
+                    <setting id="sat_document_sync" string="4. Documentos SAT"
                              invisible="not materials_catalog_sync_enabled"
                              help="Réplica de solo lectura de los Documentos SAT de compra de Enterprise
                                    (mismo modelo, mismos campos) - solo los creados o modificados en los
                                    últimos 7 días en cada corrida, para no releer todo el histórico cada vez.
-                                   Corridas sucesivas (este botón, o el mismo intervalo de arriba) van
-                                   completando el histórico real solas.">
+                                   Corridas sucesivas van completando el histórico real solas.">
                         <button name="action_sync_sat_documents_now" type="object"
                                 string="Sincronizar Documentos SAT" class="btn btn-secondary mt8"
                                 icon="fa-refresh"/>
                     </setting>
                 </block>
+
+                <block title="Registro de Sincronización" name="payment_order_sync_log_settings"
+                       invisible="payment_order_role != 'solicitante' or not payment_order_sync_enabled">
+                    <setting string="Intentos recientes (los 4 botones de arriba escriben aquí)">
+                        <field name="payment_order_sync_log_ids" nolabel="1">
+                            <list create="0" delete="0" default_order="create_date desc">
+                                <field name="create_date" string="Fecha"/>
+                                <field name="success"/>
+                                <field name="message"/>
+                            </list>
+                        </field>
+                    </setting>
+                </block>
+
                 <block title="IA para Cotizaciones (Anthropic)" name="quote_import_ai_settings"
                        invisible="payment_order_role != 'solicitante'">
                     <setting id="anthropic_api_key" string="Anthropic API Key"

@@ -1815,6 +1815,63 @@ en `sat_document_ids` (ahora con `state='convertido_factura'`) y la factura apar
 `factura_ids` - ambos requisitos que pidió el usuario. `-u` limpio en ambos repos Enterprise, sin
 `ERROR`/`CRITICAL` nuevos.
 
+## Ajustes reordenados: un solo bloque "Sincronización con Enterprise", log separado (2026-09-30)
+
+Pedido explícito del usuario: los 4 botones "Sincronizar ahora" (Estado de Órdenes/Directorio/
+Catálogo de Materiales/Documentos SAT) vivían repartidos en 3 bloques distintos de Ajustes,
+mezclados con credenciales/toggles - "me toca estar buscando dónde está el botón". Se
+consolidaron en UN solo bloque **"Sincronización con Enterprise"** (`res_config_settings_views.xml`)
+con las credenciales arriba (compartidas por los 4) y cada botón numerado (1-4) con una
+descripción de una línea de qué sincroniza exactamente, justo antes de su propio "Sincronizar
+ahora". El **registro** (`payment_order_sync_log_ids`) se separó a su propio bloque
+**"Registro de Sincronización"**, al final, para no interrumpir la lista de botones - los 4
+botones siguen escribiendo ahí (`_payment_order_sync_log()`), sin cambios de fondo, solo de
+ubicación visual. Cambio puramente de vista - ningún campo/método renombrado.
+
+## Cuenta Analítica creada en Community se sincroniza sola hacia Enterprise (2026-09-30)
+
+Pedido explícito del usuario: hasta ahora las cuentas analíticas **solo** se creaban en
+Enterprise (`enterprise_analytic_ref`, pull-only vía `_sync_analytic_accounts_from_enterprise()`)
+- "si alguien crea una cuenta analítica en Community, que automáticamente se sincronice hasta
+Enterprise". Se invierte, para este caso puntual, esa regla histórica - mismo patrón exacto que
+`hr.employee._create_employee_in_enterprise()`/`res.partner._push_new_partner_to_enterprise()`.
+
+- **`account_analytic_account.py`** (`models/`, módulo compartido - no hizo falta ningún archivo
+  Enterprise-only aparte, a diferencia de empleados, porque este modelo ya vive en el módulo
+  compartido en ambos lados):
+  - **`create()`** (nuevo override): misma señal que ya usa `hr.employee.create()` para
+    distinguir un alta GENUINA de un espejo del pull - el espejo SIEMPRE trae
+    `enterprise_analytic_ref` en su propio `vals`, un alta nueva nunca lo trae.
+  - **`_create_analytic_account_in_enterprise()`**: manda `name`/`code`/`plan_name` (por NOMBRE,
+    nunca id, mismo criterio de siempre)/`partner_ref` (el id REAL en Enterprise, vía
+    `partner_id.enterprise_partner_ref`, si ese contacto ya se sincronizó - si no, se manda
+    vacío)/`disponible_tickets`. No-op si `payment_order_role != 'solicitante'` o la
+    sincronización está apagada - en Enterprise mismo, esto nunca se dispara aunque el módulo
+    también esté instalado ahí.
+  - **`analytic_sync_state`/`analytic_sync_error`** + `action_retry_analytic_sync()` +
+    `_cron_retry_analytic_sync()` (cron nuevo, `data/analytic_account_sync_retry_cron.xml`, cada
+    30 min - mismo esqueleto que ya usan empleados/contactos para sus propios reintentos).
+  - **`create_analytic_account_from_community(vals)`** (método whitelisted, llamado vía JSON-RPC
+    desde Community): lista blanca propia (`ANALYTIC_ACCOUNT_FROM_COMMUNITY_ALLOWED_FIELDS`),
+    resuelve `plan_name` busca-o-crea por nombre (mismo criterio que la dirección Enterprise→
+    Community, cae en "Proyectos (sin plan de origen)" si no viene ninguno) y `partner_ref` por
+    `browse()` directo (ya es un id real de Enterprise). Vive en el MISMO archivo que el lado que
+    empuja - no hizo falta separar receptor/emisor en dos módulos, ambos lados ya tienen el
+    mismo módulo instalado.
+- **`tools/enterprise_sync_api.py::create_analytic_account_in_enterprise()`** (nuevo) - mismo
+  patrón exacto que `create_employee_in_enterprise()`/`create_partner_in_enterprise()`
+  (`[[], vals]`, sin ningún id existente que resolver).
+
+Verificado con `odoo-bin shell` (mockeando `create_analytic_account_in_enterprise()`, nunca una
+llamada real): crear una cuenta analítica nueva en Community la empuja correctamente con todos
+los campos, y devuelve `enterprise_analytic_ref`/`analytic_sync_state='enviado'`; un mirror
+creado con `enterprise_analytic_ref` en su propio `create()` NUNCA se empuja; un fallo simulado
+deja `analytic_sync_state='error'`, y el reintento manual (`action_retry_analytic_sync()`)
+lo resuelve correctamente. Del lado receptor: `create_analytic_account_from_community()` resuelve
+`plan_name`/`partner_ref` correctamente, y una segunda cuenta con el MISMO `plan_name` reutiliza
+el plan ya creado (no lo duplica). `-u` limpio en las tres copias del módulo, sin
+`ERROR`/`CRITICAL` nuevos.
+
 ## Common commands
 
 ```

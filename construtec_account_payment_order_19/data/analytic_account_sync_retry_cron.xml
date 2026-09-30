@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ir_cron_analytic_account_sync_retry" model="ir.cron">
+        <field name="name">Cuenta Analítica: reintentar sincronización hacia Enterprise</field>
+        <field name="model_id" ref="analytic.model_account_analytic_account"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_retry_analytic_sync()</field>
+        <field name="interval_number">30</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+    </record>
+</odoo>
