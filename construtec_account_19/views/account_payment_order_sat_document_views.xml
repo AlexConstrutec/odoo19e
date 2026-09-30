@@ -9,14 +9,16 @@
          Vive aquí, no en el archivo compartido, por la misma razón de siempre: ese modelo no
          existe en Community.
 
-         `cuenta_contable_id`/`cuenta_analitica_id` son editables (y editables en masa, vía la
-         selección múltiple nativa de una lista `editable=` - Odoo pregunta "¿Aplicar a los N
-         registros seleccionados?" y hace un solo write() sobre construtec.sat.document, nunca
-         sobre este campo compute) SOLO mientras el documento sigue Pendiente - es justo lo que
-         sat_document.write() ya usa para rellenar line_ids.account_id de las líneas que aún no
-         tengan cuenta propia (ver sat_document.py), y lo que action_convertir_a_factura() exige
-         antes de convertir. Editar un documento ya Convertido a Factura aquí no tendría ningún
-         efecto útil (sus líneas de factura ya están resueltas), así que queda de solo lectura. -->
+         Lista de solo NAVEGACIÓN (sin `editable=`) - un clic en cualquier fila abre el
+         formulario real de construtec.sat.document (todos sus campos, con su propia validación/
+         onchange ya construidos ahí, incluido cuenta_contable_id/cuenta_analitica_id). Se
+         intentó antes una versión `editable="bottom"` para edición masiva de esas dos cuentas -
+         revertido a pedido explícito del usuario (2026-09-30): Odoo no permite "clic abre form" y
+         "lista editable" a la vez en el mismo widget, y una celda de solo lectura dentro de una
+         lista editable no da ninguna señal visual al hacer clic - confuso en la práctica ("no
+         hace nada" al hacer clic en Proveedor/Fecha/Monto/Estado, o en Cuenta Contable/Analítica
+         de un documento ya Convertido a Factura). El formulario real ya cubre el caso de uso
+         (asignar cuenta antes de convertir), solo que uno a la vez en vez de en masa. -->
     <record id="view_account_payment_order_form_sat_document" model="ir.ui.view">
         <field name="name">account.payment.order.form.sat.document</field>
         <field name="model">account.payment.order</field>
@@ -25,17 +27,14 @@
             <xpath expr="//page[@name='facturas_y_pagos']" position="before">
                 <page string="Documentos SAT" invisible="tipo != 'pago_directo'">
                     <field name="sat_document_ids" nolabel="1">
-                        <list editable="bottom" create="false" delete="false">
-                            <field name="numero_autorizacion" string="No. Autorización" readonly="1"/>
-                            <field name="partner_id" string="Proveedor" readonly="1"/>
-                            <field name="fecha_certificacion" string="Fecha" readonly="1"/>
-                            <field name="monto_total" string="Monto" readonly="1"/>
-                            <field name="cuenta_contable_id" string="Cuenta Contable"
-                                   readonly="state != 'pendiente'"/>
-                            <field name="cuenta_analitica_id" string="Cuenta Analítica"
-                                   readonly="state != 'pendiente'"/>
+                        <list create="false" delete="false">
+                            <field name="numero_autorizacion" string="No. Autorización"/>
+                            <field name="partner_id" string="Proveedor"/>
+                            <field name="fecha_certificacion" string="Fecha"/>
+                            <field name="monto_total" string="Monto"/>
+                            <field name="cuenta_contable_id" string="Cuenta Contable"/>
+                            <field name="cuenta_analitica_id" string="Cuenta Analítica"/>
                             <field name="state" string="Estado del Documento SAT" widget="badge"
-                                   readonly="1"
                                    decoration-warning="state == 'pendiente'"
                                    decoration-success="state == 'convertido_factura'"/>
                         </list>

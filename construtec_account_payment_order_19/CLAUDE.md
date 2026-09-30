@@ -1739,22 +1739,21 @@ ya existente) y sigue apareciendo en `sat_document_ids`, ahora con `state='conve
 (oculta en Enterprise) y "Facturas y Pagos". `-u` limpio en ambos repos Enterprise y en Community
 (por el `name=` agregado al archivo compartido), sin `ERROR`/`CRITICAL` nuevos.
 
-**Edición masiva de `cuenta_contable_id`/`cuenta_analitica_id` desde esta pestaña** (pedido
-explícito del usuario): la lista pasó a `editable="bottom"`, con esos dos campos editables SOLO
-mientras el documento sigue `state == 'pendiente'` (los demás - No. Autorización/Proveedor/Fecha/
-Monto/Estado - quedan `readonly="1"`, informativos). Esto habilita gratis la edición masiva
-nativa del cliente web de Odoo (selección múltiple por checkbox + editar una celda + "¿Aplicar a
-los N registros seleccionados?") porque el `write()` resultante va directo contra
-`construtec.sat.document` (el modelo real detrás del Many2many, no contra el campo compute del
-padre) - `sat_document.write()` YA existía y ya propaga `cuenta_contable_id` hacia
-`line_ids.account_id` de las líneas sin cuenta propia (ver sat_document.py), que es justo lo que
-`action_convertir_a_factura()` exige antes de convertir - el Contador puede resolver de un jalón
-la cuenta contable de varios Documentos SAT Pendientes de la misma Orden, sin abrir cada uno.
+**Intento de edición masiva de `cuenta_contable_id`/`cuenta_analitica_id`, REVERTIDO (2026-09-30)**:
+se probó `editable="bottom"` con esos dos campos editables solo mientras `state == 'pendiente'` -
+técnicamente funciona (`write()` sobre varios `construtec.sat.document` a la vez, verificado
+directo con `odoo-bin shell` en su momento), pero el usuario reportó una UX real confusa: Odoo no
+permite "clic abre el formulario" y "lista editable" en el mismo widget a la vez, y una celda de
+solo lectura dentro de una lista editable (cualquier columna informativa, o Cuenta Contable/
+Analítica en un documento ya Convertido) no da ninguna señal visual al hacer clic - se veía como
+"no hace nada". **Revertido a una lista de solo navegación** (sin `editable=`, `create="false"
+delete="false"`) - un clic en cualquier fila ahora abre el formulario real de
+`construtec.sat.document` (todos sus campos, con su propia validación/`onchange` ya construida
+ahí) - mismo caso de uso (asignar cuenta antes de convertir), solo que uno a la vez en vez de en
+masa, a cambio de una interacción mucho más predecible.
 
-Verificado con `odoo-bin shell`: un `write({'cuenta_contable_id': ...})` sobre DOS Documentos SAT
-a la vez (simulando exactamente la edición masiva del cliente web) deja a ambos con la cuenta
-puesta y propaga correctamente a las líneas de cada uno. `-u` limpio, sin `ERROR`/`CRITICAL`
-nuevos.
+Verificado con `-u` limpio en ambos repos Enterprise: `get_view()` confirma que el `<list>` ya no
+tiene `editable=` en su arch.
 
 ## El usuario hereda el teléfono de su empleado vinculado, directo (2026-09-30)
 
