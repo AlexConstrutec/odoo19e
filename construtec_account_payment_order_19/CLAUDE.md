@@ -1756,6 +1756,30 @@ a la vez (simulando exactamente la edición masiva del cliente web) deja a ambos
 puesta y propaga correctamente a las líneas de cada uno. `-u` limpio, sin `ERROR`/`CRITICAL`
 nuevos.
 
+## El usuario hereda el teléfono de su empleado vinculado, directo (2026-09-30)
+
+Pedido explícito del usuario: "todos los usuarios están ligados a un empleado, necesito que los
+usuarios hereden el número de teléfono del empleado en Community" - relacionado con, pero
+DISTINTO de, el fix ya existente de `work_phone`/`mobile_phone`/`work_email` (ver "Bug real de
+Odoo core" más abajo) - ese fix es reactivo (solo actúa exactamente cuando `user_id` se vincula
+en el MISMO `write()`, restaurando lo que el propio Odoo acaba de borrar) y depende del mecanismo
+frágil `work_contact_id`. Esto es un mecanismo nuevo, independiente y directo:
+
+- **`_sync_user_phone()`** (nuevo, `models/hr_employee.py`) - si el empleado tiene `user_id`,
+  escribe DIRECTO `employee.user_id.partner_id.phone` con `work_phone or mobile_phone or
+  private_phone` (misma prioridad ya usada en `_onchange_employee_id()` para "Teléfono") - sin
+  pasar por ningún `compute`/`inverse`/`work_contact_id`. El empleado es la fuente real - si el
+  usuario ya tenía otro teléfono puesto a mano, el del empleado gana (es lo que "heredar" pide).
+- Se llama desde `create()` (por si el alta ya trae `user_id`) y desde `write()` cuando cambia
+  cualquiera de `user_id`/`work_phone`/`mobile_phone`/`private_phone` - así una actualización
+  posterior del teléfono (ej. un pull periódico desde Enterprise) sigue propagando al usuario ya
+  vinculado, no solo el momento exacto de vincularlo.
+
+Verificado con `odoo-bin shell`: vincular `user_id` a un empleado con `work_phone` ya puesto
+transfiere el teléfono al usuario de inmediato; cambiar `work_phone` DESPUÉS de ya vinculado
+sigue propagando correctamente (no solo al momento del vínculo inicial). `-u` limpio en las tres
+copias del módulo, sin `ERROR`/`CRITICAL` nuevos.
+
 ## Common commands
 
 ```

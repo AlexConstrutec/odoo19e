@@ -304,7 +304,26 @@ class HrEmployee(models.Model):
                 to_create_in_enterprise |= record
         for employee in to_create_in_enterprise:
             employee._create_employee_in_enterprise()
+        records._sync_user_phone()
         return records
+
+    def _sync_user_phone(self):
+        """Garantiza que el usuario de Odoo vinculado (user_id) tenga el MISMO teléfono que el
+        empleado - pedido explícito del usuario (2026-09-30): "todos los usuarios están ligados
+        a un empleado... necesito que los usuarios hereden el número de teléfono del empleado en
+        Community". Independiente del mecanismo nativo `work_contact_id` (frágil - ver el fix de
+        `_WORK_CONTACT_FIELDS` más abajo, que además solo actúa reactivamente al momento exacto
+        de vincular `user_id`) - esto escribe DIRECTO sobre `user_id.partner_id.phone`, sin pasar
+        por ningún compute/inverse. Mismo orden de prioridad ya usado en
+        `account_payment_order.py::_onchange_employee_id()` para "Teléfono": work_phone >
+        mobile_phone > private_phone. El empleado es la fuente real - si difieren, el del
+        empleado gana (nunca al revés)."""
+        for employee in self:
+            if not employee.user_id:
+                continue
+            phone = employee.work_phone or employee.mobile_phone or employee.private_phone
+            if phone and employee.user_id.partner_id.phone != phone:
+                employee.user_id.partner_id.phone = phone
 
     _WORK_CONTACT_FIELDS = ('work_phone', 'mobile_phone', 'work_email')
 
@@ -364,6 +383,8 @@ class HrEmployee(models.Model):
             employee_vals = {f: v for f, v in before.items() if v and not employee[f]}
             if employee_vals:
                 employee.write(employee_vals)
+        if {'user_id', 'work_phone', 'mobile_phone', 'private_phone'} & set(vals):
+            self._sync_user_phone()
         if to_push:
             # Acumula sobre los campos ya pendientes (ej. un push anterior falló) - así un
             # reintento manda todo lo que de verdad cambió desde el último éxito, ni más ni
