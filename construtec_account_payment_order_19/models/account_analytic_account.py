@@ -1,8 +1,11 @@
 import logging
 
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
-from ..tools.enterprise_sync_api import EnterpriseSyncError, create_analytic_account_in_enterprise
+from ..tools.enterprise_sync_api import (
+    EnterpriseSyncError, create_analytic_account_in_enterprise,
+    push_analytic_account_disponible_tickets)
 
 _logger = logging.getLogger(__name__)
 
@@ -18,14 +21,17 @@ class AccountAnalyticAccount(models.Model):
              'recibirla - ver _create_analytic_account_in_enterprise()). Uso técnico interno '
              'para no duplicar el registro en cada sincronización.')
     disponible_tickets = fields.Boolean(
-        string='Disponible para Tickets', default=False,
+        string='Disponible para Tickets',
+        default=lambda self: self.env.company.payment_order_role == 'solicitante',
         help='Si está marcado, esta Cuenta Analítica aparece como opción de "Ubicación" al '
              'crear un Ticket en Community (construtec_helpdesk_field_service) - un filtro '
              'para que el operador solo vea las cuentas que de verdad representan una '
              'ubicación de servicio, no cualquier cuenta analítica del catálogo (proyectos '
-             'internos, cuentas de otro uso, etc.). Viaja hacia Community igual que el resto '
-             'de esta sincronización (ver _sync_analytic_accounts_from_enterprise() en '
-             'res_company.py) - se edita aquí, nunca en Community.')
+             'internos, cuentas de otro uso, etc.). Editable en ambos lados (2026-10-02): una '
+             'cuenta creada en Community nace marcada; en Enterprise nace sin marcar. Un '
+             'cambio hecho en Community se empuja a Enterprise al guardar (ver write()), y '
+             'Enterprise→Community viaja con el pull normal '
+             '(_sync_analytic_accounts_from_enterprise() en res_company.py).')
 
     analytic_sync_state = fields.Selection(
         [('pendiente', 'Pendiente'), ('enviado', 'Enviado'), ('error', 'Error')],
@@ -98,6 +104,41 @@ class AccountAnalyticAccount(models.Model):
                 to_push |= record
         to_push._create_analytic_account_in_enterprise()
         return records
+
+    def write(self, vals):
+        """Si se edita `disponible_tickets` aquí en Community, se empuja a Enterprise en el
+        mismo guardado - si no, el siguiente pull lo regresaría al valor de allá. Si Enterprise
+        no responde, se bloquea el guardado con el error (mejor que un cambio que "se
+        deshace solo" media hora después). El pull mismo escribe con
+        `construtec_skip_analytic_push` para no hacer eco hacia Enterprise."""
+        res = super().write(vals)
+        if 'disponible_tickets' in vals and not self.env.context.get('construtec_skip_analytic_push'):
+            self.filtered('enterprise_analytic_ref')._push_disponible_tickets_to_enterprise()
+        return res
+
+    def _push_disponible_tickets_to_enterprise(self):
+        company = self.env.company
+        if company.payment_order_role != 'solicitante' or not company.payment_order_sync_enabled:
+            return
+        for account in self:
+            try:
+                push_analytic_account_disponible_tickets(
+                    company.payment_order_sync_url, company.payment_order_sync_db,
+                    company.payment_order_sync_login, company.payment_order_sync_api_key,
+                    account.enterprise_analytic_ref, account.disponible_tickets)
+            except EnterpriseSyncError as exc:
+                raise UserError(self.env._(
+                    'No se pudo actualizar "Disponible para Tickets" de la cuenta analítica '
+                    '%(name)s en Enterprise: %(error)s',
+                    name=account.display_name, error=exc)) from exc
+
+    def sync_disponible_tickets_from_community(self, disponible_tickets):
+        """Método whitelisted, llamado vía JSON-RPC desde Community (ver
+        `push_analytic_account_disponible_tickets()` en `tools/enterprise_sync_api.py`) - solo
+        toca este único campo, nada más."""
+        self.sudo().with_context(construtec_skip_analytic_push=True).write(
+            {'disponible_tickets': bool(disponible_tickets)})
+        return True
 
     # Campos que `create_analytic_account_from_community()` acepta - una fuga de la API Key de
     # integración nunca puede crear una cuenta analítica con más que esto.

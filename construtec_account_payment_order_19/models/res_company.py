@@ -466,7 +466,9 @@ class ResCompany(models.Model):
             _logger.warning('Sincronización de Cuentas Analíticas falló para %s: %s', self.name, exc)
             return False, str(exc)
 
-        AnalyticAccount = self.env['account.analytic.account'].sudo()
+        # Sin eco: un write() del pull nunca debe empujar disponible_tickets de vuelta.
+        AnalyticAccount = self.env['account.analytic.account'].sudo().with_context(
+            construtec_skip_analytic_push=True)
         AnalyticPlan = self.env['account.analytic.plan'].sudo()
         created = updated = 0
         for acc in accounts:

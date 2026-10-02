@@ -368,6 +368,27 @@ def create_analytic_account_in_enterprise(url, db, login, api_key, vals):
          [[], vals]])
 
 
+def push_analytic_account_disponible_tickets(url, db, login, api_key, enterprise_analytic_ref,
+                                             disponible_tickets):
+    """Actualiza `disponible_tickets` de una cuenta analítica YA EXISTENTE en Enterprise,
+    cuando se edita la casilla en Community - pedido explícito del usuario 2026-10-02: la
+    casilla ahora también es editable de este lado, y sin este push el siguiente pull
+    (`_sync_analytic_accounts_from_enterprise()`) la regresaría al valor de Enterprise.
+
+    Mismo patrón que `push_employee_personal_data()`: método whitelisted
+    (`sync_disponible_tickets_from_community`), nunca `write()` directo - ese método solo
+    acepta este único campo."""
+    if not (url and db and login and api_key):
+        raise EnterpriseSyncError(
+            'Sincronización de Cuentas Analíticas incompleta (falta URL, base de datos, usuario '
+            'o API Key).')
+    uid = authenticate(url, db, login, api_key)
+    return _jsonrpc(
+        url, 'object', 'execute_kw',
+        [db, uid, api_key, 'account.analytic.account', 'sync_disponible_tickets_from_community',
+         [[int(enterprise_analytic_ref)], bool(disponible_tickets)]])
+
+
 def fetch_companies(url, db, login, api_key):
     """Read-only pull of the Enterprise company list - usado para el desplegable "Compañía por
     defecto" (`res.company.payment_order_default_company_id`), el respaldo cuando el empleado

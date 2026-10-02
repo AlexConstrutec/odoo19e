@@ -1939,3 +1939,31 @@ Contabilidad > "Contabilidad analítica"), el menú no aparece para nadie - veri
 ```
 
 See `..\CLAUDE.md` for the disposable-test-DB verification workflow.
+
+## `disponible_tickets` editable también en Community, marcada por defecto al crear ahí (2026-10-02)
+
+Pedido explícito del usuario, tras un caso real en producción: una cuenta analítica creada en
+Community ("Amatitlán / Pizza Hut", cliente Alturisa) no aparecía como "Ubicación" en el Ticket
+porque nacía con `disponible_tickets=False` y la casilla solo existía en Enterprise.
+
+- **Vista**: `views/account_analytic_account_views.xml` deja de ser Enterprise-only - ahora está
+  en el manifest de las tres copias (el módulo vuelve a ser 100% idéntico, `diff -rq` limpio).
+- **Default**: `lambda self: self.env.company.payment_order_role == 'solicitante'` - en Community
+  nace marcada (y así viaja en `_create_analytic_account_in_enterprise()`); en Enterprise sigue
+  naciendo sin marcar, como antes.
+- **Editar en Community se empuja a Enterprise** (`write()` override →
+  `_push_disponible_tickets_to_enterprise()` → `tools/enterprise_sync_api.
+  push_analytic_account_disponible_tickets()` → método whitelisted
+  `sync_disponible_tickets_from_community()` en Enterprise, que solo toca ese campo). Sin esto el
+  siguiente pull regresaba el valor al de Enterprise. Si Enterprise falla, `UserError` y el guardado
+  se revierte (decisión deliberada: mejor que un cambio que "se deshace solo" en el próximo pull).
+  Solo aplica a cuentas con `enterprise_analytic_ref`.
+- **Sin eco**: `_sync_analytic_accounts_from_enterprise()` y el receptor escriben con contexto
+  `construtec_skip_analytic_push=True`.
+- **Orden de despliegue**: Enterprise primero (si no, editar la casilla en Community falla con
+  el `UserError` porque el método receptor todavía no existe allá; crear cuentas sigue funcionando).
+
+Verificado con `odoo-bin shell` en `construtec_test` (mocks, nunca una llamada real): cuenta
+nueva como solicitante → `True` y viaja así en el create; editarla → un push con el valor nuevo;
+con el contexto de skip → ningún push; receptor → escribe sin push; fallo simulado → `UserError`;
+compañía no-solicitante → default `False`. `-u` limpio en Community.
