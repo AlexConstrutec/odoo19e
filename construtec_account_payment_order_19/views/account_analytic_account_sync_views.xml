@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_analytic_account_form_sync" model="ir.ui.view">
+        <field name="name">account.analytic.account.form.sync</field>
+        <field name="model">account.analytic.account</field>
+        <field name="inherit_id" ref="analytic.view_account_analytic_account_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <header>
+                    <button name="action_retry_analytic_sync" type="object"
+                            string="Reintentar sincronización" class="oe_highlight"
+                            invisible="analytic_sync_state != 'error'"/>
+                </header>
+            </xpath>
+            <xpath expr="//sheet/div[@name='project']" position="after">
+                <div class="alert alert-danger" role="alert"
+                     invisible="analytic_sync_state != 'error'">
+                    <strong>No se pudo sincronizar con Enterprise.</strong>
+                    <field name="analytic_sync_error" readonly="1" nolabel="1"/>
+                    Se reintenta sola cada 30 minutos, o puedes usar el botón "Reintentar sincronización".
+                </div>
+            </xpath>
+            <xpath expr="//group[@name='main']" position="after">
+                <group string="Sincronización con Enterprise"
+                       invisible="not analytic_sync_state and not enterprise_analytic_ref">
+                    <field name="analytic_sync_state" widget="badge"
+                           decoration-success="analytic_sync_state == 'enviado'"
+                           decoration-danger="analytic_sync_state == 'error'"
+                           decoration-warning="analytic_sync_state == 'pendiente'"
+                           invisible="not analytic_sync_state"/>
+                    <field name="enterprise_analytic_ref" readonly="1"
+                           invisible="not enterprise_analytic_ref"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_account_analytic_account_list_sync" model="ir.ui.view">
+        <field name="name">account.analytic.account.list.sync</field>
+        <field name="model">account.analytic.account</field>
+        <field name="inherit_id" ref="analytic.view_account_analytic_account_list"/>
+        <field name="arch" type="xml">
+            <list position="attributes">
+                <attribute name="decoration-danger">analytic_sync_state == 'error'</attribute>
+            </list>
+            <field name="plan_id" position="after">
+                <field name="analytic_sync_state" widget="badge" optional="show"
+                       decoration-success="analytic_sync_state == 'enviado'"
+                       decoration-danger="analytic_sync_state == 'error'"
+                       decoration-warning="analytic_sync_state == 'pendiente'"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_account_analytic_account_search_sync" model="ir.ui.view">
+        <field name="name">account.analytic.account.search.sync</field>
+        <field name="model">account.analytic.account</field>
+        <field name="inherit_id" ref="analytic.view_account_analytic_account_search"/>
+        <field name="arch" type="xml">
+            <filter name="inactive" position="after">
+                <separator/>
+                <filter string="Con error de sincronización" name="sync_error"
+                        domain="[('analytic_sync_state', '=', 'error')]"/>
+                <filter string="Enviadas a Enterprise" name="sync_enviado"
+                        domain="[('analytic_sync_state', '=', 'enviado')]"/>
+            </filter>
+        </field>
+    </record>
+</odoo>

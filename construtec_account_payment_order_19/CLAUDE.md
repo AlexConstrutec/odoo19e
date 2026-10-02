@@ -1917,6 +1917,21 @@ mismo ciclo reclamar/liberar/reclamar se verificó igual para `construtec.sat.do
 Enterprise. `-u` limpio en las tres copias de `construtec_account_payment_order_19` y en las dos
 copias de `construtec_account_19`, sin `ERROR`/`CRITICAL` nuevos.
 
+## Estado de sincronización de Cuentas Analíticas visible en la UI (2026-10-02)
+
+`views/account_analytic_account_sync_views.xml` (nuevo, compartido; **no confundir** con
+`views/account_analytic_account_views.xml`, Enterprise-only, que edita `disponible_tickets`).
+Hereda form/list/search estándar de `analytic`: botón "Reintentar sincronización"
+(`action_retry_analytic_sync`, solo con `analytic_sync_state == 'error'`), alerta roja con
+`analytic_sync_error`, grupo "Sincronización con Enterprise" (estado + `enterprise_analytic_ref`),
+columna-badge en la lista (fila en rojo si error) y filtros "Con error de sincronización"/
+"Enviadas a Enterprise". Todo se oculta solo en cuentas sin estado (espejos de Enterprise).
+
+**El menú estándar de Cuentas Analíticas** (Contabilidad > Configuración > Contabilidad analítica)
+exige el grupo `analytic.group_analytic_accounting`: si nadie lo tiene (se activa en Ajustes >
+Contabilidad > "Contabilidad analítica"), el menú no aparece para nadie - verificado en
+`construtec_test`, donde ese grupo no tiene usuarios.
+
 ## Common commands
 
 ```
