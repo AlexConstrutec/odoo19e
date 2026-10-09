@@ -89,6 +89,26 @@ Comparando `COLUMNS` de este wizard contra el encabezado real de la hoja "Emplea
 
 **Corrección del mismo día**: el primer intento usó `employee.job_title` (el "puesto" nativo de Odoo, texto libre) como valor de "Ocupación (puesto)" - el usuario pidió explícitamente que fuera un campo DISTINTO, porque MITRAB exige un código exacto de su propio catálogo, no cualquier texto ("debe empatar"). Se creó `hr.ocupacion` (nuevo modelo, `construtec_hr_employee_19/models/hr_ocupacion.py`) cargado con las ~1554 ocupaciones reales de la hoja `Ocupación` de `Formato_Informe Empleados.xlsx` (códigos CIUO-08 de 7 dígitos, `data/hr.ocupacion.csv`), y un campo nuevo `ocupacion_id` (Many2one, `hr_employee.py`) - separado de `job_title`, que sigue siendo el nativo de Odoo para todo lo demás (organigrama, etc.). El wizard ahora manda `employee.ocupacion_id.code`, nunca `job_title`. Ver el CLAUDE.md de `construtec_hr_employee_19` para el detalle del modelo/catálogo nuevo.
 
+## Libro de Sueldos y Salarios: formato oficial MINTRAB, una página (folio) por trabajador (2026-10-09)
+
+`wizard/report_libro_sueldos.py` se reescribió completo - la versión anterior de este port era una tabla plana de 31 columnas con un encabezado repetido cada 35 filas, que no se parecía al formato oficial ("Modelo del Formato Único de Salarios", archivo de MINTRAB) ni al reporte real de Odoo 16 (`..\Odoo16\nomina_report\wizard\wizard_report_nomina.py`, clase `WizardLibroSueldosSalarios`).
+
+- **Layout**: cada folio es una página física - encabezado de la entidad (folio/razón social/NIT/fundamento legal), bloque de datos personales del trabajador (valor arriba, etiqueta debajo, dos filas) y tabla de pagos con encabezado de 3 filas (22 columnas B..W). Un trabajador nuevo siempre arranca folio nuevo; más de `DATA_ROWS_PER_PAGE` (20) pagos de un mismo trabajador generan folios adicionales que repiten su bloque personal. "Folio Inicial" es el del primer folio, cada folio siguiente suma 1. Comparado celda por celda contra el archivo oficial: mismas celdas combinadas y mismas etiquetas (la plantilla trae "Liquido" sin tilde, aquí sale "Líquido").
+- **Saltos de página**: `set_h_pagebreaks()` manual cada `PAGE_ROWS` + `set_print_scale(70)` fijo - `fit_to_pages()` NO sirve aquí porque Excel lo aplica ignorando los saltos manuales, y se perdería la correspondencia 1 folio = 1 página impresa.
+- **Sufijo "E" en el folio** (`7E`): heredado tal cual del reporte de Odoo 16, no lo pide la plantilla oficial.
+- **`_write_libro()` y las funciones `_write_*` son de nivel de módulo y no tocan el ORM** (reciben datos planos) - así se pueden probar con datos ficticios sin base de datos (importar el archivo con `importlib` y llamar `_write_libro(workbook, ...)`).
+
+Diferencias deliberadas contra Odoo 16 (ya acordadas con el usuario en esta pasada como "replicar la lógica"; si algo no calza con lo que sacaba el reporte viejo, revisar esta lista primero):
+- Orden: trabajadores por nombre, pagos por fecha **ascendente** (16 ordenaba por fecha descendente, así que "Pago 1" era el más reciente).
+- "Total" de deducciones = Cuota IGSS + ISR + Otras deducciones (16 sumaba solo `IGSSLABR` en el total pero `IGSSLABR + CIGSSLAB` en la columna de cuota, y el total no cuadraba con sus propias columnas cuando había complemento).
+- "Nacionalidad" = `country_id` (con respaldo a `country_of_birth`); 16 usaba solo el país de nacimiento, que casi nunca está lleno. "No. DPI ó permiso de trabajo" cae a `permit_no` si no hay `identification_id`.
+- "Período de trabajo" es una sola columna ("dd/mm/yyyy al dd/mm/yyyy"), como en el formato oficial; 16 usaba dos columnas.
+- Sin nóminas validadas/pagadas en el rango se lanza un `UserError` en vez de entregar un archivo vacío.
+
+Se mantiene de 16: las reglas salariales que alimentan cada columna (`BASIC`/`VHEB`/`VACACPAG`/`IGSSLABR`+`CIGSSLAB`/`ISRASA`/`ANT1-3`/`AGUINALDOP`+`BONO14P`/bonos de incentivo/`DEVISR`+`INDEMP`/`NET`), días trabajados = días calendario del recibo, horas ordinarias = días x 8, y el cálculo de horas extra por estructura (`100HE`/`100BH`). Las columnas "Otros salarios" y "Séptimos y asuetos" siguen siendo 0 fijo (así estaban en 16).
+
+Verificado con el wizard real en `odoo-bin shell` contra una copia de una base con 116 nóminas validadas y 52 trabajadores: 52 folios, totales aritméticamente consistentes en todas las filas, rango vacío da el `UserError`. **Los datos en blanco se imprimen en blanco** - en esa copia (de fines de agosto) la mayoría de trabajadores no tenía edad/género cargados y varios no tenían nacionalidad ni No. de IGSS; el libro no inventa valores, hay que completarlos en la ficha del empleado.
+
 ## Known gaps (by design)
 
 None currently — all 10 wizards + 6 PDF reports were built and smoke-tested. If a future report is added to this module, follow the existing pattern (inherit the mixin, use `hr.version`/`hr.employee` fields already established in the two dependency modules, don't reintroduce `hr.contract`).
