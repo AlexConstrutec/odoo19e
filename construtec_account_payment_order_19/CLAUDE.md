@@ -2062,3 +2062,10 @@ Verificado con `odoo-bin shell` en `construtec_test` (mocks, nunca una llamada r
 nueva como solicitante → `True` y viaja así en el create; editarla → un push con el valor nuevo;
 con el contexto de skip → ningún push; receptor → escribe sin push; fallo simulado → `UserError`;
 compañía no-solicitante → default `False`. `-u` limpio en Community.
+
+## Requisición de Pago e historial en "Otra información" de la factura (2026-10-13)
+
+Pedido del usuario: `payment_order_id` ("Requisición de Pago") y `payment_order_ids` ("Historial de Requisiciones")
+salen del encabezado de la factura (`header_left_group`) y pasan a la pestaña "Otra información" (grupo "Requisición
+de Pago" dentro de `other_tab_group`, solo facturas/notas de proveedor). Solo cambia la vista
+(`views/account_move_views.xml`), copiada idéntica a Community.

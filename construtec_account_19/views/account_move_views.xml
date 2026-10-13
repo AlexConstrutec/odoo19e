@@ -6,10 +6,24 @@
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
             <field name="date" position="after">
-                <field name="partida_numero" readonly="state != 'posted'"/>
                 <field name="sat_tipo_dte" invisible="not sat_document_id" readonly="1"/>
                 <field name="sat_tipo_compra" invisible="not sat_document_id" readonly="1"/>
             </field>
+            <!-- Datos FEL y No. Partida en "Otra información" (pedido del usuario 2026-10-13).
+                 Facturas: pestaña other_tab; asientos manuales: other_tab_entry. -->
+            <xpath expr="//group[@id='other_tab_group']" position="inside">
+                <group string="FEL / Contabilidad" name="construtec_fel_group">
+                    <field name="fel_numero_autorizacion" readonly="sat_document_id"/>
+                    <field name="fel_serie" readonly="sat_document_id"/>
+                    <field name="fel_numero" readonly="sat_document_id"/>
+                    <field name="partida_numero" readonly="state != 'posted'"/>
+                </group>
+            </xpath>
+            <xpath expr="//group[@id='other_tab_entry_group']" position="inside">
+                <group string="Contabilidad" name="construtec_partida_entry_group">
+                    <field name="partida_numero" readonly="state != 'posted'"/>
+                </group>
+            </xpath>
             <xpath expr="//div[@name='button_box']" position="before">
                 <div class="alert alert-warning" role="alert" invisible="not sat_retencion_pendiente_count">
                     Esta factura tiene

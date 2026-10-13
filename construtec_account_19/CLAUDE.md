@@ -1058,3 +1058,20 @@ escribir nada ahí (`AccessError` confirmado en el intento de `create()`).
 ```
 
 See `..\CLAUDE.md` for the disposable-test-DB verification workflow.
+
+## Datos FEL y No. Partida en "Otra información" de la factura (2026-10-13)
+
+Pedido del usuario: ver en la factura (pestaña "Otra información") los datos FEL del DTE y el No. Partida.
+
+- **`account.move.fel_numero_autorizacion`/`fel_serie`/`fel_numero`** (nuevos): `compute` + `store=True` + `readonly=False`
+  desde `sat_document_id` (UUID/serie/número del DTE). No son `related` a propósito: un related editable escribiría de
+  vuelta sobre el Documento SAT. Sin Documento SAT, el compute conserva lo escrito a mano (decisión del usuario: se
+  llenan solos y también se pueden capturar en facturas manuales). En la vista quedan de solo lectura cuando hay
+  Documento SAT. `fel_numero_autorizacion` indexado (buscar por UUID).
+- **`partida_numero`** sale del encabezado (antes, después de `date`) y pasa a "Otra información": grupo
+  "FEL / Contabilidad" en `other_tab_group` (facturas) y grupo "Contabilidad" en `other_tab_entry_group` (asientos).
+- La Requisición de Pago y su historial también se movieron ahí (ver `construtec_account_payment_order_19`).
+
+Verificado con `odoo-bin shell` en `construtec_test` (módulos actualizados con `button_immediate_upgrade()`): los
+6 campos aparecen en la pestaña y ya no en el encabezado; una factura con Documento SAT toma UUID/serie/número y
+se recalcula si cambia la serie del documento; una factura manual conserva lo capturado.

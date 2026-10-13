@@ -22,6 +22,35 @@ class AccountMove(models.Model):
         help='Heredado de construtec.sat.document.tipo_compra - clasificación para el Libro de '
              'Compras y Servicios Recibidos que se presenta a la SAT.')
 
+    # Datos FEL del DTE, visibles en la pestaña "Otra información" de la factura (pedido
+    # explícito del usuario 2026-10-13). Se llenan solos desde el Documento SAT vinculado y
+    # quedan editables (y vacíos por defecto) en una factura capturada a mano sin Documento
+    # SAT - por eso compute+store+readonly=False en vez de related: un related editable
+    # escribiría de vuelta sobre el Documento SAT. Sin Documento SAT, el compute conserva lo
+    # que se haya escrito a mano.
+    fel_numero_autorizacion = fields.Char(
+        string='No. Autorización FEL', compute='_compute_fel_datos', store=True, readonly=False,
+        copy=False, index=True,
+        help='UUID con el que la SAT certificó el DTE (a veces llamado "firma" FEL).')
+    fel_serie = fields.Char(
+        string='Serie FEL', compute='_compute_fel_datos', store=True, readonly=False, copy=False)
+    fel_numero = fields.Char(
+        string='Número DTE FEL', compute='_compute_fel_datos', store=True, readonly=False, copy=False)
+
+    @api.depends('sat_document_id.numero_autorizacion', 'sat_document_id.serie',
+                 'sat_document_id.numero_documento')
+    def _compute_fel_datos(self):
+        for move in self:
+            doc = move.sat_document_id
+            if doc:
+                move.fel_numero_autorizacion = doc.numero_autorizacion
+                move.fel_serie = doc.serie
+                move.fel_numero = doc.numero_documento
+            else:
+                move.fel_numero_autorizacion = move.fel_numero_autorizacion
+                move.fel_serie = move.fel_serie
+                move.fel_numero = move.fel_numero
+
     # Campos para revisar, desde la propia factura, qué retenciones le aplican (pedido
     # explícito del usuario 2026-09-17: "un campo en la factura para revisar si tiene
     # retenciones a aplicar... ver desde factura que retenciones puede tener y lo que ya
