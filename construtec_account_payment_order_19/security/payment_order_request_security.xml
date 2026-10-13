@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <record id="module_construtec_payment_order_category" model="ir.module.category">
-        <field name="name">Órdenes de Pago</field>
+        <field name="name">Requisiciones de Pago</field>
         <field name="sequence">50</field>
     </record>
 
@@ -11,7 +11,7 @@
     </record>
 
     <record id="group_payment_order_approver" model="res.groups">
-        <field name="name">Órdenes de Pago: Aprobador</field>
+        <field name="name">Requisiciones de Pago: Aprobador</field>
         <field name="comment">Puede aprobar o rechazar Órdenes de Pago (Viáticos, Materiales, etc.).
             Grupo base implícito en los dos niveles de abajo - no se asigna solo casi nunca, ver
             group_payment_order_approver_medio/_alto para el gate real de action_approve() por monto.
@@ -39,7 +39,7 @@
     </record>
 
     <record id="group_payment_order_sync_integration" model="res.groups">
-        <field name="name">Órdenes de Pago: Integración (creación y lectura)</field>
+        <field name="name">Requisiciones de Pago: Integración (creación y lectura)</field>
         <field name="comment">Grupo para el usuario técnico de integración que sincroniza Solicitudes de
             Pago desde una instalación Solicitante. Puede crear registros (insertar solicitudes) y
             leerlos (`fetch_order_status()` - lee `state`/`reject_reason`/fechas por `external_ref`,

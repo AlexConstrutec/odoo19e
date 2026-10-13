@@ -65,7 +65,7 @@ def _auto_mapear_columnas(encabezados_reales, alias_por_campo):
 
 class AccountPaymentOrderBulkImportWizard(models.TransientModel):
     _name = 'account.payment.order.bulk.import.wizard'
-    _description = 'Importar Órdenes de Pago desde Excel (Viáticos o Materiales)'
+    _description = 'Importar Requisiciones de Pago desde Excel (Viáticos o Materiales)'
 
     state = fields.Selection([
         ('upload', 'Subir Archivo'),
@@ -73,9 +73,9 @@ class AccountPaymentOrderBulkImportWizard(models.TransientModel):
         ('review', 'Revisión'),
     ], default='upload', required=True)
     tipo = fields.Selection([
-        ('anticipo_viaticos', 'Solicitud de Viáticos'),
-        ('anticipo_materiales', 'Solicitud de Materiales'),
-    ], string='Tipo de Solicitud', required=True, default='anticipo_viaticos')
+        ('anticipo_viaticos', 'Viáticos'),
+        ('anticipo_materiales', 'Materiales'),
+    ], string='Tipo de Requisición', required=True, default='anticipo_viaticos')
     excel_file = fields.Binary(string='Archivo Excel')
     excel_filename = fields.Char(string='Nombre del Archivo')
     detected_headers = fields.Char(string='Columnas Detectadas en el Archivo', readonly=True)

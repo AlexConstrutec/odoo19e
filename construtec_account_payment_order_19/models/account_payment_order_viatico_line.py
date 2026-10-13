@@ -5,9 +5,9 @@ from .account_payment_order import _resolve_employee_for_partner
 
 class AccountPaymentOrderViaticoLine(models.Model):
     _name = 'account.payment.order.viatico.line'
-    _description = 'Línea de Viáticos de una Orden de Pago'
+    _description = 'Línea de Viáticos de una Requisición de Pago'
 
-    order_id = fields.Many2one('account.payment.order', string='Orden de Pago',
+    order_id = fields.Many2one('account.payment.order', string='Requisición de Pago',
                                 required=True, ondelete='cascade')
     employee_partner_id = fields.Many2one(
         'res.partner', string='Empleado', domain="[('employee', '=', True)]",

@@ -46,7 +46,7 @@ class ResCompany(models.Model):
              'mano. Fase 1 del proyecto: deshabilitado en Community, '
              'habilitado en Enterprise.')
     payment_order_habilitar_anticipo_viaticos = fields.Boolean(
-        string='Permitir crear: Anticipo Viáticos', default=True,
+        string='Permitir crear: Viáticos', default=True,
         help='Igual que Anticipo, para "Anticipo Viáticos". Fase 1: es el único tipo habilitado '
              'en Community. Se deja habilitado por defecto también en Enterprise para que un '
              'Anticipo Viáticos ya sincronizado desde Community se siga mostrando con su '
@@ -57,7 +57,7 @@ class ResCompany(models.Model):
         help='Igual que Anticipo, para "Pago Directo". Fase 1: deshabilitado en Community, '
              'habilitado en Enterprise.')
     payment_order_habilitar_anticipo_materiales = fields.Boolean(
-        string='Permitir crear: Solicitud de Materiales', default=True,
+        string='Permitir crear: Materiales', default=True,
         help='Igual que Anticipo Viáticos, para "Solicitud de Materiales" (tipo técnico '
              '`anticipo_materiales`, sin cambios) - el otro tipo que Community sí debe ver '
              'habilitado (junto con Anticipo Viáticos).')
@@ -109,7 +109,7 @@ class ResCompany(models.Model):
     ], string='Unidad del intervalo', default='hours')
 
     payment_order_status_sync_interval_number = fields.Integer(
-        string='Sincronizar estado de Órdenes de Pago cada', default=1,
+        string='Sincronizar estado de Requisiciones de Pago cada', default=1,
         help='Cada cuánto se consulta a la instalación Procesadora el estado real '
              '(Enviado/Aprobado/Rechazado/Aplicado) de las propias Órdenes de Pago ya enviadas '
              '- `_sync_to_enterprise()` solo empuja en un sentido (crea un registro nuevo allá '
@@ -213,7 +213,7 @@ class ResCompany(models.Model):
             ('state', 'not in', ('rechazado', 'cancelado')),
         ])
         if not pendientes:
-            return True, self.env._('No hay Órdenes de Pago pendientes de actualizar.')
+            return True, self.env._('No hay Requisiciones de Pago pendientes de actualizar.')
 
         try:
             remotos = fetch_order_status(
@@ -261,7 +261,7 @@ class ResCompany(models.Model):
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
-                'title': self.env._('Sincronización de Estado de Órdenes de Pago'),
+                'title': self.env._('Sincronización de Estado de Requisiciones de Pago'),
                 'message': message,
                 'type': 'success' if ok else 'danger',
                 'sticky': not ok,

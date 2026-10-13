@@ -30,8 +30,8 @@ class ResCompany(models.Model):
         'construtec.whatsapp.log', 'company_id', string='Registro de WhatsApp')
 
     payment_order_whatsapp_enabled = fields.Boolean(
-        string='Notificar Órdenes de Pago por WhatsApp',
-        help='Interruptor general - si está apagado, ninguna notificación de Orden de Pago se '
+        string='Notificar Requisiciones de Pago por WhatsApp',
+        help='Interruptor general - si está apagado, ninguna notificación de Requisición de Pago se '
              'manda, sin importar qué eventos estén configurados en WhatsApp > Notificaciones '
              'de Órdenes de Pago (`construtec.whatsapp.payment.order.notification`).')
 

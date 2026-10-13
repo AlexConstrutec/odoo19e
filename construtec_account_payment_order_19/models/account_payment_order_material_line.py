@@ -3,9 +3,9 @@ from odoo import api, fields, models
 
 class AccountPaymentOrderMaterialLine(models.Model):
     _name = 'account.payment.order.material.line'
-    _description = 'Línea de Materiales de una Orden de Pago'
+    _description = 'Línea de Materiales de una Requisición de Pago'
 
-    order_id = fields.Many2one('account.payment.order', string='Orden de Pago',
+    order_id = fields.Many2one('account.payment.order', string='Requisición de Pago',
                                 required=True, ondelete='cascade')
     product_name = fields.Char(string='Material', required=True,
                                 help='Lo que el jefe de técnicos escribe/elige en Community - '

@@ -5,10 +5,10 @@ from odoo.exceptions import UserError
 class AccountMove(models.Model):
     _inherit = 'account.move'
 
-    payment_order_id = fields.Many2one('account.payment.order', string='Orden de Pago', ondelete='restrict',
+    payment_order_id = fields.Many2one('account.payment.order', string='Requisición de Pago', ondelete='restrict',
                                         store=True)
     payment_order_ids = fields.Many2many(
-        'account.payment.order', string='Historial de Órdenes de Pago', copy=False,
+        'account.payment.order', string='Historial de Requisiciones de Pago', copy=False,
         help='Todas las Órdenes de Pago que alguna vez reclamaron esta factura - a diferencia de '
              'payment_order_id (el candado ACTUAL, que _liberar_facturas_con_saldo() limpia al '
              'liberar una factura parcialmente pagada para que otra Orden la tome, ver "Facturas '

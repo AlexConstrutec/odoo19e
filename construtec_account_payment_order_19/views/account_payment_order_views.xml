@@ -4,7 +4,7 @@
         <field name="name">account.payment.order.form</field>
         <field name="model">account.payment.order</field>
         <field name="arch" type="xml">
-            <form string="Orden de Pago">
+            <form string="Requisición de Pago">
                 <header>
                     <button name="action_submit" string="Enviar" type="object" class="oe_highlight"
                             invisible="tipo not in ('anticipo', 'anticipo_materiales', 'pago_directo') or state != 'borrador' or (tipo == 'pago_directo' and es_procesador)"/>
@@ -127,7 +127,7 @@
                         <page string="Factura a Pagar" invisible="tipo != 'pago_directo' or es_procesador">
                             <p class="text-muted">
                                 Elige primero el Proveedor arriba - aquí solo se muestran sus Documentos
-                                SAT, del más reciente al más antiguo (una Solicitud de Pago Directo es para
+                                SAT, del más reciente al más antiguo (una Requisición de Pago Directo es para
                                 un solo proveedor, nunca para varios). Puede ser una factura ya contabilizada
                                 en Enterprise, o un Documento SAT que la SAT ya certificó pero que el
                                 Contador todavía no ha convertido a factura (se convierte al Aprobar esta
@@ -351,7 +351,7 @@
         <field name="name">account.payment.order.list</field>
         <field name="model">account.payment.order</field>
         <field name="arch" type="xml">
-            <list string="Órdenes de Pago">
+            <list string="Requisiciones de Pago">
                 <field name="name"/>
                 <field name="fecha"/>
                 <field name="tipo"/>
@@ -371,7 +371,7 @@
         <field name="name">account.payment.order.search</field>
         <field name="model">account.payment.order</field>
         <field name="arch" type="xml">
-            <search string="Órdenes de Pago">
+            <search string="Requisiciones de Pago">
                 <field name="name"/>
                 <field name="partner_id"/>
                 <field name="lote_origen" string="Lote de Origen"/>
@@ -394,12 +394,12 @@
     </record>
 
     <record id="action_account_payment_order" model="ir.actions.act_window">
-        <field name="name">Órdenes de Pago</field>
+        <field name="name">Requisiciones de Pago</field>
         <field name="res_model">account.payment.order</field>
         <field name="view_mode">list,form</field>
         <field name="context">{'search_default_my_orders': 1}</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">Crea una Orden de Pago.</p>
+            <p class="o_view_nocontent_smiling_face">Crea una Requisición de Pago.</p>
         </field>
     </record>
 
@@ -409,7 +409,7 @@
          el ícono de la app abre directo esta lista - los otros 2 menús de este módulo (Importar
          Solicitudes, Viáticos sin Liquidar) ahora cuelgan de este mismo root en vez de Facturación. -->
     <menuitem action="action_account_payment_order" id="menu_account_payment_order"
-              name="Órdenes de Pago" web_icon="construtec_account_payment_order_19,static/description/icon.png"
+              name="Requisiciones de Pago" web_icon="construtec_account_payment_order_19,static/description/icon.png"
               sequence="21"/>
 
     <record id="action_account_payment_order_generar_excel_transferencia" model="ir.actions.server">

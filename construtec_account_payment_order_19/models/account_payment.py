@@ -6,7 +6,7 @@ CONCILIABLE_STATES = ('in_process', 'paid')
 class AccountPayment(models.Model):
     _inherit = 'account.payment'
 
-    payment_order_id = fields.Many2one('account.payment.order', string='Orden de Pago', ondelete='restrict',
+    payment_order_id = fields.Many2one('account.payment.order', string='Requisición de Pago', ondelete='restrict',
                                         store=True)
 
     def write(self, vals):

@@ -3,7 +3,7 @@ from odoo import _, api, fields, models
 
 class AccountPaymentOrderBulkImportWizardLine(models.TransientModel):
     _name = 'account.payment.order.bulk.import.wizard.line'
-    _description = 'Fila de Vista Previa - Importación Masiva de Órdenes de Pago'
+    _description = 'Fila de Vista Previa - Importación Masiva de Requisiciones de Pago'
 
     wizard_id = fields.Many2one(
         'account.payment.order.bulk.import.wizard', required=True, ondelete='cascade')

@@ -4,7 +4,7 @@
         <field name="name">account.payment.order.bulk.import.wizard.form</field>
         <field name="model">account.payment.order.bulk.import.wizard</field>
         <field name="arch" type="xml">
-            <form string="Importar Órdenes de Pago desde Excel">
+            <form string="Importar Requisiciones de Pago desde Excel">
                 <field name="state" invisible="1"/>
 
                 <group invisible="state != 'upload'">
@@ -58,7 +58,7 @@
                         Revisa cada fila antes de aplicar - las marcadas "Revisar" (Solicitante,
                         Cuenta Analítica o Técnico sin resolver) bloquean Aplicar hasta que las
                         corrijas aquí mismo o las desmarques de "Incluir". Cada "Grupo" se
-                        convierte en UNA Orden de Pago, en Borrador - revísala/Envíala desde ahí
+                        convierte en UNA Requisición de Pago, en Borrador - revísala/Envíala desde ahí
                         con el flujo normal.
                     </p>
                     <field name="line_ids" nolabel="1">
@@ -109,7 +109,7 @@
     </record>
 
     <record id="action_account_payment_order_bulk_import_wizard" model="ir.actions.act_window">
-        <field name="name">Importar Órdenes de Pago desde Excel</field>
+        <field name="name">Importar Requisiciones de Pago desde Excel</field>
         <field name="res_model">account.payment.order.bulk.import.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>

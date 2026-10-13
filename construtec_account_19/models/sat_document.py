@@ -213,17 +213,17 @@ class ConstructecSatDocument(models.Model):
     # el primer `-u` real en producción, nunca se manifestó en las pruebas locales porque no
     # generan ese WARNING de arranque.
     payment_order_id = fields.Many2one(
-        'account.payment.order', string='Orden de Pago (Solicitud)', copy=False,
+        'account.payment.order', string='Requisición de Pago (Solicitud)', copy=False,
         help='Candado mientras este documento sigue Pendiente (sin convertir a factura real) - '
-             'una Solicitud de Pago tipo Pago Directo, sincronizada desde Community, lo reclama '
+             'una Requisición de Pago tipo Pago Directo, sincronizada desde Community, lo reclama '
              'aquí para evitar que otra Solicitud pida el pago del mismo documento antes de que '
              'el Contador lo apruebe/convierta. Una vez convertido a factura '
              '(state=convertido_factura), el candado real pasa a account.move.payment_order_id '
              '(construtec_account_payment_order_19) y este campo deja de tener efecto - ver '
              'write() más abajo y account_payment_order_sat_document.py.')
     payment_order_ids = fields.Many2many(
-        'account.payment.order', string='Historial de Órdenes de Pago', copy=False,
-        help='Todas las Órdenes de Pago que alguna vez reclamaron este documento mientras seguía '
+        'account.payment.order', string='Historial de Requisiciones de Pago', copy=False,
+        help='Todas las Requisiciones de Pago que alguna vez reclamaron este documento mientras seguía '
              'Pendiente (ver payment_order_id) - a diferencia de ese campo, este nunca se limpia. '
              'Una vez convertido a factura, el historial de pagos reales sigue en '
              'account.move.payment_order_ids (construtec_account_payment_order_19), donde la '
@@ -293,7 +293,7 @@ class ConstructecSatDocument(models.Model):
                 otra = document.payment_order_id
                 if otra.state not in ('rechazado', 'cancelado'):
                     raise UserError(document.env._(
-                        'El Documento SAT %(documento)s ya está vinculado a la Orden de Pago '
+                        'El Documento SAT %(documento)s ya está vinculado a la Requisición de Pago '
                         '%(orden)s (estado: %(estado)s) - libéralo ahí primero.',
                         documento=document.numero_autorizacion, orden=otra.name,
                         estado=otra.state))

@@ -1932,6 +1932,30 @@ exige el grupo `analytic.group_analytic_accounting`: si nadie lo tiene (se activ
 Contabilidad > "Contabilidad analítica"), el menú no aparece para nadie - verificado en
 `construtec_test`, donde ese grupo no tiene usuarios.
 
+## "Orden de Pago" pasa a llamarse "Requisición de Pago" (2026-10-13, también en Enterprise)
+
+Mismo cambio que en Community (ver ahí el detalle): solo texto visible - app/menú/lista "Requisiciones de Pago",
+formulario "Requisición de Pago", importación "Importar Requisiciones de Pago desde Excel", tipos **Viáticos /
+Materiales / Pago Directo** (y "Anticipo"), avisos, etiquetas de campos, grupos de seguridad y textos de Ajustes.
+Modelo, claves de `tipo`, xmlids y sincronización no cambian. En Enterprise además: campos y mensaje de
+`construtec.sat.document` (`payment_order_id/ids`), ayuda de `construtec_ticket_billing_19` y el notificador
+`construtec_whatsapp_19` (menú y ajustes).
+
+- **Secuencia `OP/` -> `RP/`** (`data/account_payment_order_sequence.xml`, sin `noupdate`: el `-u` actualiza el
+  prefijo). La numeración continúa; las requisiciones ya creadas conservan su nombre `OP/...` (Community las
+  empareja por `external_ref`).
+- **No se cambió**: comentarios/docstrings, nombres de crons y de `ir.rule`, plantillas de Meta, mensajes ya
+  escritos en chatters, y el módulo legado `construtec_materials_sync_19` ("Solicitud de Materiales
+  (Community)", espejo del módulo retirado).
+- **Drift** que sigue existiendo: la creación automática de usuarios de empleados (Ajustes > Directorio) y la
+  reestructura de canales de `construtec_whatsapp_19` (`provider`) solo están en Community.
+- Hallazgo aparte, sin tocar: `odoo19e` y `odoo19enterprise` difieren entre sí en
+  `construtec_account_19/models/account_move.py`, `sat_retention.py` y `sat_retention_emitida.py`.
+
+Verificado en `construtec_test` (Enterprise): menús, lista/formulario, tipos, secuencia (`RP/0065`; el
+placeholder viejo "Nueva Orden de Pago" también recibe secuencia), campos de factura y Documento SAT, Ajustes y
+el menú de WhatsApp.
+
 ## Common commands
 
 ```

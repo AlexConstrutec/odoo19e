@@ -53,17 +53,17 @@
                         </field>
                     </setting>
                 </block>
-                <block title="Notificar Órdenes de Pago por WhatsApp" name="construtec_whatsapp_payment_order_settings"
+                <block title="Notificar Requisiciones de Pago por WhatsApp" name="construtec_whatsapp_payment_order_settings"
                        invisible="not whatsapp_enabled">
                     <setting id="payment_order_whatsapp_enabled" string="Habilitado"
-                             help="Interruptor general - si está apagado, ninguna notificación de Orden de Pago se manda, sin importar la configuración de abajo.">
+                             help="Interruptor general - si está apagado, ninguna notificación de Requisición de Pago se manda, sin importar la configuración de abajo.">
                         <field name="payment_order_whatsapp_enabled"/>
                     </setting>
                     <setting string="Eventos, plantillas y destinatarios" invisible="not payment_order_whatsapp_enabled">
                         <div class="text-muted">
                             Qué plantilla (y a quién) se manda para cada evento - Enviado,
                             Aprobado, Aplicado, Liquidado - se configura en
-                            <b>WhatsApp &gt; Notificaciones de Órdenes de Pago</b>, no aquí.
+                            <b>WhatsApp &gt; Notificaciones de Requisiciones de Pago</b>, no aquí.
                         </div>
                     </setting>
                 </block>

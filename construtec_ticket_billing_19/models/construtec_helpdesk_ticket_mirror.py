@@ -29,7 +29,7 @@ class ConstructecHelpdeskTicketMirror(models.Model):
              '(Community). Evita mostrar dos columnas casi siempre idénticas en las listas.')
     costo_total = fields.Monetary(
         string='Costo Total', currency_field='currency_id',
-        help='Suma de las Órdenes de Pago vinculadas al Ticket en Community (payment_order_ids), '
+        help='Suma de las Requisiciones de Pago vinculadas al Ticket en Community (payment_order_ids), '
              'tal como llegó en el último empuje - un espejo, no algo calculado aquí.')
     currency_id = fields.Many2one(
         'res.currency', string='Moneda', default=lambda self: self.env.company.currency_id)

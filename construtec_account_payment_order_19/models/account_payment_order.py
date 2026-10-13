@@ -52,14 +52,14 @@ def _resolve_employee_for_partner(partner, company):
 
 class AccountPaymentOrder(models.Model):
     _name = 'account.payment.order'
-    _description = 'Orden de Pago (Anticipo / Pago Directo)'
+    _description = 'Requisición de Pago (Anticipo / Pago Directo)'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'fecha desc'
 
     tipo = fields.Selection([
         ('anticipo', 'Anticipo'),
-        ('anticipo_viaticos', 'Anticipo Viáticos'),
-        ('anticipo_materiales', 'Solicitud de Materiales'),
+        ('anticipo_viaticos', 'Viáticos'),
+        ('anticipo_materiales', 'Materiales'),
         ('pago_directo', 'Pago Directo'),
     ], string='Tipo', required=True,
         default=lambda self: (self.env.company._get_payment_order_allowed_tipos() or ['anticipo'])[0],
@@ -383,12 +383,12 @@ class AccountPaymentOrder(models.Model):
 
     @api.depends('tipo')
     def _compute_name(self):
-        """El nombre real (secuencia OP/0001) se asigna en create() ANTES del insert (ver
+        """El nombre real (secuencia RP/0001) se asigna en create() ANTES del insert (ver
         `create()`) - este compute solo cubre el placeholder de un registro `.new()` que
         todavía no se ha guardado."""
         for rec in self:
             if not rec.name:
-                rec.name = 'Nueva Orden de Pago'
+                rec.name = 'Nueva Requisición de Pago'
 
     @api.model
     def fields_get(self, allfields=None, attributes=None):
@@ -660,7 +660,8 @@ class AccountPaymentOrder(models.Model):
         for vals in vals_list:
             if vals.get('tipo', 'anticipo') in (
                     'anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') \
-                    and vals.get('name', '/') in ('/', False, None, '', 'Nueva Orden de Pago'):
+                    and vals.get('name', '/') in ('/', False, None, '', 'Nueva Orden de Pago',
+                                                'Nueva Requisición de Pago'):
                 # Bug real (2026-09-04): `name` es store=True/readonly=False (_compute_name()),
                 # así que un formulario web real (ej. "Nuevo" desde payment_order_ids dentro de
                 # un Ticket) SIEMPRE manda 'Nueva Orden de Pago' ya puesto en vals - el viejo
@@ -715,7 +716,7 @@ class AccountPaymentOrder(models.Model):
                 and mirror.partner_vat != self.partner_id.vat):
             raise UserError(self.env._(
                 'La factura %(factura)s es del proveedor %(otro)s, no de %(actual)s - una '
-                'Solicitud de Pago Directo es para un solo proveedor.',
+                'Requisición de Pago Directo es para un solo proveedor.',
                 factura=label, otro=mirror.partner_name or mirror.partner_vat,
                 actual=self.partner_id.name))
 
@@ -959,22 +960,22 @@ class AccountPaymentOrder(models.Model):
         partner = self.requested_by_id.partner_id
         if estado_nuevo == 'aprobado':
             self._push_notify(
-                partner, self.env._('Orden de Pago aprobada'),
+                partner, self.env._('Requisición de Pago aprobada'),
                 self.env._('%(name)s fue aprobada.', name=self.name))
         elif estado_nuevo == 'aplicado':
             self._push_notify(
-                partner, self.env._('Orden de Pago aplicada'),
+                partner, self.env._('Requisición de Pago aplicada'),
                 self.env._('%(name)s ya se desembolsó (Q%(monto).2f).',
                            name=self.name, monto=self.monto or 0.0))
         elif estado_nuevo == 'liquidado':
             self._push_notify(
-                partner, self.env._('Orden de Pago liquidada'),
+                partner, self.env._('Requisición de Pago liquidada'),
                 self.env._('%(name)s quedó liquidada.', name=self.name))
         elif estado_nuevo == 'rechazado':
             motivo = (' %s' % self.env._('Motivo: %(motivo)s', motivo=self.reject_reason)
                       if self.reject_reason else '')
             self._push_notify(
-                partner, self.env._('Orden de Pago rechazada'),
+                partner, self.env._('Requisición de Pago rechazada'),
                 self.env._('%(name)s fue rechazada.', name=self.name) + motivo)
 
     def _approver_partners(self):
@@ -1033,7 +1034,7 @@ class AccountPaymentOrder(models.Model):
             if rec.tipo == 'pago_directo':
                 if not rec.factura_mirror_ids:
                     raise UserError(self.env._(
-                        'Agregue al menos una factura antes de enviar la Solicitud de Pago.'))
+                        'Agregue al menos una factura antes de enviar la Requisición de Pago.'))
                 for mirror in rec.factura_mirror_ids:
                     rec._check_factura_mirror_disponible(mirror)
             if rec.tipo == 'anticipo_viaticos' and not rec.viaticos_line_ids:
@@ -1079,7 +1080,7 @@ class AccountPaymentOrder(models.Model):
             rec._sync_to_enterprise()
             rec._push_notify(
                 rec._approver_partners(),
-                self.env._('Nueva Orden de Pago para aprobar'),
+                self.env._('Nueva Requisición de Pago para aprobar'),
                 self.env._('%(name)s - Q%(monto).2f, solicitada por %(solicitante)s',
                            name=rec.name, monto=rec.total_acreditar or rec.monto or 0.0,
                            solicitante=rec.requested_by_id.name or rec.requested_by_name or ''))
@@ -1186,7 +1187,7 @@ class AccountPaymentOrder(models.Model):
             rec._autosugerir_proveedor_materiales_id()
             rec._push_notify(
                 rec.requested_by_id.partner_id,
-                self.env._('Orden de Pago aprobada'),
+                self.env._('Requisición de Pago aprobada'),
                 self.env._('%(name)s fue aprobada por %(aprobador)s', name=rec.name,
                            aprobador=self.env.user.name))
 
@@ -1558,7 +1559,7 @@ class AccountPaymentOrder(models.Model):
             self._liberar_facturas_con_saldo()
         self._push_notify(
             self.requested_by_id.partner_id,
-            self.env._('Orden de Pago liquidada'),
+            self.env._('Requisición de Pago liquidada'),
             self.env._('%(name)s quedó liquidada', name=self.name))
         return True
 
@@ -1743,7 +1744,7 @@ class AccountPaymentOrder(models.Model):
         self.write({'state': 'aplicado'})
         self._push_notify(
             self.requested_by_id.partner_id,
-            self.env._('Orden de Pago aplicada'),
+            self.env._('Requisición de Pago aplicada'),
             self.env._('%(name)s ya se desembolsó (Q%(monto).2f)', name=self.name, monto=self.monto or 0.0))
 
         # Dos avisos posibles, ninguno bloquea: si el contacto ya tiene otro Anticipo aplicado

@@ -1,5 +1,5 @@
 {
-    'name': 'Construtec Orden de Pago',
+    'name': 'Construtec Requisición de Pago',
     'version': '19.0.1.12.0',
     'category': 'Accounting/Accounting',
     'summary': 'Órdenes de pago (Anticipo / Pago Directo) para conciliar facturas de varios '

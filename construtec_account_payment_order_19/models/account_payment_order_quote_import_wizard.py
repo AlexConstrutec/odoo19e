@@ -51,7 +51,7 @@ class AccountPaymentOrderQuoteImportWizard(models.TransientModel):
     _description = 'Cargar Cotización de Proveedor con IA'
 
     order_id = fields.Many2one(
-        'account.payment.order', string='Orden de Pago', required=True,
+        'account.payment.order', string='Requisición de Pago', required=True,
         default=lambda self: self.env.context.get('default_order_id'))
     state = fields.Selection([
         ('upload', 'Cargar Archivo'),

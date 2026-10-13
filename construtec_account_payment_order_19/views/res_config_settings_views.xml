@@ -8,22 +8,22 @@
             <xpath expr="//app[@name='account']" position="inside">
                 <block title="Solicitudes de Pago" name="payment_order_request_settings">
                     <setting id="payment_order_role" string="Rol de esta instalación"
-                             help="Solicitante: captura y aprueba Solicitudes de Pago y las sincroniza. Procesador: recibe Solicitudes aprobadas y las convierte en Órdenes de Pago reales.">
+                             help="Solicitante: captura y aprueba Requisiciones de Pago y las sincroniza. Procesador: recibe Solicitudes aprobadas y las convierte en Requisiciones de Pago reales.">
                         <field name="payment_order_role" widget="radio"/>
                     </setting>
                 </block>
-                <block title="Tipos de Orden de Pago disponibles al crear" name="payment_order_tipos_settings"
-                       help="Controla qué opciones aparecen en el campo Tipo al crear una Orden de Pago nueva en esta compañía. No afecta órdenes ya existentes ni las que llegan por sincronización.">
+                <block title="Tipos de Requisición de Pago disponibles al crear" name="payment_order_tipos_settings"
+                       help="Controla qué opciones aparecen en el campo Tipo al crear una Requisición de Pago nueva en esta compañía. No afecta órdenes ya existentes ni las que llegan por sincronización.">
                     <setting id="payment_order_habilitar_anticipo" string="Anticipo">
                         <field name="payment_order_habilitar_anticipo"/>
                     </setting>
-                    <setting id="payment_order_habilitar_anticipo_viaticos" string="Anticipo Viáticos">
+                    <setting id="payment_order_habilitar_anticipo_viaticos" string="Viáticos">
                         <field name="payment_order_habilitar_anticipo_viaticos"/>
                     </setting>
                     <setting id="payment_order_habilitar_pago_directo" string="Pago Directo">
                         <field name="payment_order_habilitar_pago_directo"/>
                     </setting>
-                    <setting id="payment_order_habilitar_anticipo_materiales" string="Solicitud de Materiales">
+                    <setting id="payment_order_habilitar_anticipo_materiales" string="Materiales">
                         <field name="payment_order_habilitar_anticipo_materiales"/>
                     </setting>
                 </block>
@@ -87,7 +87,7 @@
                     </setting>
 
                     <setting id="payment_order_status_sync_interval"
-                             string="1. Estado de Órdenes de Pago"
+                             string="1. Estado de Requisiciones de Pago"
                              help="Consulta si tus Solicitudes ya enviadas fueron Aprobadas, Rechazadas o
                                    Aplicadas en Enterprise - sin esto, quedarían congeladas en 'Enviado'
                                    para siempre en esta instalación."
