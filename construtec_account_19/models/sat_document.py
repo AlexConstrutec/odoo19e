@@ -4,7 +4,7 @@ from xml.dom import minidom
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
-from odoo.tools import float_is_zero
+from odoo.tools import float_is_zero, float_round
 
 _logger = logging.getLogger(__name__)
 
@@ -724,6 +724,14 @@ class ConstructecSatDocument(models.Model):
                 'sat_document_line_id': linea.id,
                 'sat_bien_o_servicio': linea.bien_o_servicio,
             }
+            # Descuento del DTE -> % de descuento de la línea (bug real 2026-10-13: antes se
+            # ignoraba y la factura quedaba por el precio de lista, ej. Q300.93 en vez de los
+            # Q285.88 certificados). El DTE trae el descuento en monto; Odoo lo pide en %.
+            bruto = (linea.cantidad or 1.0) * linea.precio_unitario
+            if linea.monto_descuento and not float_is_zero(bruto, precision_digits=2):
+                vals['discount'] = float_round(
+                    linea.monto_descuento / bruto * 100.0,
+                    precision_digits=self.env['decimal.precision'].precision_get('Discount'))
             if linea.product_id:
                 vals['product_id'] = linea.product_id.id
             invoice_line_ids.append((0, 0, vals))
@@ -1426,8 +1434,8 @@ class ConstructecSatDocumentLine(models.Model):
     precio_unitario = fields.Float(string='Precio Unitario')
     monto_descuento = fields.Float(
         string='Descuento',
-        help='Monto de descuento tal como viene en el DTE. Es solo informativo: no se traduce '
-             'automáticamente al campo "Descuento" (%) de la línea de factura de Odoo.')
+        help='Monto de descuento tal como viene en el DTE. Al convertir a factura se traduce '
+             'al campo "Descuento" (%) de la línea de factura de Odoo.')
     otro_descuento = fields.Float(
         string='Otro Descuento', help='Campo "OtrosDescuento" del DTE, informativo.')
     monto_iva = fields.Float(string='IVA')

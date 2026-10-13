@@ -1075,3 +1075,13 @@ Pedido del usuario: ver en la factura (pestaña "Otra información") los datos F
 Verificado con `odoo-bin shell` en `construtec_test` (módulos actualizados con `button_immediate_upgrade()`): los
 6 campos aparecen en la pestaña y ya no en el encabezado; una factura con Documento SAT toma UUID/serie/número y
 se recalcula si cambia la serie del documento; una factura manual conserva lo capturado.
+
+## Bug real: el descuento del DTE no pasaba a la factura (2026-10-13)
+
+Encontrado revisando las facturas de la OP/0002: Nuevos Almacenes da 5% de descuento por línea y las facturas
+convertidas quedaban por el precio de lista (Q300.93 en vez de Q285.88 certificados; BILL/2026/09/0004 Q1,533.98
+en vez de Q1,457.28). `construtec.sat.document.line.monto_descuento` era solo informativo.
+`action_convertir_a_factura()` ahora pone `discount` (%) en cada línea: `monto_descuento / (cantidad *
+precio_unitario) * 100`, redondeado a la precisión `Discount`. `otro_descuento` sigue informativo (no visto en
+datos reales). Al momento del fix había 1,155 documentos pendientes con descuento (5,547 líneas). Verificado con
+`odoo-bin shell`: líneas con descuento quedan al 5% y con el total del DTE; una línea sin descuento no cambia.
