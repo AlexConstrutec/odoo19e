@@ -99,6 +99,9 @@
                                  usado en este archivo para "Proveedor Sugerido"/user_id. -->
                             <field name="partner_id" string="Proveedor"
                                    invisible="tipo != 'pago_directo'"/>
+                            <field name="partner_es_contrata"
+                                   invisible="tipo != 'pago_directo' or not partner_id"
+                                   readonly="state != 'borrador' or es_procesador"/>
                             <field name="partner_id"
                                    invisible="tipo == 'pago_directo'"
                                    readonly="tipo in ('anticipo_viaticos', 'anticipo_materiales')"

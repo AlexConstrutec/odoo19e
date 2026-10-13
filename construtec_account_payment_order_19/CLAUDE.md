@@ -1978,6 +1978,45 @@ Nota de pruebas locales: Community y Enterprise comparten la base `construtec_te
 `-u` de una edición sube `latest_version` y la otra ya no vuelve a ejecutar la migración - para reprobarla hay que
 bajar `latest_version` a mano en `ir_module_module`.
 
+## Etiqueta "Contrata" en proveedores: Community manda, Enterprise recibe (2026-10-14)
+
+Pedido del usuario: al capturar una requisición de **Pago Directo**, el jefe de técnicos puede marcar que el
+proveedor es una **contrata**. Es la etiqueta "Contrata" de Contactos, y **Community es quien manda** cuáles
+proveedores son contrata: cada cambio se envía a Enterprise.
+
+- **Check "Es Contrata"** (`account.payment.order.partner_es_contrata`, compute + inverse), junto al
+  "Proveedor" en Pago Directo. Editable solo en Community y en Borrador (`readonly="state != 'borrador' or
+  es_procesador"`). Se aplica al guardar y solo en `tipo='pago_directo'` (en otros tipos no hace nada).
+- **`res.partner.es_contrata`** (compute + inverse sobre la etiqueta): marcarlo agrega la etiqueta, desmarcarlo la
+  quita, con `sudo()` (un jefe de técnicos normalmente no puede escribir Contactos). La etiqueta se busca por
+  nombre sin distinguir mayúsculas y se crea si no existe (`_get_contrata_category()`): no duplica una
+  "contrata" creada a mano. No es un tag automático como Clientes/Proveedores (esos se derivan de datos reales);
+  este es manual.
+- **El envío lo dispara `res.partner.write()`** cuando cambia si el contacto tiene la etiqueta (venga del check
+  o de editar las etiquetas a mano en el contacto). Agregar cualquier otra etiqueta (ej. las que pone el sync
+  de contactos) no envía nada. Se manda siempre el estado ACTUAL, no el cambio, así un reintento nunca manda
+  algo viejo.
+- **Envío** (`_push_contrata_to_enterprise()`, solo `payment_order_role='solicitante'` con la sincronización
+  encendida): `tools/enterprise_sync_api.set_partner_contrata_in_enterprise()` llama al método whitelisted
+  **`res.partner.set_contrata_from_community(es_contrata)`** sobre el `enterprise_partner_ref` del contacto,
+  que agrega/quita la etiqueta allá (también busca-o-crea) con `skip_contrata_push` para no rebotar. Solo
+  toca esa etiqueta, nunca otros campos.
+- **Estado y reintento**: `contrata_sync_state` (pendiente/enviado/error) + `contrata_sync_error` en el contacto.
+  Un contacto sin `enterprise_partner_ref` (todavía no existe en Enterprise) queda `pendiente` y se envía en
+  cuanto `_push_new_partner_to_enterprise()` le crea su copia. Un error se reintenta en el mismo cron de cada
+  30 min (`_cron_retry_partner_sync`). El guardado nunca falla por Enterprise.
+- **Límite**: Enterprise no devuelve nada a Community. Si alguien cambia la etiqueta directamente en Enterprise,
+  Community no se entera (y no la pisa hasta que ella misma cambie esa etiqueta).
+- Requiere este módulo actualizado EN AMBOS lados: sin el método receptor en Enterprise, el envío queda en
+  `error` y se reintenta solo.
+
+Verificado en `construtec_test` (Community y Enterprise, `set_partner_contrata_in_enterprise` simulado, 19
+comprobaciones): un jefe sin permisos de Contactos marca/desmarca el check y se envía (ref, True/False);
+reutiliza una etiqueta existente en minúsculas; agregar la etiqueta a mano también envía; otras etiquetas no;
+otro tipo de requisición no; sin ID en Enterprise queda pendiente y se envía al crearse allá; falla de
+Enterprise deja `error` sin romper el guardado y el cron lo reintenta; rol Procesador no envía; el método
+receptor agrega, quita, no rebota y falla claro con un id inexistente.
+
 ## Common commands
 
 ```

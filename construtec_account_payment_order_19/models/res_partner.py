@@ -3,13 +3,16 @@ import logging
 from odoo import api, fields, models
 
 from .account_payment_order import _resolve_employee_for_partner
-from ..tools.enterprise_sync_api import EnterpriseSyncError, create_partner_in_enterprise
+from ..tools.enterprise_sync_api import (
+    EnterpriseSyncError, create_partner_in_enterprise, set_partner_contrata_in_enterprise,
+)
 
 _logger = logging.getLogger(__name__)
 
 CATEGORIA_EMPLEADOS = 'Empleados'
 CATEGORIA_PROVEEDORES = 'Proveedores'
 CATEGORIA_CLIENTES = 'Clientes'
+CATEGORIA_CONTRATA = 'Contrata'
 
 
 def _construtec_tag_names_for(customer_rank, es_proveedor_sat, is_employee):
@@ -59,6 +62,104 @@ class ResPartner(models.Model):
              'empuja solo (a diferencia de hr.employee, que si sincroniza cualquier alta).')
     partner_sync_error = fields.Char(string='Detalle del Error de Sincronización', copy=False)
 
+    es_contrata = fields.Boolean(
+        string='Es contrata', compute='_compute_es_contrata', inverse='_inverse_es_contrata',
+        help='Este contacto es una "contrata" (proveedor que subcontrata trabajo). Es solo la '
+             'etiqueta "Contrata" de Contactos con un check: marcarlo la agrega, desmarcarlo la '
+             'quita. Community es quien manda - cada cambio de esta etiqueta se envía a Enterprise.')
+    contrata_sync_state = fields.Selection(
+        [('pendiente', 'Pendiente'), ('enviado', 'Enviado'), ('error', 'Error')],
+        string='Sincronización de "Contrata"', copy=False,
+        help='Estado del último envío de la etiqueta "Contrata" hacia Enterprise. Pendiente = el '
+             'contacto todavía no existe allá (se envía en cuanto se cree); Error = se reintenta '
+             'solo cada 30 minutos.')
+    contrata_sync_error = fields.Char(string='Detalle del Error ("Contrata")', copy=False)
+
+    # --- etiqueta "Contrata" (Community manda hacia Enterprise) --------------------------------
+
+    @api.model
+    def _get_contrata_category(self):
+        """La etiqueta "Contrata": busca una existente por nombre (sin distinguir mayúsculas, por si
+        ya se había creado a mano) y si no, la crea."""
+        Category = self.env['res.partner.category'].sudo()
+        return Category.search([('name', '=ilike', CATEGORIA_CONTRATA)], limit=1) \
+            or Category.create({'name': CATEGORIA_CONTRATA})
+
+    def _es_contrata_actual(self):
+        self.ensure_one()
+        return any((c.name or '').strip().lower() == CATEGORIA_CONTRATA.lower()
+                   for c in self.category_id.sudo())
+
+    @api.depends('category_id')
+    def _compute_es_contrata(self):
+        for partner in self:
+            partner.es_contrata = partner._es_contrata_actual()
+
+    def _inverse_es_contrata(self):
+        """El check solo agrega/quita la etiqueta (con sudo: un jefe de técnicos normalmente no puede
+        escribir Contactos); el envío a Enterprise lo dispara `write()` al cambiar la etiqueta, venga
+        del check o de editar las etiquetas a mano."""
+        category = self._get_contrata_category()
+        for partner in self:
+            quiere = partner.es_contrata
+            if quiere and not partner._es_contrata_actual():
+                partner.sudo().write({'category_id': [(4, category.id)]})
+            elif not quiere and partner._es_contrata_actual():
+                partner.sudo().write({'category_id': [(3, category.id)]})
+
+    def write(self, vals):
+        antes = {}
+        if 'category_id' in vals and not self.env.context.get('skip_contrata_push'):
+            antes = {partner.id: partner._es_contrata_actual() for partner in self}
+        res = super().write(vals)
+        if antes:
+            self.filtered(
+                lambda p: p._es_contrata_actual() != antes.get(p.id))._push_contrata_to_enterprise()
+        return res
+
+    def _push_contrata_to_enterprise(self):
+        """Envía a Enterprise el estado ACTUAL de la etiqueta "Contrata" de cada contacto (no el
+        cambio: así un reintento siempre manda lo vigente). Solo en una instalación Solicitante con
+        la sincronización encendida. Un contacto sin `enterprise_partner_ref` (todavía no existe
+        allá) queda 'pendiente' y se envía en cuanto `_push_new_partner_to_enterprise()` le crea su
+        copia. Nunca rompe el guardado: un fallo queda en `contrata_sync_state='error'` y el cron
+        lo reintenta."""
+        company = self.env.company
+        if company.payment_order_role != 'solicitante' or not company.payment_order_sync_enabled:
+            return
+        for partner in self.sudo().with_context(skip_contrata_push=True):
+            if not partner.enterprise_partner_ref:
+                partner.write({
+                    'contrata_sync_state': 'pendiente',
+                    'contrata_sync_error': self.env._(
+                        'El contacto todavía no existe en Enterprise; se enviará cuando se cree allá.'),
+                })
+                continue
+            try:
+                set_partner_contrata_in_enterprise(
+                    company.payment_order_sync_url, company.payment_order_sync_db,
+                    company.payment_order_sync_login, company.payment_order_sync_api_key,
+                    partner.enterprise_partner_ref, partner._es_contrata_actual())
+            except EnterpriseSyncError as exc:
+                _logger.warning('Error enviando "Contrata" del contacto %s a Enterprise: %s',
+                                partner.id, exc)
+                partner.write({'contrata_sync_state': 'error', 'contrata_sync_error': str(exc)})
+            else:
+                partner.write({'contrata_sync_state': 'enviado', 'contrata_sync_error': False})
+
+    def set_contrata_from_community(self, es_contrata):
+        """Método whitelisted, llamado vía XML-RPC desde una instalación Solicitante (ver
+        `set_partner_contrata_in_enterprise()`): agrega o quita la etiqueta "Contrata" de ESTE
+        contacto. Solo toca esa etiqueta (nunca otros campos) y no la vuelve a empujar a ningún lado
+        (`skip_contrata_push`)."""
+        partner = self.sudo().exists()
+        if not partner:
+            raise ValueError('El contacto no existe en Enterprise.')
+        category = self._get_contrata_category()
+        partner.with_context(skip_contrata_push=True).write(
+            {'category_id': [(4, category.id)] if es_contrata else [(3, category.id)]})
+        return True
+
     def _push_new_partner_to_enterprise(self):
         """Crea este contacto (que todavía NO existe en Enterprise - sin `enterprise_partner_ref`)
         allá. A diferencia de `hr.employee._create_employee_in_enterprise()` (que sincroniza
@@ -99,6 +200,8 @@ class ResPartner(models.Model):
                     'enterprise_partner_ref': new_ref,
                     'partner_sync_state': 'enviado', 'partner_sync_error': False,
                 })
+                if partner._es_contrata_actual():
+                    partner._push_contrata_to_enterprise()
 
     def action_retry_partner_sync(self):
         self.filtered(lambda p: p.partner_sync_state == 'error')._push_new_partner_to_enterprise()
@@ -112,6 +215,7 @@ class ResPartner(models.Model):
         # que de verdad importa ya lo hace `_push_new_partner_to_enterprise()` internamente
         # (`self.env.company`, la compañía de ejecución del cron, no la del contacto).
         self.search([('partner_sync_state', '=', 'error')])._push_new_partner_to_enterprise()
+        self.search([('contrata_sync_state', '=', 'error')])._push_contrata_to_enterprise()
 
     # Campos que `create_partner_from_community()` acepta - una fuga de la API Key de
     # integración nunca puede crear un contacto con más que esto (ej. asignarle rangos de

@@ -341,6 +341,24 @@ def create_partner_in_enterprise(url, db, login, api_key, vals):
         [db, uid, api_key, 'res.partner', 'create_partner_from_community', [[], vals]])
 
 
+def set_partner_contrata_in_enterprise(url, db, login, api_key, partner_ref, es_contrata):
+    """Marca/desmarca la etiqueta "Contrata" de un `res.partner` YA existente en Enterprise
+    (`partner_ref` = su id real allá, el `enterprise_partner_ref` del contacto en Community).
+
+    Community es quien manda en cuáles proveedores son contrata (pedido explícito del usuario,
+    2026-10-14): se llama al método whitelisted `set_contrata_from_community` sobre ese único id
+    (`[[partner_ref], es_contrata]`), que busca-o-crea la etiqueta allá y la agrega o quita."""
+    if not (url and db and login and api_key):
+        raise EnterpriseSyncError(
+            'Sincronización de Contactos incompleta (falta URL, base de datos, usuario o '
+            'API Key).')
+    uid = authenticate(url, db, login, api_key)
+    return _jsonrpc(
+        url, 'object', 'execute_kw',
+        [db, uid, api_key, 'res.partner', 'set_contrata_from_community',
+         [[int(partner_ref)], bool(es_contrata)]])
+
+
 def create_analytic_account_in_enterprise(url, db, login, api_key, vals):
     """Crea un `account.analytic.account` NUEVO en Enterprise a partir de una cuenta creada en
     Community - decisión explícita del usuario 2026-09-30: hasta ahora las cuentas analíticas

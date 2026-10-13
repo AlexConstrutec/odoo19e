@@ -153,6 +153,12 @@ class AccountPaymentOrder(models.Model):
              'reclama y el Contador lo convierte a factura real al Aprobar. Sin efecto en '
              'Enterprise mismo (es_procesador=True) - ahí se usa `factura_ids` directo, como '
              'siempre.')
+    partner_es_contrata = fields.Boolean(
+        string='Es Contrata', compute='_compute_partner_es_contrata',
+        inverse='_inverse_partner_es_contrata',
+        help='Marca al proveedor de esta requisición como "contrata" (etiqueta "Contrata" de su '
+             'contacto). Se aplica al guardar y Community lo envía a Enterprise. Solo aplica a '
+             'Pago Directo.')
     partner_vat_actual = fields.Char(
         compute='_compute_partner_vat_actual',
         help='Auxiliar para el dominio de `factura_mirror_ids` - navegar `partner_id.vat` '
@@ -434,6 +440,17 @@ class AccountPaymentOrder(models.Model):
     def _compute_available_payment_method_line_ids(self):
         for rec in self:
             rec.available_payment_method_line_ids = rec.journal_id.outbound_payment_method_line_ids
+
+    @api.depends('partner_id.category_id')
+    def _compute_partner_es_contrata(self):
+        for rec in self:
+            rec.partner_es_contrata = bool(rec.partner_id) and rec.partner_id.sudo()._es_contrata_actual()
+
+    def _inverse_partner_es_contrata(self):
+        """Solo Pago Directo: aplica el check a la etiqueta "Contrata" del proveedor (el contacto
+        decide si hay algo que cambiar y la envía a Enterprise - ver `res.partner.write()`)."""
+        for rec in self.filtered(lambda r: r.tipo == 'pago_directo' and r.partner_id):
+            rec.partner_id.sudo().es_contrata = rec.partner_es_contrata
 
     @api.depends('partner_id.vat')
     def _compute_partner_vat_actual(self):
