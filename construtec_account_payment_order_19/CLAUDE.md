@@ -2017,6 +2017,16 @@ otro tipo de requisición no; sin ID en Enterprise queda pendiente y se envía a
 Enterprise deja `error` sin romper el guardado y el cron lo reintenta; rol Procesador no envía; el método
 receptor agrega, quita, no rebota y falla claro con un id inexistente.
 
+## Pestaña "Información" visible para todos los tipos (2026-10-14)
+
+La pestaña "Información" (con "Vínculo Community / Enterprise": `community_url`/`enterprise_url`) solo se mostraba en
+Viáticos y Materiales; Pago Directo (que ahora también se sincroniza) y Anticipo no la tenían. Ahora **la pestaña
+es visible siempre**: los campos propios de Viáticos/Materiales (`tipo_cuenta`, y departamento/puesto/teléfono/
+correo/cuenta/banco/usuario solo en Viáticos) se ocultan por su propio grupo, y los vínculos funcionan para
+cualquier tipo (los campos que los calculan - `origin_record_id`/`origin_base_url`/`enterprise_record_id` - ya
+eran genéricos). Mientras no hay vínculo (requisición sin enviar o creada en Enterprise) se muestra el aviso
+"Todavía no hay vínculo con la otra instalación" en vez de una pestaña vacía.
+
 ## Common commands
 
 ```

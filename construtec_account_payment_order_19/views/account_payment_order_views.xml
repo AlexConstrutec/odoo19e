@@ -314,9 +314,8 @@
                             <button name="action_retry_sync" string="Reintentar Sincronización" type="object"
                                     invisible="sync_state != 'error'"/>
                         </page>
-                        <page string="Información"
-                              invisible="tipo not in ('anticipo_viaticos', 'anticipo_materiales')">
-                            <group>
+                        <page string="Información">
+                            <group invisible="tipo not in ('anticipo_viaticos', 'anticipo_materiales')">
                                 <field name="tipo_cuenta"/>
                             </group>
                             <group invisible="tipo != 'anticipo_viaticos'">
@@ -339,6 +338,10 @@
                                 <field name="enterprise_url" widget="url" invisible="not enterprise_url"
                                        string="Ver Requisición en Enterprise"/>
                             </group>
+                            <p class="text-muted" invisible="community_url or enterprise_url">
+                                Todavía no hay vínculo con la otra instalación: aparece cuando la
+                                requisición se envía a Enterprise (o llega desde Community).
+                            </p>
                         </page>
                     </notebook>
                     <group invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')">
