@@ -564,7 +564,9 @@ class AccountPaymentOrder(models.Model):
         for rec in self:
             rec.puede_conciliar = (
                 (rec.tipo in ANTICIPO_TIPOS and rec.state == 'aplicado')
-                or (rec.tipo == 'pago_directo' and rec.state == 'borrador')
+                # 'aprobado': Pago Directo pedido desde Community (bug real 2026-10-14: sin esto
+                # una requisición Aprobada se quedaba sin "Liquidar"/"Crear Pago").
+                or (rec.tipo == 'pago_directo' and rec.state in ('borrador', 'aprobado'))
             )
 
     @api.onchange('viaticos_line_ids.total', 'material_line_ids.subtotal', 'anticipo_previo')
@@ -1492,6 +1494,10 @@ class AccountPaymentOrder(models.Model):
             if pago.state not in ('in_process', 'paid'):
                 continue
             if pago.reconciled_invoice_ids or pago.reconciled_bill_ids:
+                if self.tipo == 'pago_directo' and pago.reconciled_bill_ids & self.factura_ids:
+                    # Pago registrado desde la propia factura (botón Pagar) - ya está aplicado
+                    # ahí, no se vuelve a netear (ver _sync_pagos_nativos()).
+                    continue
                 raise UserError(self.env._('El pago %s ya está conciliado.', pago.name))
             for line in pago.move_id.line_ids:
                 if line.account_id.reconcile and line.account_id.account_type in CUENTAS_A_NETEAR:
@@ -1503,7 +1509,10 @@ class AccountPaymentOrder(models.Model):
 
         if self.tipo == 'pago_directo':
             if not pagos_montos:
-                raise UserError(self.env._('Agrega al menos un pago antes de Conciliar/Liquidar.'))
+                raise UserError(self.env._(
+                    'No hay ningún pago pendiente de aplicar. Si los pagos se registraron desde la '
+                    'factura (botón Pagar), la requisición se liquida sola cuando las facturas '
+                    'quedan pagadas.'))
             if round(total, 2) < 0:
                 raise UserError(self.env._(
                     'El monto del pago excede el saldo pendiente de la(s) factura(s) por '
@@ -1568,8 +1577,10 @@ class AccountPaymentOrder(models.Model):
         })
         move.action_post()
 
+        # Sin el contexto, account_partial_reconcile.py vería la factura pagada y liquidaría la
+        # Orden antes de tiempo (sin move_id) - aquí la liquidación la escribe este mismo método.
         for linea, nueva_linea in zip(lineas, move.line_ids):
-            (linea | nueva_linea).reconcile()
+            (linea | nueva_linea).with_context(skip_pago_nativo_sync=True).reconcile()
 
         self.write({'move_id': move.id, 'state': 'liquidado'})
         if self.tipo == 'pago_directo':
@@ -1607,8 +1618,45 @@ class AccountPaymentOrder(models.Model):
                     line.remove_move_reconcile()
             self.move_id.button_cancel()
             self.move_id.unlink()
-        nuevo_estado = 'aplicado' if self.tipo in ANTICIPO_TIPOS else 'borrador'
+        if self.tipo in ANTICIPO_TIPOS:
+            nuevo_estado = 'aplicado'
+        else:
+            # Pago Directo que ya pasó por Aprobar (pedido desde Community) regresa a Aprobado.
+            nuevo_estado = 'aprobado' if self.approve_date else 'borrador'
         self.write({'move_id': False, 'state': nuevo_estado})
+
+    def _sync_pagos_nativos(self):
+        """Pago Directo: los pagos se registran desde la propia factura (botón Pagar o pago
+        pendiente aplicado en la factura - pedido del usuario 2026-10-14, política "no hay pago
+        sin factura"). Se llama al crear/borrar conciliaciones (account_partial_reconcile.py):
+        vincula a esta Orden los pagos conciliados con sus facturas (aparecen en Pagos/Cheques),
+        la deja en Aprobado mientras falte saldo, la pasa a Liquidado cuando todas sus facturas
+        quedan pagadas, y la regresa a Aprobado si un pago se desconcilia."""
+        if self.env.context.get('skip_pago_nativo_sync'):
+            return
+        for rec in self.filtered(lambda o: o.tipo == 'pago_directo'
+                                 and o.state in ('aprobado', 'liquidado')):
+            pagos = rec.factura_ids._get_reconciled_payments().filtered(
+                lambda p: not p.payment_order_id)
+            if pagos:
+                pagos.write({'payment_order_id': rec.id})
+            facturas = rec.factura_ids.filtered(lambda f: f.state == 'posted')
+            pagadas = bool(facturas) and all(
+                f.payment_state in ('paid', 'in_payment') for f in facturas)
+            if rec.state == 'aprobado' and pagadas:
+                rec.state = 'liquidado'
+                rec.message_post(body=self.env._(
+                    'Liquidada: todas sus facturas quedaron pagadas con pagos registrados desde '
+                    'la factura.'))
+                rec._push_notify(
+                    rec.requested_by_id.partner_id,
+                    self.env._('Requisición de Pago liquidada'),
+                    self.env._('%(name)s quedó liquidada', name=rec.name))
+            elif rec.state == 'liquidado' and not rec.move_id and not pagadas:
+                rec.state = 'aprobado'
+                rec.message_post(body=self.env._(
+                    'Regresó a Aprobado: un pago se desaplicó de sus facturas y ya no están '
+                    'pagadas por completo.'))
 
     def action_cancelar(self):
         """Deshace la conciliación (`action_conciliar()`) a pedido manual del Administrador

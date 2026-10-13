@@ -2069,3 +2069,35 @@ Pedido del usuario: `payment_order_id` ("Requisición de Pago") y `payment_order
 salen del encabezado de la factura (`header_left_group`) y pasan a la pestaña "Otra información" (grupo "Requisición
 de Pago" dentro de `other_tab_group`, solo facturas/notas de proveedor). Solo cambia la vista
 (`views/account_move_views.xml`), copiada idéntica a Community.
+
+## Pago Directo: pagos registrados desde la factura + bug de "Liquidar" en Aprobado (2026-10-14)
+
+Caso real: la RP OP/0012 (Enterprise; OP/0015 en Community), Pago Directo **Aprobado**, factura de Q7,725 y un pago de
+Q5,000 sin aplicar - no había ningún botón para liquidar ni forma de que la factura quedara parcialmente pagada.
+
+- **Bug**: `_compute_puede_conciliar()` solo aceptaba Pago Directo en `borrador`; cuando Pago Directo empezó a
+  pedirse desde Community (Enviar/Aprobar), `action_conciliar()` se actualizó a `('borrador', 'aprobado')` pero este
+  compute no - una requisición Aprobada se quedaba sin "Liquidar"/"Crear Pago". Corregido.
+- **Pagos desde la factura** (decisión del usuario, política "no hay pago sin factura"): en Pago Directo el pago se
+  registra con el botón **Pagar** de la factura (o aplicando un pago pendiente desde la factura), con la conciliación
+  nativa de Odoo - la factura queda parcial/pagada sin asiento de bolsón.
+  - `models/account_partial_reconcile.py` (nuevo): al crear o borrar un `account.partial.reconcile` que toca una
+    factura vinculada a un Pago Directo, llama `_sync_pagos_nativos()` de esa requisición. Ese hook cubre el
+    asistente de pago, el widget de pagos pendientes, desaplicar desde la factura y `remove_move_reconcile()`.
+  - `_sync_pagos_nativos()` (solo `pago_directo` en `aprobado`/`liquidado`): vincula a la requisición los pagos
+    conciliados con sus facturas (`_get_reconciled_payments()`, aparecen en Pagos/Cheques); **se queda en Aprobado**
+    mientras falte saldo (decisión del usuario, sin estado "Pago parcial"); pasa a **Liquidado** cuando todas sus
+    facturas registradas quedan `paid`/`in_payment` (chatter + push); y una Liquidada sin `move_id` regresa a
+    Aprobado si un pago se desaplica.
+  - `action_conciliar()` (bolsón) ahora omite los pagos ya conciliados con las facturas de la requisición en vez de
+    tronar, y su `reconcile()` corre con `skip_pago_nativo_sync` para no liquidar antes de tiempo.
+  - `_deshacer_conciliacion()`: un Pago Directo con `approve_date` regresa a `aprobado` (no a `borrador`).
+- **El bolsón no cambió** para Anticipo/Viáticos/Materiales (el dinero va a un empleado y la factura es de otro
+  proveedor; Odoo no puede conciliarlos de forma nativa) ni para un Pago Directo cuyo pago no se aplicó en la factura
+  ("Crear Pago" + "Liquidar" siguen funcionando).
+- En producción el diario Bank tiene cuenta de pagos pendientes (genera asiento y concilia); en `construtec_test`
+  hubo que configurarla para la prueba - sin ella Odoo 19 no concilia y el hook no se dispara.
+
+Verificado con `odoo-bin shell` en `construtec_test`: Aprobado muestra Liquidar; pago de Q5,000 desde la factura ->
+sigue Aprobado, factura parcial (saldo Q2,725), pago en Pagos/Cheques; segundo pago de Q2,725 -> Liquidado; desaplicar
+un pago -> regresa a Aprobado; bolsón (Crear Pago + Liquidar) sigue terminando en Liquidado con su asiento.

@@ -3,6 +3,7 @@ from . import account_payment_order_viatico_line
 from . import account_payment_order_material_line
 from . import account_move
 from . import account_payment
+from . import account_partial_reconcile
 from . import purchase_order
 from . import res_company
 from . import res_config_settings
