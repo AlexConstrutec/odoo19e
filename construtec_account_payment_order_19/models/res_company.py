@@ -39,7 +39,7 @@ class ResCompany(models.Model):
 
     payment_order_habilitar_anticipo = fields.Boolean(
         string='Permitir crear: Anticipo', default=True,
-        help='Controla si "Anticipo" aparece como opción al crear una Orden de Pago nueva en '
+        help='Controla si "Anticipo" aparece como opción al crear una Requisición de Pago nueva en '
              'esta compañía. Es un filtro de la lista desplegable del campo Tipo (ver '
              'fields_get() en account_payment_order.py) - NO bloquea la creación programática '
              '(sincronización), solo lo que un usuario ve como opción al llenar el formulario a '

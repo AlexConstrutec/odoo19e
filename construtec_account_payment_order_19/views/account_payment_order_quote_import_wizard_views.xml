@@ -42,7 +42,7 @@
                 <footer>
                     <button name="action_extraer" type="object" string="Transcribir con IA"
                             class="btn-primary" invisible="state != 'upload'"/>
-                    <button name="action_aplicar" type="object" string="Aplicar a la Orden"
+                    <button name="action_aplicar" type="object" string="Aplicar a la Requisición"
                             class="btn-primary" invisible="state != 'review'"/>
                     <button name="action_volver" type="object" string="Cargar Otro Archivo"
                             invisible="state != 'review'"/>

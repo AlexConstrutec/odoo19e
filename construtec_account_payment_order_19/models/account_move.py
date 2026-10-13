@@ -9,7 +9,7 @@ class AccountMove(models.Model):
                                         store=True)
     payment_order_ids = fields.Many2many(
         'account.payment.order', string='Historial de Requisiciones de Pago', copy=False,
-        help='Todas las Órdenes de Pago que alguna vez reclamaron esta factura - a diferencia de '
+        help='Todas las Requisiciones de Pago que alguna vez reclamaron esta factura - a diferencia de '
              'payment_order_id (el candado ACTUAL, que _liberar_facturas_con_saldo() limpia al '
              'liberar una factura parcialmente pagada para que otra Orden la tome, ver "Facturas '
              'pagadas en varios abonos" en el CLAUDE.md de este módulo), este campo nunca se '

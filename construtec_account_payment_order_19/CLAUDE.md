@@ -1956,6 +1956,28 @@ Verificado en `construtec_test` (Enterprise): menús, lista/formulario, tipos, s
 placeholder viejo "Nueva Orden de Pago" también recibe secuencia), campos de factura y Documento SAT, Ajustes y
 el menú de WhatsApp.
 
+### Segunda pasada del renombre + migración de traducciones (2026-10-13)
+
+Probando en producción (Community, idioma es_GT) quedaban textos viejos. Dos causas distintas:
+
+1. **Textos que me faltaron** (corregidos): filtro "Mis Órdenes" -> "Mis Requisiciones", "Ver Orden en
+   Community/Enterprise", "Aplicar a la Orden", botón inteligente y campos de la división ("Requisición
+   Original", "Requisiciones Generadas"), varios textos de ayuda, y la columna **"State" -> "Estado"** (el campo
+   `state` no tenía `string=` y salía en inglés).
+2. **Traducciones viejas guardadas**: al actualizar un campo traducible desde XML, Odoo reescribe solo `en_US` y
+   CONSERVA el valor de otros idiomas. Si el registro se creó al instalar el módulo desde la interfaz con el
+   idioma del usuario (es_GT), también tiene ese valor viejo guardado bajo ese idioma y es el que se ve (ej. el
+   título "Órdenes de Pago" de la lista). `migrations/19.0.1.13.0/post-migrate.py` deja solo `en_US` en el nombre de
+   las acciones, menús, grupos y categoría renombrados (el módulo no tiene `i18n/`, no se pierde nada). Corre
+   solo al pasar de una versión anterior a 19.0.1.13.0.
+3. **Python en memoria**: tras un `-u` hecho con `docker exec`, el proceso web sigue con el código viejo hasta
+   `docker restart <contenedor>` (placeholder "Nueva Orden de Pago", mensajes de aviso, etc.). Para ver los
+   cambios hace falta `-u` + reiniciar + recargar el navegador con Ctrl+Shift+R.
+
+Nota de pruebas locales: Community y Enterprise comparten la base `construtec_test` en este equipo, así que un
+`-u` de una edición sube `latest_version` y la otra ya no vuelve a ejecutar la migración - para reprobarla hay que
+bajar `latest_version` a mano en `ir_module_module`.
+
 ## Common commands
 
 ```

@@ -67,7 +67,7 @@
                         </button>
                         <button name="action_view_ordenes_hijas" type="object" class="oe_stat_button"
                                 icon="fa-sitemap" invisible="not ordenes_hijas_count">
-                            <field name="ordenes_hijas_count" widget="statinfo" string="Órdenes Generadas"/>
+                            <field name="ordenes_hijas_count" widget="statinfo" string="Requisiciones Generadas"/>
                         </button>
                     </div>
                     <div class="oe_title">
@@ -332,9 +332,9 @@
                             <group string="Vínculo Community / Enterprise"
                                    invisible="not community_url and not enterprise_url">
                                 <field name="community_url" widget="url" invisible="not community_url"
-                                       string="Ver Orden en Community"/>
+                                       string="Ver Requisición en Community"/>
                                 <field name="enterprise_url" widget="url" invisible="not enterprise_url"
-                                       string="Ver Orden en Enterprise"/>
+                                       string="Ver Requisición en Enterprise"/>
                             </group>
                         </page>
                     </notebook>
@@ -375,7 +375,7 @@
                 <field name="name"/>
                 <field name="partner_id"/>
                 <field name="lote_origen" string="Lote de Origen"/>
-                <filter string="Mis Órdenes" name="my_orders"
+                <filter string="Mis Requisiciones" name="my_orders"
                         domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo')), ('requested_by_id', '=', uid)]"/>
                 <filter string="Pendientes de Aprobar" name="pendientes"
                         domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo')), ('state', '=', 'enviado')]"/>

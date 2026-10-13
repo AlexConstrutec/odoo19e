@@ -13,7 +13,7 @@
                     </setting>
                 </block>
                 <block title="Tipos de Requisición de Pago disponibles al crear" name="payment_order_tipos_settings"
-                       help="Controla qué opciones aparecen en el campo Tipo al crear una Requisición de Pago nueva en esta compañía. No afecta órdenes ya existentes ni las que llegan por sincronización.">
+                       help="Controla qué opciones aparecen en el campo Tipo al crear una Requisición de Pago nueva en esta compañía. No afecta requisiciones ya existentes ni las que llegan por sincronización.">
                     <setting id="payment_order_habilitar_anticipo" string="Anticipo">
                         <field name="payment_order_habilitar_anticipo"/>
                     </setting>

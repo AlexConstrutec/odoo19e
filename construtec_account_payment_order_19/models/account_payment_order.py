@@ -190,7 +190,7 @@ class AccountPaymentOrder(models.Model):
         ('liquidado', 'Liquidado'),
         ('cancelado', 'Cancelado'),
         ('dividida', 'Dividida'),
-    ], default='borrador', copy=False, tracking=True,
+    ], string='Estado', default='borrador', copy=False, tracking=True,
         help='`enviado`/`aprobado`/`rechazado` solo aplican a Anticipo/Anticipo Viáticos (el '
              'ciclo heredado de la antigua Solicitud de Pago, fusionada aquí). Pago Directo va '
              'directo de `borrador` a `liquidado` vía `action_conciliar()`, sin pasar por '
@@ -306,15 +306,15 @@ class AccountPaymentOrder(models.Model):
              'entonces `cancelado`, solo como referencia (ver `ordenes_hijas_ids`). Editable '
              'libremente mientras la Orden esté en Borrador.')
     orden_padre_id = fields.Many2one(
-        'account.payment.order', string='Orden Original', readonly=True, copy=False,
+        'account.payment.order', string='Requisición Original', readonly=True, copy=False,
         help='Si esta Orden se generó al dividir un Anticipo Viáticos con "Depositar Directo a '
              'Técnicos" marcado, aquí queda la Orden original de la que salió.')
     ordenes_hijas_ids = fields.One2many(
-        'account.payment.order', 'orden_padre_id', string='Órdenes Generadas',
+        'account.payment.order', 'orden_padre_id', string='Requisiciones Generadas',
         help='Si esta Orden se dividió ("Depositar Directo a Técnicos"), aquí quedan las '
              'Órdenes independientes que se generaron, una por técnico.')
     ordenes_hijas_count = fields.Integer(
-        string='Cantidad de Órdenes Generadas', compute='_compute_ordenes_hijas_count')
+        string='Cantidad de Requisiciones Generadas', compute='_compute_ordenes_hijas_count')
     lote_origen = fields.Char(
         string='Lote de Origen', copy=False, readonly=True,
         help='`name` (nunca un id) de la Orden original que se dividió en Órdenes por técnico '
