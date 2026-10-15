@@ -30,7 +30,13 @@ muestra datos contables**: solo el formulario y el estado de las solicitudes.
   exactamente esa empresa. Solo incluye asientos publicados (`all_entries: False`). Adjunta el archivo a la solicitud
   y manda un `mail.mail` con `send()` inmediato. Si el SMTP falla, la solicitud queda en `error` con el motivo.
   Cada solicitud corre en su propio savepoint, así que una mala no traba la cola.
-- `email_from` = correo de la empresa solicitada; si no tiene, el del usuario del cron (OdooBot).
+- `email_from` = parámetro del sistema `construtec_portal_ledger_request_19.email_from` (por defecto
+  `alex.martinez@construtecasesores.com`, `noupdate`), con el nombre de la empresa solicitada como nombre visible. Si
+  el parámetro está vacío, se usa el correo de la empresa o, si no hay, el del usuario del cron.
+  **Por qué:** en producción (`construtecasesores.odoo.com`) el único servidor de salida es Outlook ("Outlook Sal"),
+  que inicia sesión con esa cuenta y rechaza cualquier otro From con `554 5.2.252 SendAsDenied`. La primera
+  solicitud real (2026-10-15, MYR) falló así: MYR no tenía correo y el remitente cayó en
+  `notifications@construtecasesores.odoo.com`. Si se cambia el servidor de salida, hay que cambiar el parámetro.
 
 ## Configurar al contador
 

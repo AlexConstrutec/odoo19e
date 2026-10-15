@@ -6,9 +6,11 @@ from markupsafe import Markup
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
+from odoo.tools import formataddr
 
 _logger = logging.getLogger(__name__)
 
+EMAIL_FROM_PARAM = "construtec_portal_ledger_request_19.email_from"
 MAX_RANGE_DAYS = 366
 MAX_REQUESTS_PER_DAY = 10
 
@@ -134,6 +136,17 @@ class ConstrutecLedgerRequest(models.Model):
             raise UserError(_("El reporte no quedó limitado a la empresa %s.", company.name))
         return report.export_to_xlsx(options)
 
+    def _get_email_from(self):
+        """Remitente fijo del parámetro del sistema (el servidor SMTP de producción, Outlook, solo deja
+        enviar como su propia cuenta: cualquier otro From da SendAsDenied). Se muestra con el nombre de la
+        empresa solicitada. Sin parámetro: correo de la empresa, o el del usuario del cron."""
+        self.ensure_one()
+        company = self.company_id
+        email = self.env["ir.config_parameter"].sudo().get_param(EMAIL_FROM_PARAM, "").strip()
+        if email:
+            return formataddr((company.name, email))
+        return company.email_formatted or self.env.user.email_formatted
+
     def _generate_and_send(self):
         self.ensure_one()
         result = self._generate_xlsx()
@@ -163,7 +176,7 @@ class ConstrutecLedgerRequest(models.Model):
                          company=company.name, date_from=self.date_from.strftime("%d/%m/%Y"),
                          date_to=self.date_to.strftime("%d/%m/%Y")),
             "body_html": body,
-            "email_from": company.email_formatted or self.env.user.email_formatted,
+            "email_from": self._get_email_from(),
             "email_to": self.email_to,
             "attachment_ids": [(4, attachment.id)],
             "auto_delete": False,

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Remitente de los correos del Libro Mayor. Debe ser la cuenta del servidor SMTP de salida
+         (Outlook solo deja enviar como su propia cuenta). Se cambia en Ajustes > Técnico > Parámetros del sistema. -->
+    <record id="param_email_from" model="ir.config_parameter">
+        <field name="key">construtec_portal_ledger_request_19.email_from</field>
+        <field name="value">alex.martinez@construtecasesores.com</field>
+    </record>
+</odoo>
