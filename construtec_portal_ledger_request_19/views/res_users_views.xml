@@ -11,7 +11,10 @@
                         Empresas cuyo Libro Mayor puede solicitar este usuario desde el portal (/my/libro-mayor).
                         Se le envía en Excel al correo de su contacto. Vacío = sin acceso.
                     </p>
-                    <field name="ledger_portal_company_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                    <group>
+                        <field name="ledger_portal_company_ids" string="Empresas autorizadas" widget="many2many_tags"
+                               options="{'no_create': True}" placeholder="Agregar empresas..."/>
+                    </group>
                 </page>
             </xpath>
         </field>

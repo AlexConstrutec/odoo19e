@@ -3,7 +3,7 @@
     "name": "Construtec - Solicitud de Libro Mayor desde el Portal",
     "summary": "El contador externo (usuario portal) solicita el Libro Mayor de una empresa y rango de fechas; "
                "le llega por correo en Excel. Sin acceso al backend.",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.0.1",
     "license": "AGPL-3",
     "category": "Accounting",
     "author": "Alex Martinez",
