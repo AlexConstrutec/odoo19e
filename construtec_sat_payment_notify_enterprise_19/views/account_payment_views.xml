@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_payment_form_whatsapp" model="ir.ui.view">
+        <field name="name">account.payment.form.whatsapp</field>
+        <field name="model">account.payment</field>
+        <field name="inherit_id" ref="account.view_account_payment_form"/>
+        <field name="arch" type="xml">
+            <notebook name="payment_notebook" position="inside">
+                <page string="Aviso por WhatsApp" name="whatsapp_supplier_notify"
+                      invisible="partner_type != 'supplier' or payment_type != 'outbound'">
+                    <group>
+                        <group>
+                            <field name="has_sat_invoice" invisible="1"/>
+                            <field name="notify_supplier_whatsapp"
+                                   readonly="whatsapp_notify_state == 'enviado'"/>
+                            <field name="community_sync_state"/>
+                            <field name="community_payment_url" widget="url"
+                                   invisible="not community_payment_url"/>
+                        </group>
+                        <group>
+                            <field name="whatsapp_notify_state" invisible="not whatsapp_notify_state"/>
+                            <field name="whatsapp_notify_error" invisible="not whatsapp_notify_error"/>
+                            <field name="whatsapp_cancel_notify_state"
+                                   invisible="not whatsapp_cancel_notify_state or whatsapp_cancel_notify_state == 'no_aplica'"/>
+                        </group>
+                    </group>
+                    <div class="text-muted" invisible="has_sat_invoice">
+                        Este pago no paga facturas que vengan de un Documento SAT: Community no
+                        enviará aviso aunque la casilla esté marcada.
+                    </div>
+                    <div class="text-muted">
+                        El WhatsApp lo envía Community (WhatsApp Alterno) en su siguiente
+                        sincronización, cada 20 minutos. Si el pago se cancela después de avisado,
+                        se envía también un aviso de cancelación.
+                    </div>
+                </page>
+            </notebook>
+        </field>
+    </record>
+</odoo>
