@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_construtec_ledger_request_readonly,construtec.ledger.request readonly,model_construtec_ledger_request,account.group_account_readonly,1,0,0,0
+access_construtec_ledger_request_manager,construtec.ledger.request manager,model_construtec_ledger_request,account.group_account_manager,1,1,0,1

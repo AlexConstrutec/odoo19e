@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_users_form_ledger_portal" model="ir.ui.view">
+        <field name="name">res.users.form.ledger.portal</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook/page[@name='access_rights']" position="after">
+                <page name="ledger_portal" string="Portal: Libro Mayor" groups="base.group_erp_manager">
+                    <p class="text-muted">
+                        Empresas cuyo Libro Mayor puede solicitar este usuario desde el portal (/my/libro-mayor).
+                        Se le envía en Excel al correo de su contacto. Vacío = sin acceso.
+                    </p>
+                    <field name="ledger_portal_company_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="cron_process_ledger_requests" model="ir.cron">
+        <field name="name">Construtec: enviar Libros Mayores solicitados desde el portal</field>
+        <field name="model_id" ref="model_construtec_ledger_request"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_process_pending()</field>
+        <field name="interval_number">10</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+    </record>
+</odoo>

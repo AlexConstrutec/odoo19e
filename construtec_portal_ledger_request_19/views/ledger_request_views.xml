@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="construtec_ledger_request_list" model="ir.ui.view">
+        <field name="name">construtec.ledger.request.list</field>
+        <field name="model">construtec.ledger.request</field>
+        <field name="arch" type="xml">
+            <list create="false" decoration-danger="state == 'error'" decoration-warning="state == 'pendiente'">
+                <field name="create_date" string="Solicitado"/>
+                <field name="user_id"/>
+                <field name="email_to"/>
+                <field name="company_id"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <field name="state" widget="badge" decoration-success="state == 'enviado'" decoration-danger="state == 'error'" decoration-warning="state == 'pendiente'"/>
+                <field name="sent_date"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="construtec_ledger_request_form" model="ir.ui.view">
+        <field name="name">construtec.ledger.request.form</field>
+        <field name="model">construtec.ledger.request</field>
+        <field name="arch" type="xml">
+            <form create="false" edit="false">
+                <header>
+                    <button name="action_retry" type="object" string="Reintentar" class="btn-primary"
+                            invisible="state != 'error'" groups="account.group_account_manager"/>
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="user_id"/>
+                            <field name="partner_id"/>
+                            <field name="email_to"/>
+                        </group>
+                        <group>
+                            <field name="company_id"/>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="sent_date"/>
+                            <field name="attachment_id"/>
+                        </group>
+                    </group>
+                    <field name="error_message" invisible="not error_message" class="text-danger"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="construtec_ledger_request_search" model="ir.ui.view">
+        <field name="name">construtec.ledger.request.search</field>
+        <field name="model">construtec.ledger.request</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="user_id"/>
+                <field name="company_id"/>
+                <filter name="pendiente" string="Pendientes" domain="[('state', '=', 'pendiente')]"/>
+                <filter name="error" string="Con error" domain="[('state', '=', 'error')]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_construtec_ledger_request" model="ir.actions.act_window">
+        <field name="name">Solicitudes de Libro Mayor (portal)</field>
+        <field name="res_model">construtec.ledger.request</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_construtec_ledger_request"
+              name="Solicitudes de Libro Mayor (portal)"
+              parent="account.menu_finance_reports"
+              action="action_construtec_ledger_request"
+              groups="account.group_account_manager"
+              sequence="200"/>
+</odoo>

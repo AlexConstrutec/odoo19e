@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="portal_my_home_ledger_request" name="Libro Mayor (portal)" inherit_id="portal.portal_my_home" priority="40">
+        <div id="portal_common_category" position="before">
+            <div t-if="request.env.user.sudo().ledger_portal_company_ids" class="o_portal_category row g-2 mt-3" id="portal_ledger_category">
+                <t t-call="portal.portal_docs_entry">
+                    <t t-set="icon" t-value="'/account/static/src/img/bill.svg'"/>
+                    <t t-set="title">Libro Mayor</t>
+                    <t t-set="text">Solicita el Libro Mayor de una empresa; te llega en Excel por correo</t>
+                    <t t-set="url" t-value="'/my/libro-mayor'"/>
+                    <t t-set="config_card" t-value="True"/>
+                </t>
+            </div>
+        </div>
+    </template>
+
+    <template id="portal_breadcrumbs_ledger_request" name="Libro Mayor: breadcrumb" inherit_id="portal.portal_breadcrumbs" priority="40">
+        <xpath expr="//ol[hasclass('o_portal_submenu')]" position="inside">
+            <li t-if="page_name == 'libro_mayor'" class="breadcrumb-item active">Libro Mayor</li>
+        </xpath>
+    </template>
+
+    <template id="portal_my_ledger_request" name="Solicitar Libro Mayor">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="False"/>
+            <h3 class="mt-3">Solicitar Libro Mayor</h3>
+            <p class="text-muted">
+                Elige la empresa y el rango de fechas. El Libro Mayor se genera en Excel y se envía a
+                <b t-out="ledger_email or 'tu correo registrado'"/> en unos minutos.
+            </p>
+            <div t-if="ledger_sent" class="alert alert-success">Solicitud recibida. Te llegará por correo en unos minutos.</div>
+            <div t-if="ledger_error" class="alert alert-danger" t-out="ledger_error"/>
+
+            <form action="/my/libro-mayor/solicitar" method="post" class="row g-3 mb-4">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <div class="col-md-6">
+                    <label class="form-label" for="ledger_company_id">Empresa</label>
+                    <select id="ledger_company_id" name="company_id" class="form-select" required="required">
+                        <t t-foreach="ledger_companies" t-as="company">
+                            <option t-att-value="company.id" t-att-selected="company.id == form.get('company_id')" t-out="company.name"/>
+                        </t>
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label" for="ledger_date_from">Fecha inicio</label>
+                    <input id="ledger_date_from" type="date" name="date_from" class="form-control" required="required" t-att-value="form.get('date_from')"/>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label" for="ledger_date_to">Fecha fin</label>
+                    <input id="ledger_date_to" type="date" name="date_to" class="form-control" required="required" t-att-value="form.get('date_to')"/>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">Solicitar Libro Mayor</button>
+                    <span class="text-muted small ms-2">Rango máximo: 1 año.</span>
+                </div>
+            </form>
+
+            <h5>Mis solicitudes</h5>
+            <p t-if="not ledger_requests" class="text-muted">Aún no has hecho solicitudes.</p>
+            <t t-if="ledger_requests" t-call="portal.portal_table">
+                <thead>
+                    <tr>
+                        <th>Fecha de solicitud</th>
+                        <th>Empresa</th>
+                        <th>Rango</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr t-foreach="ledger_requests" t-as="req">
+                        <td><span t-field="req.create_date"/></td>
+                        <td t-out="req.company_id.name"/>
+                        <td><span t-field="req.date_from"/> - <span t-field="req.date_to"/></td>
+                        <td>
+                            <span t-if="req.state == 'pendiente'" class="badge text-bg-warning">Pendiente</span>
+                            <span t-elif="req.state == 'enviado'" class="badge text-bg-success">Enviado</span>
+                            <span t-else="" class="badge text-bg-danger">Error, la empresa lo revisará</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </t>
+        </t>
+    </template>
+</odoo>
