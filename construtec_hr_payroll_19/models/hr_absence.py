@@ -28,7 +28,7 @@ class HrAbsenceLine(models.Model):
         ('draft', 'Borrador'),
         ('approve', 'Aprobado'),
         ('refuse', 'Rechazado'),
-    ], string='Estado', default='draft', tracking=True, copy=False)
+    ], string='Estado', default='draft', copy=False)
 
     @api.depends('date_from', 'date_to')
     def _compute_number_of_days(self):

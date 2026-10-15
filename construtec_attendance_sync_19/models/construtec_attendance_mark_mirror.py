@@ -39,10 +39,10 @@ class ConstrutecAttendanceMarkMirror(models.Model):
     received_date = fields.Datetime(string="Fecha del marcaje (Community)", required=True)
     company_id = fields.Many2one('res.company', default=lambda self: self.env.company)
 
-    _sql_constraints = [
-        ('source_record_id_uniq', 'unique(source_record_id)',
-         'Ya existe un marcaje recibido con ese identificador de origen.'),
-    ]
+    _source_record_id_uniq = models.Constraint(
+        'unique(source_record_id)',
+        'Ya existe un marcaje recibido con ese identificador de origen.',
+    )
 
     @api.depends('latitude', 'longitude')
     def _compute_maps_url(self):

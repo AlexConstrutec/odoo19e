@@ -20,9 +20,10 @@ class HrDiasLaboradosMes(models.Model):
     total_ausencia = fields.Integer(string='Total Ausencia')
     dias_laborados = fields.Integer(string='Días Laborados', required=True)
 
-    _sql_constraints = [
-        ('anio_mes_unique', 'unique(anio, mes)', 'Ya existe un registro de días laborados para ese año y mes.'),
-    ]
+    _anio_mes_unique = models.Constraint(
+        'unique(anio, mes)',
+        'Ya existe un registro de días laborados para ese año y mes.',
+    )
 
     @api.model
     def get_dias_laborados(self, date_start, date_end=None):

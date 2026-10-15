@@ -186,9 +186,11 @@ class HrPayslip(models.Model):
 class HrPayslipLine(models.Model):
     _inherit = 'hr.payslip.line'
 
-    name = fields.Char(required=True, compute='_compute_display_name', store=True)
+    # Antes este compute se llamaba _compute_display_name: reemplazaba el de Odoo sin asignar
+    # display_name, y leer el nombre visible de una línea daba "Compute method failed to assign".
+    name = fields.Char(required=True, compute='_compute_name', store=True)
 
     @api.depends('salary_rule_id')
-    def _compute_display_name(self):
+    def _compute_name(self):
         for line in self:
             line.name = line.salary_rule_id.name

@@ -50,10 +50,10 @@ class AuditLogRule(models.Model):
         string='Unidad', default='months')
     log_count = fields.Integer(compute='_compute_log_count', string='Registros en la bitácora')
 
-    _sql_constraints = [
-        ('model_uniq', 'unique(model_id)',
-         'Ya existe una regla de auditoría para este modelo.'),
-    ]
+    _model_uniq = models.Constraint(
+        'unique(model_id)',
+        'Ya existe una regla de auditoría para este modelo.',
+    )
 
     @api.constrains('model_id')
     def _check_model_not_audit_log_itself(self):

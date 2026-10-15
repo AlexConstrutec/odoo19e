@@ -66,7 +66,7 @@ class ConstructecHelpdeskTicketMirror(models.Model):
              'Factura) - la elige el contable a mano mientras arma la factura, para ver el '
              'costo acumulado de los Tickets ya vinculados antes de confirmarla.')
     reconciled_payment_ids = fields.Many2many(
-        'account.payment', string='Pagos Conciliados', compute='_compute_billing_state')
+        'account.payment', string='Pagos Conciliados', compute='_compute_reconciled_payment_ids')
     payment_id = fields.Many2one(
         'account.payment', string='Pago', compute='_compute_billing_state', store=True,
         help='El primer pago conciliado contra la Factura, una vez que `billing_state` llega '
@@ -102,7 +102,13 @@ class ConstructecHelpdeskTicketMirror(models.Model):
             else:
                 rec.billing_state = 'facturado'
                 rec.payment_id = False
-            rec.reconciled_payment_ids = move.reconciled_payment_ids
+
+    # Compute aparte: reconciled_payment_ids no se guarda y los otros dos sí; compartir el
+    # método daba el warning de 'store'/'compute_sudo' inconsistentes en Odoo 19.
+    @api.depends('move_id.reconciled_payment_ids')
+    def _compute_reconciled_payment_ids(self):
+        for rec in self:
+            rec.reconciled_payment_ids = rec.move_id.reconciled_payment_ids
 
     @api.depends('number', 'name')
     def _compute_ticket_label(self):

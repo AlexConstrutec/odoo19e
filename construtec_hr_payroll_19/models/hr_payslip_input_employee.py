@@ -22,7 +22,7 @@ class HrPayslipInputEmployee(models.Model):
         ('draft', 'Borrador'),
         ('approve', 'Aprobado'),
         ('refuse', 'Rechazado'),
-    ], string='Estado', default='draft', tracking=True, copy=False)
+    ], string='Estado', default='draft', copy=False)
 
     @api.onchange('employee_id')
     def _onchange_employee_id(self):

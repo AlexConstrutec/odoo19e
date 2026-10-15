@@ -62,9 +62,10 @@ class HrCodigoEmployee(models.Model):
     work_contact_id = fields.Many2one('res.partner', string='Contacto')
     bank_account_id = fields.Many2one('res.partner.bank', string='Cuenta bancaria')
 
-    _sql_constraints = [
-        ('identification_employee_id_unique', 'unique(identification_employee_id)', 'El DPI debe ser único.'),
-    ]
+    _identification_employee_id_unique = models.Constraint(
+        'unique(identification_employee_id)',
+        'El DPI debe ser único.',
+    )
 
     def _employee_field_map(self):
         """Mapa {campo hr.codigo.employee: campo hr.employee} para sincronizar datos entre ambos modelos."""
