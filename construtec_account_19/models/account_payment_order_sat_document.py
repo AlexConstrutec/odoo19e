@@ -1,4 +1,8 @@
 from odoo import api, fields, models
+from odoo.exceptions import UserError
+
+from odoo.addons.construtec_account_payment_order_19.models.account_payment_order import (
+    GASTOS_STATES_EDITABLES, GASTOS_TIPOS)
 
 
 class AccountPaymentOrder(models.Model):
@@ -82,3 +86,47 @@ class AccountPaymentOrder(models.Model):
             for documento in pendientes:
                 documento.action_convertir_a_factura()
         return res
+
+    @api.model
+    def sync_gasto_documents_from_community(self, external_ref, sat_document_ids):
+        """Método whitelisted, llamado vía JSON-RPC desde Community (ver
+        `link_gasto_documents_in_enterprise()` en `tools/enterprise_sync_api.py`): el técnico
+        vincula, DESPUÉS de enviar su Requisición de Viáticos, las facturas con las que gastó el
+        anticipo (2026-10-17) - hacen falta para liquidarlo.
+
+        La Requisición se localiza por `external_ref` (el `name` de su copia en Community, nunca un
+        id) y debe seguir en Enviada/Aprobada/Aplicada. Cada Documento SAT se resuelve según su
+        estado REAL ahora (`_resolve_sat_document_ids()`): ya convertido a factura se vincula su
+        `move_id`; pendiente se reclama. Los candados reales (factura pagada, o ya tomada por otra
+        requisición viva) los valida `account.move.write()`/`construtec.sat.document.write()`; si
+        alguno falla, la excepción llega tal cual a Community y no se vincula NADA (una sola
+        transacción).
+
+        A diferencia de Pago Directo, un documento pendiente NO se convierte a factura aquí ni al
+        Aprobar: convertirlo exige Cuenta Contable en cada línea y bloquearía la aprobación del
+        anticipo. El Contador lo convierte desde el Documento SAT cuando le corresponda (la factura
+        nace ya vinculada a esta requisición) y luego Liquida.
+
+        `sudo()`: el usuario de integración solo puede crear Órdenes (ver security)."""
+        order = self.sudo().search(
+            [('external_ref', '=', external_ref), ('origin', '=', 'synced')], limit=1)
+        if not order:
+            raise UserError(self.env._(
+                'No se encontró en Enterprise la requisición %s.', external_ref))
+        if order.tipo not in GASTOS_TIPOS:
+            raise UserError(self.env._(
+                'La requisición %s no es de Viáticos: no lleva facturas de gastos.', order.name))
+        if order.state not in GASTOS_STATES_EDITABLES:
+            raise UserError(self.env._(
+                'La requisición %(name)s ya no admite facturas de gastos (estado: %(state)s).',
+                name=order.name, state=dict(order._fields['state'].selection)[order.state]))
+        documentos = order.env['construtec.sat.document'].browse(sat_document_ids or []).exists()
+        if not documentos:
+            raise UserError(self.env._('No se recibió ninguna factura que vincular.'))
+        order._resolve_sat_document_ids(documentos.ids)
+        order.message_post(body=self.env._(
+            'El técnico vinculó %(n)s factura(s) de gastos desde Community: %(docs)s.',
+            n=len(documentos),
+            docs=', '.join('%s (%s)' % (d.numero_autorizacion, d.partner_id.name or '-')
+                           for d in documentos)))
+        return True

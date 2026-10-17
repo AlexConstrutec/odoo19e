@@ -1085,3 +1085,13 @@ en vez de Q1,457.28). `construtec.sat.document.line.monto_descuento` era solo in
 precio_unitario) * 100`, redondeado a la precisión `Discount`. `otro_descuento` sigue informativo (no visto en
 datos reales). Al momento del fix había 1,155 documentos pendientes con descuento (5,547 líneas). Verificado con
 `odoo-bin shell`: líneas con descuento quedan al 5% y con el total del DTE; una línea sin descuento no cambia.
+
+## Facturas de gastos de Viáticos desde Community (2026-10-17)
+
+`account.payment.order.sync_gasto_documents_from_community(external_ref, sat_document_ids)` (`models/account_payment_order_sat_document.py`,
+`@api.model`, whitelisted): el técnico vincula en Community, después de enviar su requisición de Viáticos, las facturas de sus gastos para
+poder liquidar el anticipo. Localiza la requisición por `external_ref`, exige Viáticos en Enviada/Aprobada/Aplicada y reutiliza
+`_resolve_sat_document_ids()` (convertido → vincula `move_id`; pendiente → lo reclama). **Un documento pendiente NO se convierte solo**
+(convertir exige Cuenta Contable por línea y bloquearía aprobar el anticipo): el Contador lo convierte desde el Documento SAT y la factura
+nace ya vinculada a la requisición. La pestaña "Documentos SAT" de la requisición ahora también se ve en Viáticos. Detalle completo en el
+CLAUDE.md de `construtec_account_payment_order_19`. **Desplegar Enterprise antes que Community.**

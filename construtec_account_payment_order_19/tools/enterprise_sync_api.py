@@ -341,6 +341,26 @@ def create_partner_in_enterprise(url, db, login, api_key, vals):
         [db, uid, api_key, 'res.partner', 'create_partner_from_community', [[], vals]])
 
 
+def link_gasto_documents_in_enterprise(url, db, login, api_key, external_ref, sat_document_ids):
+    """Vincula Documentos SAT (facturas de gastos) a una Requisición de Viáticos YA enviada y
+    existente en Enterprise - el técnico las elige en Community DESPUÉS de enviar (2026-10-17:
+    para liquidar el anticipo hacen falta las facturas con las que se gastó).
+
+    La Requisición se localiza por `external_ref` (el `name` de la copia en Community, nunca un id:
+    son bases distintas) y los Documentos SAT por su id REAL en Enterprise (`origin_id` del mirror).
+    Método whitelisted `sync_gasto_documents_from_community` (`@api.model`, por eso no lleva lista
+    de ids): Enterprise valida estado y disponibilidad de cada documento al momento exacto."""
+    if not (url and db and login and api_key):
+        raise EnterpriseSyncError(
+            'Sincronización de Solicitudes de Pago incompleta (falta URL, base de datos, usuario '
+            'o API Key).')
+    uid = authenticate(url, db, login, api_key)
+    return _jsonrpc(
+        url, 'object', 'execute_kw',
+        [db, uid, api_key, 'account.payment.order', 'sync_gasto_documents_from_community',
+         [external_ref, [int(i) for i in sat_document_ids]]])
+
+
 def set_partner_contrata_in_enterprise(url, db, login, api_key, partner_ref, es_contrata):
     """Marca/desmarca la etiqueta "Contrata" de un `res.partner` YA existente en Enterprise
     (`partner_ref` = su id real allá, el `enterprise_partner_ref` del contacto en Community).

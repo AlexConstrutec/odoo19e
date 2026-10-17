@@ -25,7 +25,7 @@
         <field name="inherit_id" ref="construtec_account_payment_order_19.view_account_payment_order_form"/>
         <field name="arch" type="xml">
             <xpath expr="//page[@name='facturas_y_pagos']" position="before">
-                <page string="Documentos SAT" invisible="tipo != 'pago_directo'">
+                <page string="Documentos SAT" invisible="tipo not in ('pago_directo', 'anticipo_viaticos')">
                     <field name="sat_document_ids" nolabel="1">
                         <list create="false" delete="false">
                             <field name="numero_autorizacion" string="No. Autorización"/>

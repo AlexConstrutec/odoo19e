@@ -163,6 +163,40 @@
                                 </list>
                             </field>
                         </page>
+                        <!-- Facturas de gastos (2026-10-17): el técnico vincula, DESPUÉS de enviar, las
+                             facturas con las que gastó el anticipo de Viáticos - sirven para liquidarlo
+                             en Enterprise. Solo Community (es_procesador oculta la pestaña). -->
+                        <page string="Facturas de Gastos" name="facturas_gastos"
+                              invisible="tipo != 'anticipo_viaticos' or es_procesador or state not in ('borrador', 'enviado', 'aprobado', 'aplicado', 'liquidado')">
+                            <p class="text-muted">
+                                Agrega aquí las facturas con las que gastaste este anticipo: sirven para
+                                liquidarlo. Puedes hacerlo desde que creas la requisición (viajan junto con
+                                ella al enviarla) o después de enviarla, hasta que se liquide. Solo se
+                                aceptan facturas con saldo vigente (sin ningún pago o pagadas parcialmente)
+                                que no estén ya vinculadas a otra requisición. En Borrador puedes quitarlas;
+                                ya enviada, una factura no se puede quitar (Enterprise ya la reclamó).
+                                Con "Depositar a Técnicos" y varios técnicos, las facturas se agregan a la
+                                requisición de cada técnico después de enviar.
+                            </p>
+                            <field name="gasto_mirror_ids" widget="many2many" nolabel="1"
+                                   readonly="state not in ('borrador', 'enviado', 'aprobado', 'aplicado')"
+                                   domain="[('payment_state', '!=', 'paid'), ('linked_order_name', '=', False)]">
+                                <list default_order="fecha desc">
+                                    <field name="partner_name" string="Proveedor"/>
+                                    <field name="numero_documento" string="Número de Factura"/>
+                                    <field name="serie" string="Serie de Factura"/>
+                                    <field name="fecha" string="Fecha"/>
+                                    <field name="monto_total" string="Monto"/>
+                                    <field name="amount_residual" string="Saldo"/>
+                                    <field name="payment_state" string="Estado de Pago" widget="badge"
+                                           decoration-danger="payment_state == 'not_paid'"
+                                           decoration-warning="payment_state in ('partial', 'in_payment')"
+                                           decoration-success="payment_state in ('paid', 'reversed')"/>
+                                    <field name="numero_autorizacion" string="No. Autorización"
+                                           optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
                         <!-- groups= además de invisible: "invisible" solo oculta en pantalla, no evita
                              que Odoo intente LEER estos campos (factura_ids/pago_ids/move_id apuntan a
                              account.move/account.payment) - un usuario sin ningún grupo de Contabilidad

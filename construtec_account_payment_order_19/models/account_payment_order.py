@@ -3,7 +3,8 @@ from markupsafe import Markup
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError, ValidationError
 
-from ..tools.enterprise_sync_api import EnterpriseSyncError, create_sync_record
+from ..tools.enterprise_sync_api import (
+    EnterpriseSyncError, create_sync_record, link_gasto_documents_in_enterprise)
 
 APPROVER_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver'
 APPROVER_MEDIO_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver_medio'
@@ -22,6 +23,12 @@ ANTICIPO_TIPOS = ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')
 # `liquidado` vía action_conciliar(), igual que su camino clásico de `borrador` a `liquidado`
 # cuando se crea directo en Enterprise, sin pasar por Community).
 SUBMITTABLE_TIPOS = ANTICIPO_TIPOS + ('pago_directo',)
+# Facturas de gastos (2026-10-17): para liquidar un anticipo de Viáticos hacen falta las facturas con
+# las que el técnico gastó. Desde Community las vincula desde Borrador (viajan al enviar) y también
+# DESPUÉS de enviar, hasta que la requisición se liquide (ver gasto_mirror_ids). En Borrador se
+# pueden quitar libremente; ya enviada, solo se agregan (Enterprise ya las reclamó).
+GASTOS_TIPOS = ('anticipo_viaticos',)
+GASTOS_STATES_EDITABLES = ('borrador', 'enviado', 'aprobado', 'aplicado')
 
 
 def _resolve_employee_for_partner(partner, company):
@@ -153,6 +160,19 @@ class AccountPaymentOrder(models.Model):
              'reclama y el Contador lo convierte a factura real al Aprobar. Sin efecto en '
              'Enterprise mismo (es_procesador=True) - ahí se usa `factura_ids` directo, como '
              'siempre.')
+    gasto_mirror_ids = fields.Many2many(
+        'construtec.sat.invoice.mirror', relation='account_payment_order_gasto_mirror_rel',
+        column1='order_id', column2='mirror_id', string='Facturas de Gastos',
+        domain=[('payment_state', '!=', 'paid')],
+        help='Facturas (Documentos SAT) con las que el técnico gastó el anticipo de Viáticos - '
+             'sirven para liquidarlo. Solo en Community. Se pueden agregar desde Borrador (viajan '
+             'junto con la requisición al enviarla: `sat_document_ids`) y también después de '
+             'enviarla, hasta que se liquide: ahí, al guardar, se avisan a Enterprise '
+             '(`sync_gasto_documents_from_community()`). Enterprise las reclama y el Contador las '
+             'convierte a factura real y las concilia contra el pago. Solo se aceptan facturas con '
+             'saldo vigente (sin pago o pagadas parcialmente) que no estén vinculadas a otra '
+             'requisición. En Borrador se pueden quitar; ya enviada no (Enterprise ya las '
+             'reclamó).')
     partner_es_contrata = fields.Boolean(
         string='Es Contrata', compute='_compute_partner_es_contrata',
         inverse='_inverse_partner_es_contrata',
@@ -731,13 +751,66 @@ class AccountPaymentOrder(models.Model):
             raise UserError(self.env._(
                 'La factura %(factura)s ya está vinculada a la Orden de Pago %(orden)s.',
                 factura=label, orden=mirror.linked_order_name))
-        if (self.partner_id and self.partner_id.vat and mirror.partner_vat
-                and mirror.partner_vat != self.partner_id.vat):
+        if (self.tipo == 'pago_directo' and self.partner_id and self.partner_id.vat
+                and mirror.partner_vat and mirror.partner_vat != self.partner_id.vat):
             raise UserError(self.env._(
                 'La factura %(factura)s es del proveedor %(otro)s, no de %(actual)s - una '
                 'Requisición de Pago Directo es para un solo proveedor.',
                 factura=label, otro=mirror.partner_name or mirror.partner_vat,
                 actual=self.partner_id.name))
+
+    def _check_gasto_mirror_disponible(self, mirror):
+        """Una factura de gasto debe tener saldo vigente: sin pago o pagada parcialmente, nunca
+        pagada (aviso temprano contra el mirror; la autoridad real corre en Enterprise). A
+        diferencia de Pago Directo, aquí las facturas pueden ser de cualquier proveedor (el técnico
+        gastó en varios comercios), así que no se valida el NIT."""
+        self._check_factura_mirror_disponible(mirror)
+        label = mirror.numero_autorizacion or mirror.partner_name or str(mirror.origin_id)
+        if mirror.state == 'convertido_factura' and mirror.amount_residual <= 0:
+            raise UserError(self.env._(
+                'La factura %s ya no tiene saldo pendiente: solo se aceptan facturas sin pago o '
+                'pagadas parcialmente.', label))
+
+    def _check_puede_vincular_gastos(self):
+        self.ensure_one()
+        company = self.env.company
+        if self.tipo not in GASTOS_TIPOS:
+            raise UserError(self.env._(
+                'Solo las requisiciones de Viáticos llevan facturas de gastos.'))
+        if self.state not in GASTOS_STATES_EDITABLES:
+            raise UserError(self.env._(
+                'Las facturas de gastos se vinculan desde Borrador y hasta que la requisición se '
+                'liquide (estado actual: %s).', dict(self._fields['state'].selection)[self.state]))
+        if self.state == 'borrador':
+            # Todavía no existe la copia en Enterprise: viajan al enviar (`sat_document_ids`).
+            return
+        if company.payment_order_role != 'solicitante' or not company.payment_order_sync_enabled:
+            raise UserError(self.env._(
+                'La sincronización con Enterprise no está habilitada: no se pueden vincular '
+                'facturas desde esta instalación.'))
+        if self.sync_state != 'synced':
+            raise UserError(self.env._(
+                'Esta requisición todavía no se sincroniza con Enterprise: espere a que se envíe '
+                'correctamente para vincular facturas.'))
+
+    def _push_gastos_to_enterprise(self, mirrors):
+        """Avisa a Enterprise las facturas de gastos recién vinculadas. Si Enterprise no responde o
+        rechaza alguna (ya pagada, vinculada a otra requisición...), la excepción cancela el
+        guardado completo: Community nunca muestra facturas que Enterprise no tiene."""
+        self.ensure_one()
+        company = self.env.company
+        try:
+            link_gasto_documents_in_enterprise(
+                company.payment_order_sync_url, company.payment_order_sync_db,
+                company.payment_order_sync_login, company.payment_order_sync_api_key,
+                self.name, mirrors.mapped('origin_id'))
+        except EnterpriseSyncError as exc:
+            raise UserError(self.env._(
+                'No se pudieron vincular las facturas en Enterprise: %s', exc)) from exc
+        self.message_post(body=self.env._(
+            'Facturas de gastos vinculadas: %s.',
+            ', '.join(m.numero_documento or m.numero_autorizacion or str(m.origin_id)
+                      for m in mirrors)))
 
     def _resolve_employee_enterprise_ref(self, vals):
         """Resuelve `employee_enterprise_ref` (el id ORIGINAL de este empleado en Enterprise,
@@ -861,7 +934,24 @@ class AccountPaymentOrder(models.Model):
                     raise UserError(self.env._(
                         'No se puede cambiar el empleado de una Orden de Pago ya creada '
                         '- cree una nueva en su lugar.'))
+        gasto_antes = {}
+        if 'gasto_mirror_ids' in vals:
+            for rec in self:
+                rec._check_puede_vincular_gastos()
+            gasto_antes = {rec.id: rec.gasto_mirror_ids for rec in self}
         res = super().write(vals)
+        # En Borrador se edita libremente (nada que avisar todavía); desde Enviada se empuja.
+        for rec in self.filtered(lambda r: r.id in gasto_antes and r.state != 'borrador'):
+            antes, ahora = gasto_antes[rec.id], rec.gasto_mirror_ids
+            if antes - ahora:
+                raise UserError(self.env._(
+                    'Una factura de gasto ya vinculada no se puede quitar: Enterprise ya la '
+                    'reclamó para esta requisición.'))
+            nuevas = ahora - antes
+            if nuevas:
+                for mirror in nuevas:
+                    rec._check_gasto_mirror_disponible(mirror)
+                rec._push_gastos_to_enterprise(nuevas)
         if any(k in vals for k in ('viaticos_line_ids', 'material_line_ids', 'anticipo_previo', 'tipo')):
             self._sync_monto_desde_total_acreditar()
         if 'proveedor_materiales_catalogo_id' in vals:
@@ -1059,6 +1149,9 @@ class AccountPaymentOrder(models.Model):
             if rec.tipo == 'anticipo_viaticos' and not rec.viaticos_line_ids:
                 raise UserError(self.env._(
                     'Agregue al menos una línea de viáticos antes de enviar la orden.'))
+            if rec.tipo in GASTOS_TIPOS:
+                for mirror in rec.gasto_mirror_ids:
+                    rec._check_gasto_mirror_disponible(mirror)
             if rec.viaticos_line_ids.filtered(lambda line: not line.employee_id):
                 raise UserError(self.env._(
                     'Todas las líneas de viáticos deben tener un empleado seleccionado antes '
@@ -1138,6 +1231,12 @@ class AccountPaymentOrder(models.Model):
         `costo_total` nunca pase por un estado intermedio donde cuenta el monto de esta Orden Y
         el de sus hijas a la vez."""
         self.ensure_one()
+        if len(self.viaticos_line_ids) > 1 and self.gasto_mirror_ids:
+            # Con varios técnicos no hay forma de saber a cuál le tocan las facturas ya elegidas.
+            raise UserError(self.env._(
+                'Con varios técnicos las facturas de gastos se vinculan a la requisición de cada '
+                'técnico una vez enviada. Quite las facturas de esta requisición antes de '
+                'depositar a técnicos.'))
         tiene_ticket_id = 'ticket_id' in self._fields
         ticket_id = self.ticket_id.id if tiene_ticket_id and self.ticket_id else False
         dividir_vals = {'state': 'dividida'}
@@ -1180,6 +1279,8 @@ class AccountPaymentOrder(models.Model):
             }
             if ticket_id:
                 vals['ticket_id'] = ticket_id
+            if self.gasto_mirror_ids:  # un solo técnico (ver arriba): sus facturas pasan a su orden
+                vals['gasto_mirror_ids'] = [(6, 0, self.gasto_mirror_ids.ids)]
             nuevas |= self.create(vals)
         nuevas.action_submit()
         self.message_post(body=self.env._(
@@ -1345,9 +1446,12 @@ class AccountPaymentOrder(models.Model):
             # construtec_account_19) - ya `convertido_factura` (vincula el `move_id` existente) o
             # todavía `pendiente` (lo reclama; el Contador lo convierte a factura real al
             # Aprobar). Vacío para cualquier tipo que no sea Pago Directo.
+            # Viáticos: las facturas de gastos que el técnico ya vinculó en Borrador (2026-10-17;
+            # las que vincule después de enviar viajan aparte, ver _push_gastos_to_enterprise()).
             'sat_document_ids': (
-                self.factura_mirror_ids.mapped('origin_id')
-                if self.tipo == 'pago_directo' else []),
+                self.factura_mirror_ids.mapped('origin_id') if self.tipo == 'pago_directo'
+                else self.gasto_mirror_ids.mapped('origin_id') if self.tipo in GASTOS_TIPOS
+                else []),
             # 'enviado', no 'aprobado': la aprobación ocurre en la instalación Procesadora
             # (Enterprise), donde están los usuarios Nivel Medio/Alto reales - ver
             # action_submit()/action_approve() más arriba.
