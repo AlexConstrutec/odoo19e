@@ -35,12 +35,12 @@
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'aplicado' or not es_procesador"/>
                     <button name="action_generar_orden_compra" string="Generar Orden de Compra" type="object"
                             groups="account.group_account_manager"
-                            invisible="tipo != 'anticipo_materiales' or state not in ('enviado', 'aprobado', 'aplicado') or not es_procesador"/>
+                            invisible="tipo != 'anticipo_materiales' or state not in ('aprobado', 'aplicado') or not es_procesador"/>
                     <!-- Un clic: genera la Orden de Compra si hace falta y muestra su PDF para enviarlo al
                          proveedor (2026-10-17). -->
                     <button name="action_imprimir_orden_compra" string="Imprimir Orden de Compra" type="object"
                             icon="fa-print" groups="account.group_account_manager"
-                            invisible="tipo != 'anticipo_materiales' or state not in ('enviado', 'aprobado', 'aplicado') or not es_procesador"/>
+                            invisible="tipo != 'anticipo_materiales' or state not in ('aprobado', 'aplicado') or not es_procesador"/>
                     <button name="%(action_account_payment_order_quote_import_wizard)d"
                             type="action" string="Cargar Cotización" icon="fa-magic"
                             context="{'default_order_id': id}"

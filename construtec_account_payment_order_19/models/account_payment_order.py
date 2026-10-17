@@ -1952,16 +1952,15 @@ class AccountPaymentOrder(models.Model):
         producto por material). Sin producto por defecto, las líneas sin producto se omiten (esa
         ausencia ES la señal de "ya hay existencia propia, no comprar" - ver el modelo de línea).
         Confirmar/enviar la Orden de Compra es el flujo nativo de la app Compras, no se
-        reimplementa aquí. Se puede generar desde que Enterprise la recibe (Enviada) - una RFQ en
-        borrador no compromete nada."""
+        reimplementa aquí. Solo con la requisición ya validada (Aprobada o Aplicada): la compra
+        se hace una vez aprobada, no al recibirla (aclarado por el usuario, 2026-10-17)."""
         self.ensure_one()
         if self.tipo != 'anticipo_materiales':
             raise UserError(self.env._(
                 'Generar Orden de Compra solo aplica a órdenes de tipo Solicitud de Materiales.'))
-        if self.state not in ('enviado', 'aprobado', 'aplicado'):
+        if self.state not in ('aprobado', 'aplicado'):
             raise UserError(self.env._(
-                'Solo se puede generar la Orden de Compra de una Requisición Enviada, Aprobada o '
-                'Aplicada.'))
+                'La Orden de Compra se genera una vez validada (Aprobada) la requisición.'))
         self._check_es_administrador_contable()
         # Mismo auto-sanado que Aprobar/Aplicar: si el proveedor sugerido por Community ya existe
         # como contacto, queda elegido sin que el contable lo busque.
