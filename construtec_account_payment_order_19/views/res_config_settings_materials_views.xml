@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Producto por defecto de las Solicitudes de Materiales (2026-10-17). Archivo aparte para no
+         tocar res_config_settings_views.xml, que difiere entre Community y Enterprise. Solo tiene
+         sentido donde se generan las Órdenes de Compra (Procesador / Enterprise). -->
+    <record id="res_config_settings_view_form_materials_product" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.payment.order.materials.product</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="construtec_account_payment_order_19.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='payment_order_approval_settings']" position="after">
+                <block title="Solicitudes de Materiales" name="payment_order_materials_settings"
+                       invisible="payment_order_role != 'procesador'">
+                    <setting id="payment_order_default_material_product"
+                             string="Producto por defecto para la Orden de Compra"
+                             help="Se usa en las líneas de materiales que no tienen un Producto asignado,
+                                   así la Orden de Compra se genera (y se imprime) en un clic sin buscar
+                                   un producto por material. El nombre en la Orden de Compra sigue siendo
+                                   el material pedido; el producto solo aporta unidad, impuestos y cuenta.">
+                        <field name="payment_order_default_material_product_id"
+                               options="{'no_create': True}"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

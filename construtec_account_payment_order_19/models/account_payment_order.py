@@ -1946,28 +1946,37 @@ class AccountPaymentOrder(models.Model):
 
     def action_generar_orden_compra(self):
         """Genera UNA Orden de Compra (RFQ, en `draft`) con las líneas de `material_line_ids`
-        que ya tienen un `product_id` resuelto en Enterprise y todavía no generaron una línea de
-        compra - las que no tienen producto se omiten en silencio (esa ausencia ES la señal de
-        "ya hay existencia propia, no comprar" - ver el modelo de línea), nunca se bloquea por
-        ellas. Confirmar/enviar la Orden de Compra es el flujo nativo de la app Compras, no se
-        reimplementa aquí."""
+        que todavía no generaron una línea de compra. Cada línea usa su `product_id` si ya lo
+        tiene y, si no, el **Producto por defecto de Materiales** de la compañía
+        (`payment_order_default_material_product_id`, 2026-10-17: así no hay que buscar un
+        producto por material). Sin producto por defecto, las líneas sin producto se omiten (esa
+        ausencia ES la señal de "ya hay existencia propia, no comprar" - ver el modelo de línea).
+        Confirmar/enviar la Orden de Compra es el flujo nativo de la app Compras, no se
+        reimplementa aquí. Se puede generar desde que Enterprise la recibe (Enviada) - una RFQ en
+        borrador no compromete nada."""
         self.ensure_one()
         if self.tipo != 'anticipo_materiales':
             raise UserError(self.env._(
                 'Generar Orden de Compra solo aplica a órdenes de tipo Solicitud de Materiales.'))
-        if self.state != 'aplicado':
+        if self.state not in ('enviado', 'aprobado', 'aplicado'):
             raise UserError(self.env._(
-                'Solo se puede generar la Orden de Compra de una Orden ya Aplicada.'))
+                'Solo se puede generar la Orden de Compra de una Requisición Enviada, Aprobada o '
+                'Aplicada.'))
         self._check_es_administrador_contable()
+        # Mismo auto-sanado que Aprobar/Aplicar: si el proveedor sugerido por Community ya existe
+        # como contacto, queda elegido sin que el contable lo busque.
+        self._autosugerir_proveedor_materiales_id()
         if not self.proveedor_materiales_id:
             raise UserError(self.env._('Define el Proveedor de Materiales antes de generar la Orden de Compra.'))
+        default_product = self.company_id.payment_order_default_material_product_id
         lineas = self.material_line_ids.filtered(
-            lambda l: l.product_id and not l.purchase_order_line_id)
+            lambda l: (l.product_id or default_product) and not l.purchase_order_line_id)
         if not lineas:
             raise UserError(self.env._(
-                'No hay líneas de materiales con Producto asignado pendientes de comprar - '
-                'asigna un Producto (Enterprise) a las líneas que hay que comprar, o revisa si '
-                'ya se generó la Orden de Compra para todas.'))
+                'No hay líneas de materiales pendientes de comprar con Producto - asigna un '
+                'Producto a las líneas, o define el "Producto por defecto para la Orden de '
+                'Compra" en Ajustes > Facturación, o revisa si ya se generó la Orden de Compra '
+                'para todas.'))
         analytic_distribution = (
             {str(self.analytic_account_id.id): 100.0} if self.analytic_account_id else False)
         purchase_order = self.env['purchase.order'].create({
@@ -1977,10 +1986,10 @@ class AccountPaymentOrder(models.Model):
             'payment_order_id': self.id,
             'order_line': [
                 (0, 0, {
-                    'product_id': linea.product_id.id,
+                    'product_id': (linea.product_id or default_product).id,
                     'name': linea.description or linea.product_name,
                     'product_qty': linea.qty,
-                    'product_uom_id': linea.product_id.uom_id.id,
+                    'product_uom_id': (linea.product_id or default_product).uom_id.id,
                     'price_unit': linea.estimated_price,
                     'analytic_distribution': analytic_distribution,
                 })
@@ -1995,6 +2004,37 @@ class AccountPaymentOrder(models.Model):
             'res_id': purchase_order.id,
             'view_mode': 'form',
             'target': 'current',
+        }
+
+    def action_imprimir_orden_compra(self):
+        """Botón "Imprimir Orden de Compra" (pedido del usuario, 2026-10-17): el Contador abre la
+        Solicitud de Materiales que recibió y, de un clic, ve el PDF de la Orden de Compra para
+        enviárselo al proveedor. Si todavía quedan líneas por comprar (o no hay ninguna Orden de
+        Compra), primero la genera (`action_generar_orden_compra()`, con el producto por defecto
+        para las líneas sin producto); después abre el PDF en una pestaña nueva (`/report/pdf/`,
+        se visualiza en el navegador, no se descarga). Si hay varias Órdenes de Compra no
+        canceladas, salen todas en un solo PDF. El reporte de Compras ya titula "Solicitud de
+        Cotización" mientras está en borrador y "Orden de Compra" una vez confirmada."""
+        self.ensure_one()
+        if self.tipo != 'anticipo_materiales':
+            raise UserError(self.env._(
+                'Imprimir la Orden de Compra solo aplica a Solicitudes de Materiales.'))
+        self._check_es_administrador_contable()
+        default_product = self.company_id.payment_order_default_material_product_id
+        pendientes = self.material_line_ids.filtered(
+            lambda l: (l.product_id or default_product) and not l.purchase_order_line_id)
+        ordenes = self.env['purchase.order'].search(
+            [('payment_order_id', '=', self.id), ('state', '!=', 'cancel')])
+        if pendientes or not ordenes:
+            self.action_generar_orden_compra()
+            ordenes = self.env['purchase.order'].search(
+            [('payment_order_id', '=', self.id), ('state', '!=', 'cancel')])
+        report = self.env.ref('purchase.action_report_purchase_order')
+        return {
+            'type': 'ir.actions.act_url',
+            'url': '/report/pdf/%s/%s' % (
+                report.report_name, ','.join(str(i) for i in ordenes.ids)),
+            'target': 'new',
         }
 
     def action_view_purchase_orders(self):

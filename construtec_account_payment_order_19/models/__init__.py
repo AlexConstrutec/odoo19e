@@ -7,6 +7,8 @@ from . import account_partial_reconcile
 from . import purchase_order
 from . import res_company
 from . import res_config_settings
+from . import res_company_materials
+from . import res_config_settings_materials
 from . import account_payment_order_sync_log
 from . import account_payment_order_enterprise_company
 from . import res_partner

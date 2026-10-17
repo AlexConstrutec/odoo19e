@@ -39,6 +39,7 @@
         'views/res_partner_views.xml',
         'views/res_partner_bank_views.xml',
         'views/res_config_settings_views.xml',
+        'views/res_config_settings_materials_views.xml',
         'report/account_payment_order_report.xml',
     ],
     'application': False,
