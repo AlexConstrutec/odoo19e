@@ -27,10 +27,21 @@ class ConstructecHelpdeskTicketMirror(models.Model):
              'normal - `name` llega igual a `number` desde Community), o "`number` - `name`" '
              'si sí difieren - mismo criterio que `helpdesk.ticket._compute_display_name()` '
              '(Community). Evita mostrar dos columnas casi siempre idénticas en las listas.')
+    costo_plan = fields.Monetary(
+        string='Costo por Plan', currency_field='currency_id',
+        help='Lo que vale el servicio según el Plan de Servicio del Ticket en Community (tickets '
+             'consumidos con recargos × precio por ticket del cliente), tal como llegó en el último '
+             'empuje - un espejo, no algo calculado aquí.')
     costo_total = fields.Monetary(
+        string='Costo por Requisiciones de Pago', currency_field='currency_id',
+        help='Suma de las Requisiciones de Pago vinculadas al Ticket en Community (payment_order_ids) '
+             'ya Aprobadas, Aplicadas o Liquidadas, tal como llegó en el último empuje - un espejo, '
+             'no algo calculado aquí. (El nombre del campo se conserva por compatibilidad: antes era '
+             'el único costo; el total de los dos es `costo_general`.)')
+    costo_general = fields.Monetary(
         string='Costo Total', currency_field='currency_id',
-        help='Suma de las Requisiciones de Pago vinculadas al Ticket en Community (payment_order_ids), '
-             'tal como llegó en el último empuje - un espejo, no algo calculado aquí.')
+        help='Suma de Costo por Plan + Costo por Requisiciones de Pago, tal como llegó en el último '
+             'empuje de Community (2026-10-19: ahora el Ticket manda los tres costos).')
     currency_id = fields.Many2one(
         'res.currency', string='Moneda', default=lambda self: self.env.company.currency_id)
     stage_name = fields.Char(string='Etapa (Community)')

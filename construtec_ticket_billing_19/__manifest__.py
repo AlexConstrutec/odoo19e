@@ -1,7 +1,7 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 {
     "name": "Construtec - Facturación de Tickets (Community)",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "category": "Accounting/Accounting",
     "summary": "Recibe, vía API, un espejo de los Tickets de Helpdesk enviados desde Odoo "
     "Community, y permite vincularlos a una Factura real para reflejar su costo/estado "

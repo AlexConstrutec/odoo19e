@@ -100,3 +100,13 @@ Verificado con `odoo-bin shell`, replicando el ejemplo exacto del usuario (15 ti
 ## Dual-repo deployment
 
 Installed verbatim in both `odoo19e` and `odoo19enterprise` (same convention as `construtec_account_payment_order_19`, `construtec_materials_sync_19`, etc.) — any change here must be copied to both and committed/pushed in both.
+
+## Tres costos por ticket (2026-10-19)
+
+El espejo (`construtec.helpdesk.ticket.mirror`) ahora recibe y muestra **tres** costos que Community calcula y envía en cada empuje (`sync_from_community()`
+es un upsert genérico, no necesitó cambios): `costo_plan` ("Costo por Plan": tickets consumidos con recargos × precio por ticket del cliente),
+`costo_total` ("Costo por Requisiciones de Pago": el nombre se conserva por compatibilidad, antes era el único costo) y `costo_general` ("Costo Total" =
+plan + requisiciones). Están en el formulario y la lista del espejo y en la pestaña "Tickets (Community)" de la factura (con totales). Migración `19.0.1.1.0`:
+las filas ya recibidas quedan con `costo_general = costo_total` (el plan no existía) hasta que Community reenvíe el ticket. Un empuje del formato anterior
+(solo `costo_total`) sigue siendo válido. **Desplegar este módulo antes que Community**: el upsert escribe las claves tal cual y fallaría con un campo
+inexistente. Probado en `construtec_test` (instalación, upsert, formato anterior, vistas y migración).
