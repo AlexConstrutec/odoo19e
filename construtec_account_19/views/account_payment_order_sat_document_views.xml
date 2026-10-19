@@ -25,8 +25,13 @@
         <field name="inherit_id" ref="construtec_account_payment_order_19.view_account_payment_order_form"/>
         <field name="arch" type="xml">
             <xpath expr="//page[@name='facturas_y_pagos']" position="before">
-                <page string="Documentos SAT" invisible="tipo not in ('pago_directo', 'anticipo_viaticos')">
-                    <field name="sat_document_ids" nolabel="1">
+                <page string="Documentos SAT" invisible="tipo not in ('pago_directo', 'anticipo_viaticos', 'anticipo_materiales')">
+                    <!-- Materiales (2026-10-19): el Contador agrega aquí los Documentos SAT del
+                         proveedor y luego los convierte a factura desde el propio documento (ver
+                         _inverse_sat_document_ids). En los demás tipos sigue de solo lectura. -->
+                    <field name="sat_document_ids" nolabel="1"
+                           readonly="tipo != 'anticipo_materiales' or state not in ('borrador', 'enviado', 'aprobado', 'aplicado')"
+                           domain="[('state', 'in', ('pendiente', 'convertido_factura')), ('payment_order_id', '=', False), '|', ('direction', '=', 'recibida'), ('tipo_dte', '=', 'FESP')]">
                         <list create="false" delete="false">
                             <field name="numero_autorizacion" string="No. Autorización"/>
                             <field name="partner_id" string="Proveedor"/>

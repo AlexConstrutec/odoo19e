@@ -18,6 +18,7 @@ class AccountPaymentOrder(models.Model):
 
     sat_document_ids = fields.Many2many(
         'construtec.sat.document', compute='_compute_sat_document_ids',
+        inverse='_inverse_sat_document_ids', readonly=False,
         string='Documentos SAT Incluidos',
         help='Todos los Documentos SAT que el jefe de técnicos eligió para esta Solicitud en '
              'Community (Pago Directo) - tanto los que ya son factura real (resueltos vía '
@@ -33,11 +34,41 @@ class AccountPaymentOrder(models.Model):
         Pendiente no dispara ningún `@api.depends` hacia esta Orden (su `payment_order_id` es
         un campo de OTRO modelo, escrito por `_resolve_sat_document_ids()`/`action_approve()`),
         así que se busca en vivo en vez de depender de un tracking exacto."""
-        Document = self.env['construtec.sat.document']
         for rec in self:
-            pendientes = Document.search([
-                ('payment_order_id', '=', rec.id), ('state', '=', 'pendiente')])
-            rec.sat_document_ids = rec.factura_ids.sat_document_id | pendientes
+            rec.sat_document_ids = rec._get_sat_documents_vinculados()
+
+    def _get_sat_documents_vinculados(self):
+        self.ensure_one()
+        if not isinstance(self.id, int):
+            return self.env['construtec.sat.document']
+        pendientes = self.env['construtec.sat.document'].search([
+            ('payment_order_id', '=', self.id), ('state', '=', 'pendiente')])
+        return self.factura_ids.sat_document_id | pendientes
+
+    def _inverse_sat_document_ids(self):
+        """Requisición de Materiales (2026-10-19): el Contador agrega en Enterprise, desde la
+        pestaña "Documentos SAT", los documentos del proveedor y luego los convierte a factura
+        (la factura nace ya vinculada a la requisición - ver action_convertir_a_factura()).
+        Agregar reclama el documento (pendiente) o vincula su factura (ya convertido) con
+        _resolve_sat_document_ids(), cuyos candados ya bloquean un documento tomado por otra
+        requisición viva o una factura pagada. Quitar libera ese vínculo. En los demás tipos el
+        campo es de solo lectura en la vista y esto no hace nada."""
+        for rec in self.filtered(lambda r: r.tipo == 'anticipo_materiales'):
+            actuales = rec._get_sat_documents_vinculados()
+            agregados = rec.sat_document_ids - actuales
+            quitados = actuales - rec.sat_document_ids
+            if agregados:
+                rec._resolve_sat_document_ids(agregados.ids)
+            for documento in quitados:
+                if documento.state == 'pendiente' and documento.payment_order_id == rec:
+                    documento.payment_order_id = False
+                elif documento.move_id.payment_order_id == rec:
+                    documento.move_id.payment_order_id = False
+            if agregados or quitados:
+                rec.message_post(body=self.env._(
+                    'Documentos SAT agregados: %(add)s. Quitados: %(rem)s.',
+                    add=', '.join(agregados.mapped('numero_autorizacion')) or '-',
+                    rem=', '.join(quitados.mapped('numero_autorizacion')) or '-'))
 
     def _resolve_sat_document_ids(self, sat_document_ids):
         """Vincula esta Orden (tipo pago_directo, recién creada/recibida por sincronización
