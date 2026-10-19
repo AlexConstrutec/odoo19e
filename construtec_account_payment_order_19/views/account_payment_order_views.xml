@@ -126,8 +126,11 @@
                         <group>
                             <field name="monto"
                                    readonly="tipo in ('anticipo_viaticos', 'anticipo_materiales') or state not in ('borrador', 'aprobado')"/>
+                            <!-- Viáticos (110208) y Materiales (110204) usan una cuenta fija, ver
+                                 CUENTA_ANTICIPO_POR_TIPO. -->
                             <field name="cuenta_anticipo_id" invisible="not es_procesador"
-                                   readonly="state not in ('borrador', 'aprobado')"/>
+                                   force_save="1"
+                                   readonly="tipo in ('anticipo_viaticos', 'anticipo_materiales') or state not in ('borrador', 'aprobado')"/>
                         </group>
                     </group>
 
@@ -284,10 +287,10 @@
                              liquidarlo en Enterprise. Va justo después de la pestaña Viáticos (pedido del
                              usuario). Solo Community (es_procesador oculta la pestaña). -->
                         <page string="Facturas de Gastos" name="facturas_gastos"
-                              invisible="tipo != 'anticipo_viaticos' or es_procesador or state not in ('borrador', 'enviado', 'aprobado', 'aplicado', 'liquidado')">
+                              invisible="tipo not in ('anticipo_viaticos', 'anticipo_materiales') or es_procesador or state not in ('borrador', 'enviado', 'aprobado', 'aplicado', 'liquidado')">
                             <p class="text-muted">
-                                Agrega aquí las facturas con las que gastaste este anticipo: sirven para
-                                liquidarlo. Puedes hacerlo desde que creas la requisición (viajan junto con
+                                Agrega aquí las facturas (Documentos SAT) de lo que se compró o gastó con este
+                                anticipo: sirven para liquidarlo. Puedes hacerlo desde que creas la requisición (viajan junto con
                                 ella al enviarla) o después de enviarla, hasta que se liquide. Solo se
                                 aceptan facturas con saldo vigente (sin ningún pago o pagadas parcialmente)
                                 que no estén ya vinculadas a otra requisición. En Borrador puedes quitarlas;

@@ -146,7 +146,8 @@ class AccountPaymentOrder(models.Model):
                 'No se encontró en Enterprise la requisición %s.', external_ref))
         if order.tipo not in GASTOS_TIPOS:
             raise UserError(self.env._(
-                'La requisición %s no es de Viáticos: no lleva facturas de gastos.', order.name))
+                'La requisición %s no es de Viáticos ni de Materiales: no lleva facturas de gastos.',
+                order.name))
         if order.state not in GASTOS_STATES_EDITABLES:
             raise UserError(self.env._(
                 'La requisición %(name)s ya no admite facturas de gastos (estado: %(state)s).',

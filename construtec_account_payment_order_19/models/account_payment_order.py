@@ -27,7 +27,14 @@ SUBMITTABLE_TIPOS = ANTICIPO_TIPOS + ('pago_directo',)
 # las que el técnico gastó. Desde Community las vincula desde Borrador (viajan al enviar) y también
 # DESPUÉS de enviar, hasta que la requisición se liquide (ver gasto_mirror_ids). En Borrador se
 # pueden quitar libremente; ya enviada, solo se agregan (Enterprise ya las reclamó).
-GASTOS_TIPOS = ('anticipo_viaticos',)
+# Materiales (2026-10-19): misma pestaña, para las facturas del proveedor que se compró con el anticipo.
+GASTOS_TIPOS = ('anticipo_viaticos', 'anticipo_materiales')
+# Cuenta puente de cada tipo de anticipo (código del plan de cuentas, 2026-10-19, pedido del usuario):
+# se pone sola al aprobar/aplicar y no se edita a mano para estos tipos.
+CUENTA_ANTICIPO_POR_TIPO = {
+    'anticipo_materiales': '110204',  # Anticipo a Proveedores y Subcontratistas
+    'anticipo_viaticos': '110208',  # Anticipo Viáticos por Liquidar
+}
 GASTOS_STATES_EDITABLES = ('borrador', 'enviado', 'aprobado', 'aplicado')
 
 
@@ -776,7 +783,7 @@ class AccountPaymentOrder(models.Model):
         company = self.env.company
         if self.tipo not in GASTOS_TIPOS:
             raise UserError(self.env._(
-                'Solo las requisiciones de Viáticos llevan facturas de gastos.'))
+                'Solo las requisiciones de Viáticos y Materiales llevan facturas de gastos.'))
         if self.state not in GASTOS_STATES_EDITABLES:
             raise UserError(self.env._(
                 'Las facturas de gastos se vinculan desde Borrador y hasta que la requisición se '
@@ -1294,6 +1301,7 @@ class AccountPaymentOrder(models.Model):
                 raise UserError(self.env._(
                     'Aprobar solo aplica a Órdenes de Pago de tipo Anticipo o Pago Directo.'))
             rec._check_is_approver_for_amount()
+            rec._aplicar_cuenta_anticipo_por_tipo()
             rec.write({
                 'state': 'aprobado',
                 'approved_by_id': self.env.user.id,
@@ -1379,7 +1387,8 @@ class AccountPaymentOrder(models.Model):
                 'normal para uno que todavía no se ha aplicado, o revierte primero su '
                 'Liquidación si ya está Liquidado.'))
         self._check_es_administrador_contable()
-        for pago in self.pago_ids.filtered(lambda p: p.state in ('in_process', 'paid')):
+        # 'draft': el pago de Materiales se genera en borrador (ver action_aplicar()).
+        for pago in self.pago_ids.filtered(lambda p: p.state in ('draft', 'in_process', 'paid')):
             for line in pago.move_id.line_ids:
                 if line.reconciled:
                     line.remove_move_reconcile()
@@ -1861,6 +1870,29 @@ class AccountPaymentOrder(models.Model):
         payment.action_post()
         return True
 
+    def _get_cuenta_anticipo_por_tipo(self):
+        """Cuenta puente fija del tipo (CUENTA_ANTICIPO_POR_TIPO), buscada por código en la compañía de
+        la requisición. Vacío si el tipo no tiene una o la cuenta no existe en esa compañía."""
+        self.ensure_one()
+        codigo = CUENTA_ANTICIPO_POR_TIPO.get(self.tipo)
+        if not codigo:
+            return self.env['account.account']
+        return self.env['account.account'].with_company(self.company_id).search(
+            [('code', '=', codigo), ('company_ids', 'in', self.company_id.id)], limit=1)
+
+    def _aplicar_cuenta_anticipo_por_tipo(self):
+        for rec in self:
+            cuenta = rec._get_cuenta_anticipo_por_tipo()
+            if cuenta and rec.cuenta_anticipo_id != cuenta:
+                rec.cuenta_anticipo_id = cuenta
+
+    @api.onchange('tipo')
+    def _onchange_tipo_cuenta_anticipo(self):
+        for rec in self:
+            cuenta = rec._get_cuenta_anticipo_por_tipo()
+            if cuenta:
+                rec.cuenta_anticipo_id = cuenta
+
     def action_aplicar(self):
         self.ensure_one()
         if self.tipo not in ANTICIPO_TIPOS:
@@ -1887,6 +1919,7 @@ class AccountPaymentOrder(models.Model):
             raise UserError(self.env._('Define el Contacto que recibirá el anticipo.'))
         if not self.monto:
             raise UserError(self.env._('Define el Monto del anticipo.'))
+        self._aplicar_cuenta_anticipo_por_tipo()
         if not self.cuenta_anticipo_id:
             raise UserError(self.env._('Define la Cuenta de Anticipos por Liquidar.'))
 
@@ -1909,12 +1942,19 @@ class AccountPaymentOrder(models.Model):
         if self.payment_method_line_id:
             payment_vals['payment_method_line_id'] = self.payment_method_line_id.id
         payment = self.env['account.payment'].create(payment_vals)
-        payment.action_post()
+        if self.tipo == 'anticipo_materiales':
+            # Materiales (2026-10-19, pedido del usuario): el pago queda en BORRADOR para que el
+            # Contador lo revise y lo confirme desde Pagos. Liquidar solo netea pagos confirmados.
+            self.message_post(body=self.env._(
+                'Se generó el pago %s en borrador: confírmalo desde Pagos/Cheques antes de liquidar.',
+                payment.name or payment.display_name))
+        else:
+            payment.action_post()
         self.write({'state': 'aplicado'})
         self._push_notify(
             self.requested_by_id.partner_id,
             self.env._('Requisición de Pago aplicada'),
-            self.env._('%(name)s ya se desembolsó (Q%(monto).2f)', name=self.name, monto=self.monto or 0.0))
+            self.env._('%(name)s ya se aplicó (Q%(monto).2f)', name=self.name, monto=self.monto or 0.0))
 
         # Dos avisos posibles, ninguno bloquea: si el contacto ya tiene otro Anticipo aplicado
         # sin liquidar todavía, y/o si esta Orden ya cubre el 100% de facturas adjuntas (pudo
