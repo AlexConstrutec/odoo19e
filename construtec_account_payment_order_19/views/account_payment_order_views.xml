@@ -305,16 +305,17 @@
                             <p class="text-muted">
                                 Agrega aquí las facturas (Documentos SAT) de lo que se compró o gastó con este
                                 anticipo: sirven para liquidarlo. Puedes hacerlo desde que creas la requisición (viajan junto con
-                                ella al enviarla) o después de enviarla, hasta que se liquide. Solo se
+                                ella al enviarla) o después de enviarla, hasta que se liquide: ahí quedan guardadas
+                                y se mandan a Enterprise con el botón "Enviar Facturas". Solo se
                                 aceptan facturas con saldo vigente (sin ningún pago o pagadas parcialmente)
-                                que no estén ya vinculadas a otra requisición. En Borrador puedes quitarlas;
-                                ya enviada, una factura no se puede quitar (Enterprise ya la reclamó).
+                                que no estén ya vinculadas a otra requisición. Mientras no se envíen puedes
+                                quitarlas; una vez enviadas ya no se pueden quitar.
                                 Con "Depositar a Técnicos" y varios técnicos, las facturas se agregan a la
                                 requisición de cada técnico después de enviar.
                             </p>
                             <div class="alert alert-warning" role="alert" invisible="not gasto_pendiente_ids">
                                 <p class="mb-1">
-                                    <b>Facturas pendientes de enviar a Enterprise:</b>
+                                    <b>Facturas guardadas, pendientes de enviar a Enterprise:</b>
                                     <field name="gasto_pendiente_ids" widget="many2many_tags" readonly="1" nolabel="1"/>
                                 </p>
                                 <p class="mb-1">
@@ -325,11 +326,12 @@
                                 <p class="mb-1" invisible="not gasto_sync_error">
                                     <field name="gasto_sync_error" readonly="1" nolabel="1"/>
                                 </p>
-                                <p class="mb-2 text-muted" invisible="gasto_sync_state == 'rechazado'">
-                                    Ya están guardadas aquí; se reintentan solas cada 15 minutos.
+                                <p class="mb-2 text-muted" invisible="gasto_sync_state != 'error'">
+                                    Falló la comunicación con Enterprise; se reintentan solas cada 15 minutos.
                                 </p>
-                                <button name="action_retry_gasto_sync" type="object" string="Reintentar envío"
-                                        class="btn btn-secondary btn-sm" icon="fa-refresh"/>
+                                <button name="action_enviar_facturas_gastos" type="object" string="Enviar Facturas"
+                                        class="btn btn-primary btn-sm" icon="fa-paper-plane"
+                                        invisible="state == 'borrador'"/>
                             </div>
                             <div class="alert alert-success" role="status"
                                  invisible="gasto_pendiente_ids or gasto_sync_state != 'sincronizado'">

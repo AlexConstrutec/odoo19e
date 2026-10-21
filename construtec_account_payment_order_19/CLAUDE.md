@@ -2204,3 +2204,37 @@ genera, actualiza e imprime la OC, y vincula un Documento SAT. Bloqueos comproba
 Área autorizando y usuario sin Compras. Probados también los caminos bajo umbral, sobre umbral (Gerente autoriza) y
 aprobada por Gerente desde el inicio. En Community se probó el pull de `en_compras`. **No verificado en el
 navegador.**
+
+## Botón "Enviar Facturas" en Facturas de Gastos (2026-10-21)
+
+Pedido del usuario: en Viáticos y Materiales, las facturas de gastos ya **no se envían solas al guardar**. Ahora se
+envían con un botón **"Enviar Facturas"** en la pestaña "Facturas de Gastos". Esto reemplaza el "envío inmediato" de
+la sección anterior.
+
+- **Guardar no llama a Enterprise.** En Borrador nada cambia: las facturas viajan con la requisición al Enviar.
+  Ya enviada la requisición, cada factura nueva se valida (`_check_gasto_mirror_disponible()`) y queda guardada en
+  `gasto_pendiente_ids`, con `gasto_sync_state='pendiente'` ("Guardadas, sin enviar").
+- **El botón** (`action_enviar_facturas_gastos()`) aparece en el aviso amarillo cuando hay facturas por enviar, fuera
+  de Borrador. Antes de enviar exige:
+  - un tipo que admita facturas de gastos, en un estado editable;
+  - sincronización encendida, con compañía `solicitante`;
+  - al menos una factura pendiente;
+  - que la requisición ya esté en Enterprise (`sync_state='synced'`). Si no, avisa y no envía.
+- **Al presionar el botón**, `_push_gastos_to_enterprise()` manda todas las facturas pendientes:
+  - **Éxito:** vacía `gasto_pendiente_ids` y queda `sincronizado`, con nota en el chatter.
+  - **Falla la comunicación:** queda `error`, con nota, y el cron las reintenta cada 15 minutos.
+  - **Enterprise las rechaza:** un `UserError` avisa en pantalla. Desde el cron, en cambio, queda `rechazado`.
+- **El cron** (`_cron_retry_gasto_sync`) solo reintenta las que quedaron en `error` tras presionar el botón. Las
+  guardadas que nadie ha enviado esperan al botón. Se eliminó `action_retry_gasto_sync`.
+- **Quitar facturas:**
+  - Una guardada que todavía no se ha enviado se puede quitar.
+  - Una ya enviada solo la puede quitar un **Administrador del sistema** (`base.group_system`). Para cualquier otro
+    usuario, `UserError`. Si la quita el Administrador, queda una nota en el chatter: en Enterprise sigue vinculada y
+    hay que liberarla allá a mano. Pedido del usuario: quitar es una tarea técnica, para no abrir brechas de
+    seguridad.
+
+Versión 19.0.1.16.0. El cambio es idéntico en las tres copias.
+
+**Verificado** con `odoo-bin shell` en `construtec_test`, con Enterprise simulado: 15 comprobaciones, entre ellas que
+guardar no envía, el botón envía, el cron reintenta solo los errores, el usuario normal no puede quitar una ya
+enviada y el Administrador sí. **No verificado en el navegador.**
