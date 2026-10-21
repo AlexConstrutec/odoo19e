@@ -285,3 +285,26 @@ Verificado con `odoo-bin shell` (Community, `construtec_test`, savepoint/rollbac
 **Verificado con `odoo-bin shell` contra `construtec_test` (Enterprise), incluyendo el navegador real**: se sincroniza tanto una entrada tipo Bien como una tipo Servicio (ambas generan espejo local, `bien_o_servicio` viaja correctamente), la copia local en Enterprise (sin red, `company_id` incluido), el `name_search` con preferencia por proveedor (preferido primero, el resto sigue visible), y el autocompletado real en la pestaña Materiales de `construtec_account_payment_order_19` (elegir una entrada del catálogo llena Material/Proveedor Sugerido/Precio Estimado y recalcula los totales, y el picker de esa línea solo ofrece Bienes por su propio `domain=`) — todo funcionando de punta a punta en un solo Odoo (Enterprise).
 
 **Lo que sigue sin poder probarse localmente, sin cambios respecto a antes**: el salto RPC real Enterprise→Community por red - Community y Enterprise comparten el mismo puerto/`data_dir` por defecto localmente y no corren a la vez en este entorno de desarrollo, y los 4 parámetros de sistema en Enterprise siguen sin configurarse en ningún ambiente real. Verificado que el intento de sync remoto falla limpio con el mensaje esperado (`sync_state='error'`, `sync_error` describiendo los parámetros faltantes) cuando no están configurados - comportamiento correcto, no un bug.
+
+## Buscador de facturas por Número/Serie FEL, No. Autorización, Proveedor o NIT (2026-10-21)
+
+Pedido del usuario: en las Requisiciones de Pago (Viáticos, Materiales y Pago Directo), al buscar un documento en el
+selector de facturas ("Facturas de Gastos" / "Factura a Pagar", que usan este modelo), poder buscar escribiendo por
+**Número FEL**, **Serie FEL**, **No. Autorización** o **Proveedor**.
+
+- **Vista de búsqueda** de `construtec.sat.invoice.mirror`: campos `numero_documento` ("Número FEL", el primero, que
+  es la búsqueda por defecto al escribir), `serie` ("Serie FEL"), `numero_autorizacion`, `partner_name` y
+  `partner_vat` ("NIT del Proveedor"). El selector de la requisición (`widget="many2many"`, botón "Agregar") usa esta
+  misma vista, así que al escribir ofrece "Buscar Número FEL por…", "Buscar Serie FEL por…", etc.
+- **`_rec_names_search`** con esos mismos campos: la búsqueda rápida (escribir directo en un campo que apunte a
+  este modelo) también encuentra por cualquiera de ellos.
+- **`_compute_display_name`**: `Serie-Número · Proveedor` (ej. "FA77-123456 · Ferretería El Martillo"). Si falta
+  serie o número usa el número, o el No. Autorización. Antes el modelo no tenía `name` y se mostraba como
+  `construtec.sat.invoice.mirror,ID`, por ejemplo en las etiquetas de facturas pendientes de la Requisición.
+
+Verificado con `odoo-bin shell` en `construtec_test`:
+- `name_search` encuentra por número, serie, autorización, proveedor y NIT.
+- El nombre se muestra bien.
+- La vista de búsqueda trae los 5 campos.
+
+Cambio idéntico en las tres copias. Enterprise carga limpio. **No verificado en el navegador.**

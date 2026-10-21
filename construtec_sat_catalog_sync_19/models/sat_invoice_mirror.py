@@ -1,5 +1,5 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 class ConstructecSatInvoiceMirror(models.Model):
@@ -24,6 +24,19 @@ class ConstructecSatInvoiceMirror(models.Model):
         'envía el id del Documento SAT).'
     )
     _order = 'fecha desc'
+    # Búsqueda rápida (escribir en un campo que apunte a este modelo): por Número/Serie FEL,
+    # No. Autorización, proveedor o NIT. Sin esto no había `name` por el cual buscar.
+    _rec_names_search = ['numero_documento', 'serie', 'numero_autorizacion', 'partner_name',
+                         'partner_vat']
+
+    @api.depends('serie', 'numero_documento', 'numero_autorizacion', 'partner_name')
+    def _compute_display_name(self):
+        for rec in self:
+            if rec.serie and rec.numero_documento:
+                numero = f'{rec.serie}-{rec.numero_documento}'
+            else:
+                numero = rec.numero_documento or rec.numero_autorizacion or str(rec.origin_id or '')
+            rec.display_name = f'{numero} · {rec.partner_name}' if rec.partner_name else numero
 
     origin_id = fields.Integer(
         string='ID del Documento SAT en Enterprise', required=True, index=True,

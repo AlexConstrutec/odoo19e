@@ -22,8 +22,13 @@
         <field name="model">construtec.sat.invoice.mirror</field>
         <field name="arch" type="xml">
             <search>
-                <field name="partner_name"/>
-                <field name="numero_autorizacion"/>
+                <!-- Al escribir en el buscador (también en el selector de facturas de una
+                     Requisición de Pago) ofrece buscar por cada uno de estos datos. -->
+                <field name="numero_documento" string="Número FEL"/>
+                <field name="serie" string="Serie FEL"/>
+                <field name="numero_autorizacion" string="No. Autorización"/>
+                <field name="partner_name" string="Proveedor"/>
+                <field name="partner_vat" string="NIT del Proveedor"/>
                 <filter string="Disponibles" name="disponibles"
                         domain="[('payment_state', '!=', 'paid'), ('linked_order_name', '=', False)]"/>
                 <filter string="Pagadas" name="pagadas" domain="[('payment_state', '=', 'paid')]"/>
