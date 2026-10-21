@@ -1095,3 +1095,14 @@ poder liquidar el anticipo. Localiza la requisición por `external_ref`, exige V
 (convertir exige Cuenta Contable por línea y bloquearía aprobar el anticipo): el Contador lo convierte desde el Documento SAT y la factura
 nace ya vinculada a la requisición. La pestaña "Documentos SAT" de la requisición ahora también se ve en Viáticos. Detalle completo en el
 CLAUDE.md de `construtec_account_payment_order_19`. **Desplegar Enterprise antes que Community.**
+
+## Gestión de Compras (2026-10-21)
+
+Para la Gestión de Compras de las Solicitudes de Materiales (ver el CLAUDE.md de `construtec_account_payment_order_19`), la pestaña "Documentos SAT" cambió así:
+
+- Se puede editar en `en_compras`.
+- El compute y el inverse de `sat_document_ids` usan `sudo()`, porque Compras no tiene permisos de facturas; los candados de `account.move`/`construtec.sat.document` no cambian.
+- Las columnas de Cuenta Contable/Analítica solo las ve `account.group_account_invoice`.
+- Se agregaron las columnas Serie FEL y Número FEL.
+
+`purchase.group_purchase_user` tiene lectura sobre `construtec.sat.document`. La búsqueda de Documentos SAT ahora acepta Número FEL, Serie FEL, No. Autorización, Proveedor y NIT.

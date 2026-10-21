@@ -215,8 +215,11 @@
         <field name="model">construtec.sat.document</field>
         <field name="arch" type="xml">
             <search string="Documentos SAT">
-                <field name="numero_autorizacion"/>
-                <field name="partner_id"/>
+                <field name="numero_documento" string="Número FEL"/>
+                <field name="serie" string="Serie FEL"/>
+                <field name="numero_autorizacion" string="No. Autorización"/>
+                <field name="partner_id" string="Proveedor"/>
+                <field name="nit_contacto" string="NIT del Proveedor"/>
                 <filter string="Recibidas" name="recibidas" domain="[('direction', '=', 'recibida')]"/>
                 <filter string="Emitidas" name="emitidas" domain="[('direction', '=', 'emitida')]"/>
                 <separator/>

@@ -79,6 +79,15 @@
                                     (4, ref('group_payment_order_sync_integration'))]"/>
     </record>
 
+    <!-- Gestión de Compras (2026-10-21): el grupo nativo de Compras ve todas las Solicitudes de
+         Materiales (las cotiza, genera su Orden de Compra y las entrega a Contabilidad). -->
+    <record id="account_payment_order_compras_rule" model="ir.rule">
+        <field name="name">Requisición de Pago: Compras ve las Solicitudes de Materiales</field>
+        <field name="model_id" ref="model_account_payment_order"/>
+        <field name="domain_force">[('tipo', '=', 'anticipo_materiales')]</field>
+        <field name="groups" eval="[(4, ref('purchase.group_purchase_user'))]"/>
+    </record>
+
     <record id="account_payment_order_global_company_rule" model="ir.rule">
         <field name="name">Orden de Pago: Regla de Compañía (global)</field>
         <field name="model_id" ref="model_account_payment_order"/>

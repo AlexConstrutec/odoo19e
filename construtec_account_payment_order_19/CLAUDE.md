@@ -2156,3 +2156,51 @@ Verificado con `odoo-bin shell` en `construtec_test`, con Enterprise simulado. 2
 
 Enterprise (`odoo-bin -u` con el Odoo de Enterprise) carga limpio. **No verificado contra un Enterprise real ni en el
 navegador.**
+
+## Gestión de Compras en Solicitudes de Materiales (2026-10-21, Enterprise)
+
+Pedido del usuario: Compras trabaja en **Enterprise** con el grupo nativo **"Compras: Usuario"**
+(`purchase.group_purchase_user`, constante `COMPRAS_GROUP_XMLID`). El flujo de una Solicitud de Materiales queda así:
+
+1. **Aprobar**: `action_approve()` aplica el umbral de siempre (Jefe de Área o Gerente). Materiales pasa a
+   **`en_compras`** ("Gestión de Compras", estado nuevo entre Enviado y Aprobado) y se avisa a Compras
+   (`_compras_partners()`). Los demás tipos siguen pasando directo a Aprobado. `aprobado_por_gerente` registra
+   si aprobó un Nivel Alto.
+2. **Compras cotiza**:
+   - Sube de 1 a 3 cotizaciones en la pestaña **"Cotizaciones"**
+     (`cotizacion_attachment_ids`, `many2many_binary`).
+   - Actualiza precio, cantidad, descripción y proveedor sugerido de cada material. Las líneas son editables en
+     `en_compras`.
+   - Elige el Proveedor de Materiales.
+3. **Orden de Compra**:
+   - "Generar"/"Imprimir Orden de Compra" funcionan desde `en_compras` para Compras o Contabilidad
+     (`_check_puede_gestionar_compras()`).
+   - Si los precios cambian, regenerar actualiza las líneas de la OC mientras siga en borrador o enviada
+     (`_actualizar_lineas_compra_borrador()`). Nunca la duplica.
+   - Imprimir regenera primero si hay una OC en borrador o enviada.
+4. **Factura**: Compras vincula el **Documento SAT** del proveedor en la pestaña "Documentos SAT"
+   (`construtec_account_19`). El compute y el inverse usan `sudo()` y los candados siguen igual. Compras tiene
+   lectura sobre `construtec.sat.document`. Las columnas de cuenta contable y analítica solo las ve Facturación.
+5. **"Fin de intervención de Compras"** (`action_fin_compras()`):
+   - Exige una factura vinculada (`_compras_tiene_factura()`, con `sudo`).
+   - Sincroniza el monto al total final.
+   - Si ese total llega al umbral y no aprobó un Gerente, la requisición se queda en `en_compras` con
+     `requiere_aprobacion_gerente`, se avisa a los Gerentes y aparece el botón **"Autorizar monto (Gerente)"**
+     (`action_autorizar_gerente()`, solo Nivel Alto).
+   - Si no, o después de autorizar, `_finalizar_compras()` la pasa a **Aprobado**, registra quién y cuándo
+     terminó Compras y avisa a Contabilidad, que la Aplica como siempre.
+
+**Visibilidad**: la regla `account_payment_order_compras_rule` permite a Compras ver todas las Solicitudes de
+Materiales y ninguna otra requisición ajena. Rechazar también se permite en `en_compras`.
+
+**Community**: el pull de estado refleja `en_compras` y avisa al solicitante ("fue aprobada y está en Gestión de
+Compras"). La pestaña Cotizaciones y los botones de Compras no se ven en Community.
+
+Versión 19.0.1.15.0, idéntica en las tres copias (salvo las diferencias conocidas).
+
+**Verificado** con `odoo-bin shell` en `construtec_test`: 30 comprobaciones del flujo en Enterprise, con un usuario
+que solo tiene Compras (sin Facturación). Lee el formulario completo, sube una cotización, actualiza precios,
+genera, actualiza e imprime la OC, y vincula un Documento SAT. Bloqueos comprobados: terminar sin factura, Jefe de
+Área autorizando y usuario sin Compras. Probados también los caminos bajo umbral, sobre umbral (Gerente autoriza) y
+aprobada por Gerente desde el inicio. En Community se probó el pull de `en_compras`. **No verificado en el
+navegador.**

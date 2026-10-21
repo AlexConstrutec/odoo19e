@@ -40,7 +40,11 @@ CUENTA_ANTICIPO_POR_TIPO = {
     'anticipo_materiales': '110204',  # Anticipo a Proveedores y Subcontratistas
     'anticipo_viaticos': '110208',  # Anticipo Viáticos por Liquidar
 }
-GASTOS_STATES_EDITABLES = ('borrador', 'enviado', 'aprobado', 'aplicado')
+GASTOS_STATES_EDITABLES = ('borrador', 'enviado', 'en_compras', 'aprobado', 'aplicado')
+# Gestión de Compras (2026-10-21): en Enterprise, el grupo nativo de la app Compras gestiona las
+# Solicitudes de Materiales entre Aprobar y Aplicar (cotizaciones, precios, Orden de Compra,
+# factura) y las entrega a Contabilidad con "Fin de intervención de Compras".
+COMPRAS_GROUP_XMLID = 'purchase.group_purchase_user'
 
 
 def _resolve_employee_for_partner(partner, company):
@@ -202,6 +206,23 @@ class AccountPaymentOrder(models.Model):
     gasto_sync_error = fields.Text(string='Detalle del envío de facturas', readonly=True, copy=False)
     gasto_sync_date = fields.Datetime(string='Último envío de facturas', readonly=True, copy=False)
     gasto_sync_attempts = fields.Integer(string='Intentos de envío de facturas', readonly=True, copy=False)
+    # Gestión de Compras (Solicitud de Materiales, Enterprise) - ver COMPRAS_GROUP_XMLID.
+    cotizacion_attachment_ids = fields.Many2many(
+        'ir.attachment', 'account_payment_order_cotizacion_rel', 'order_id', 'attachment_id',
+        string='Cotizaciones', copy=False,
+        help='Las cotizaciones que Compras recibió de los proveedores (una, dos o tres).')
+    aprobado_por_gerente = fields.Boolean(
+        string='Aprobada por Gerente', readonly=True, copy=False,
+        help='Un Aprobador Nivel Alto (Gerente) ya aprobó esta requisición (al Aprobar o al '
+             'autorizar el monto final de Compras).')
+    requiere_aprobacion_gerente = fields.Boolean(
+        string='Pendiente de autorización del Gerente', readonly=True, copy=False,
+        help='Compras terminó, pero con los precios reales el total llegó al umbral de '
+             'aprobación y falta la autorización de un Gerente (Nivel Alto).')
+    compras_finalizado_por_id = fields.Many2one(
+        'res.users', string='Compras finalizada por', readonly=True, copy=False)
+    compras_finalizado_date = fields.Datetime(
+        string='Fin de intervención de Compras', readonly=True, copy=False)
     partner_es_contrata = fields.Boolean(
         string='Es Contrata', compute='_compute_partner_es_contrata',
         inverse='_inverse_partner_es_contrata',
@@ -239,6 +260,7 @@ class AccountPaymentOrder(models.Model):
     state = fields.Selection([
         ('borrador', 'Borrador'),
         ('enviado', 'Enviado'),
+        ('en_compras', 'Gestión de Compras'),
         ('aprobado', 'Aprobado'),
         ('rechazado', 'Rechazado'),
         ('aplicado', 'Aplicado'),
@@ -1162,7 +1184,11 @@ class AccountPaymentOrder(models.Model):
         un Anticipo normal capturado directo en Enterprise)."""
         self.ensure_one()
         partner = self.requested_by_id.partner_id
-        if estado_nuevo == 'aprobado':
+        if estado_nuevo == 'en_compras':
+            self._push_notify(
+                partner, self.env._('Requisición de Pago aprobada'),
+                self.env._('%(name)s fue aprobada y está en Gestión de Compras.', name=self.name))
+        elif estado_nuevo == 'aprobado':
             self._push_notify(
                 partner, self.env._('Requisición de Pago aprobada'),
                 self.env._('%(name)s fue aprobada.', name=self.name))
@@ -1390,11 +1416,20 @@ class AccountPaymentOrder(models.Model):
                     'Aprobar solo aplica a Órdenes de Pago de tipo Anticipo o Pago Directo.'))
             rec._check_is_approver_for_amount()
             rec._aplicar_cuenta_anticipo_por_tipo()
+            es_materiales = rec.tipo == 'anticipo_materiales'
             rec.write({
-                'state': 'aprobado',
+                # Materiales pasa primero por Compras; los demás tipos quedan listos para Aplicar.
+                'state': 'en_compras' if es_materiales else 'aprobado',
                 'approved_by_id': self.env.user.id,
                 'approve_date': fields.Datetime.now(),
+                'aprobado_por_gerente': self.env.user.has_group(APPROVER_ALTO_GROUP_XMLID),
             })
+            if es_materiales:
+                rec._push_notify(
+                    rec._compras_partners(),
+                    self.env._('Solicitud de Materiales para Compras'),
+                    self.env._('%(name)s fue aprobada y está lista para gestionar (cotizar, Orden '
+                               'de Compra y factura).', name=rec.name))
             # Auto-heal: registros sincronizados ANTES de que existiera
             # `_autosugerir_proveedor_materiales_id()` (2026-09-02) nunca recibieron su intento
             # de resolución (solo corre en create()/write() de `proveedor_materiales_name`) - se
@@ -1452,7 +1487,7 @@ class AccountPaymentOrder(models.Model):
                 raise UserError(self.env._(
                     'Cancelar (antes de Aplicar/Liquidar) solo aplica a tipo Anticipo o Pago '
                     'Directo.'))
-            if rec.state not in ('borrador', 'enviado', 'aprobado', 'rechazado'):
+            if rec.state not in ('borrador', 'enviado', 'en_compras', 'aprobado', 'rechazado'):
                 raise UserError(self.env._(
                     'No se puede cancelar así una Orden ya Aplicada/Liquidada - usa el botón '
                     '"Cancelar" correspondiente a ese estado, que sí revierte el pago/asiento.'))
@@ -2086,18 +2121,27 @@ class AccountPaymentOrder(models.Model):
         if self.tipo != 'anticipo_materiales':
             raise UserError(self.env._(
                 'Generar Orden de Compra solo aplica a órdenes de tipo Solicitud de Materiales.'))
-        if self.state not in ('aprobado', 'aplicado'):
+        if self.state not in ('en_compras', 'aprobado', 'aplicado'):
             raise UserError(self.env._(
                 'La Orden de Compra se genera una vez validada (Aprobada) la requisición.'))
-        self._check_es_administrador_contable()
+        self._check_puede_gestionar_compras()
         # Mismo auto-sanado que Aprobar/Aplicar: si el proveedor sugerido por Community ya existe
         # como contacto, queda elegido sin que el contable lo busque.
         self._autosugerir_proveedor_materiales_id()
         if not self.proveedor_materiales_id:
             raise UserError(self.env._('Define el Proveedor de Materiales antes de generar la Orden de Compra.'))
         default_product = self.company_id.payment_order_default_material_product_id
+        # Compras actualiza precios/cantidades después de cotizar: se reflejan en las líneas de
+        # compra que siguen en borrador (Solicitud de Cotización) y el proveedor elegido pasa a
+        # la Orden de Compra todavía no confirmada.
+        actualizadas = self._actualizar_lineas_compra_borrador()
+        borradores = self.purchase_order_ids.filtered(lambda po: po.state in ('draft', 'sent'))
+        borradores.filtered(lambda po: po.partner_id != self.proveedor_materiales_id).write(
+            {'partner_id': self.proveedor_materiales_id.id})
         lineas = self.material_line_ids.filtered(
             lambda l: (l.product_id or default_product) and not l.purchase_order_line_id)
+        if not lineas and borradores:
+            return self._action_open_purchase_orders(borradores, actualizadas)
         if not lineas:
             raise UserError(self.env._(
                 'No hay líneas de materiales pendientes de comprar con Producto - asigna un '
@@ -2133,6 +2177,128 @@ class AccountPaymentOrder(models.Model):
             'target': 'current',
         }
 
+    def _check_puede_gestionar_compras(self):
+        if not (self.env.user.has_group(COMPRAS_GROUP_XMLID)
+                or self.env.user.has_group('account.group_account_manager')):
+            raise AccessError(self.env._(
+                'Se requiere el permiso de Compras (Usuario) para gestionar la compra de una '
+                'Solicitud de Materiales.'))
+
+    def _compras_partners(self):
+        return self.env['res.users'].search(
+            [('group_ids', 'in', self.env.ref(COMPRAS_GROUP_XMLID).ids)]).partner_id
+
+    def _actualizar_lineas_compra_borrador(self):
+        """Pasa precio/cantidad/descripción de cada material a su línea de compra si la Orden de
+        Compra sigue en borrador o enviada. Devuelve cuántas líneas cambiaron."""
+        self.ensure_one()
+        cambiadas = 0
+        for linea in self.material_line_ids.filtered('purchase_order_line_id'):
+            po_line = linea.purchase_order_line_id
+            if po_line.order_id.state not in ('draft', 'sent'):
+                continue
+            vals = {}
+            if po_line.price_unit != linea.estimated_price:
+                vals['price_unit'] = linea.estimated_price
+            if po_line.product_qty != linea.qty:
+                vals['product_qty'] = linea.qty
+            nombre = linea.description or linea.product_name
+            if nombre and po_line.name != nombre:
+                vals['name'] = nombre
+            if vals:
+                po_line.write(vals)
+                cambiadas += 1
+        return cambiadas
+
+    def _action_open_purchase_orders(self, ordenes, actualizadas=0):
+        if actualizadas:
+            self.message_post(body=self.env._(
+                'Orden de Compra actualizada con los precios de Compras (%s línea(s)).', actualizadas))
+        action = {'type': 'ir.actions.act_window', 'res_model': 'purchase.order',
+                  'name': self.env._('Órdenes de Compra'), 'target': 'current'}
+        if len(ordenes) == 1:
+            action.update({'view_mode': 'form', 'res_id': ordenes.id})
+        else:
+            action.update({'view_mode': 'list,form', 'domain': [('id', 'in', ordenes.ids)]})
+        return action
+
+    def _compras_tiene_factura(self):
+        """La factura del proveedor ya está vinculada: una factura real (`factura_ids`) o un
+        Documento SAT reclamado (`sat_document_ids`, solo existe en Enterprise)."""
+        self.ensure_one()
+        rec = self.sudo()  # Compras no necesariamente puede leer facturas (account.move)
+        return bool(rec.factura_ids) or bool(getattr(rec, 'sat_document_ids', False))
+
+    def action_fin_compras(self):
+        """Botón "Fin de intervención de Compras": Compras ya cotizó, actualizó precios, generó la
+        Orden de Compra y vinculó la factura; la requisición pasa a Aprobado para que Contabilidad
+        la Aplique. Si con los precios reales el total llegó al umbral y no la aprobó un Gerente,
+        primero hace falta su autorización (`action_autorizar_gerente`)."""
+        self.ensure_one()
+        if self.tipo != 'anticipo_materiales' or self.state != 'en_compras':
+            raise UserError(self.env._(
+                'Fin de intervención de Compras solo aplica a Solicitudes de Materiales en '
+                'Gestión de Compras.'))
+        self._check_puede_gestionar_compras()
+        if not self._compras_tiene_factura():
+            raise UserError(self.env._(
+                'Vincula la factura del proveedor (Documento SAT) antes de terminar la '
+                'intervención de Compras.'))
+        self._sync_monto_desde_total_acreditar()
+        threshold = self.company_id.payment_order_approval_threshold or 0.0
+        if self.total_acreditar >= threshold and not self.aprobado_por_gerente:
+            if not self.env.user.has_group(APPROVER_ALTO_GROUP_XMLID):
+                self.requiere_aprobacion_gerente = True
+                gerentes = self.env['res.users'].search(
+                    [('group_ids', 'in', self.env.ref(APPROVER_ALTO_GROUP_XMLID).ids)]).partner_id
+                self._push_notify(
+                    gerentes, self.env._('Autorización de Gerente requerida'),
+                    self.env._('%(name)s: Compras terminó y el total (Q%(monto).2f) llegó al umbral '
+                               'de Q%(umbral).2f. Falta tu autorización para pasarla a '
+                               'Contabilidad.', name=self.name, monto=self.total_acreditar,
+                               umbral=threshold))
+                return {
+                    'type': 'ir.actions.client', 'tag': 'display_notification',
+                    'params': {
+                        'title': self.env._('Falta la autorización del Gerente'),
+                        'message': self.env._(
+                            'El total con los precios de Compras (Q%(monto).2f) llegó al umbral. '
+                            'Se avisó a los Gerentes; cuando uno autorice, pasa a Contabilidad.',
+                            monto=self.total_acreditar),
+                        'type': 'warning', 'sticky': True,
+                        'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
+                    },
+                }
+            self.aprobado_por_gerente = True
+        return self._finalizar_compras()
+
+    def action_autorizar_gerente(self):
+        """El Gerente autoriza el monto final que dejó Compras y la requisición pasa a Contabilidad."""
+        self.ensure_one()
+        if not self.env.user.has_group(APPROVER_ALTO_GROUP_XMLID):
+            raise AccessError(self.env._('Solo un Aprobador Nivel Alto (Gerente) puede autorizar.'))
+        if self.state != 'en_compras' or not self.requiere_aprobacion_gerente:
+            raise UserError(self.env._('Esta requisición no está esperando la autorización del Gerente.'))
+        self._sync_monto_desde_total_acreditar()
+        self.aprobado_por_gerente = True
+        return self._finalizar_compras()
+
+    def _finalizar_compras(self):
+        self.ensure_one()
+        self.write({
+            'state': 'aprobado',
+            'requiere_aprobacion_gerente': False,
+            'compras_finalizado_por_id': self.env.user.id,
+            'compras_finalizado_date': fields.Datetime.now(),
+        })
+        contables = self.env['res.users'].search(
+            [('group_ids', 'in', self.env.ref('account.group_account_manager').ids)]).partner_id
+        self._push_notify(
+            contables, self.env._('Solicitud de Materiales lista para Contabilidad'),
+            self.env._('%(name)s: Compras terminó su intervención (Q%(monto).2f). Lista para '
+                       'Aplicar.', name=self.name, monto=self.monto or 0.0))
+        return True
+
     def action_imprimir_orden_compra(self):
         """Botón "Imprimir Orden de Compra" (pedido del usuario, 2026-10-17): el Contador abre la
         Solicitud de Materiales que recibió y, de un clic, ve el PDF de la Orden de Compra para
@@ -2146,13 +2312,13 @@ class AccountPaymentOrder(models.Model):
         if self.tipo != 'anticipo_materiales':
             raise UserError(self.env._(
                 'Imprimir la Orden de Compra solo aplica a Solicitudes de Materiales.'))
-        self._check_es_administrador_contable()
+        self._check_puede_gestionar_compras()
         default_product = self.company_id.payment_order_default_material_product_id
         pendientes = self.material_line_ids.filtered(
             lambda l: (l.product_id or default_product) and not l.purchase_order_line_id)
         ordenes = self.env['purchase.order'].search(
             [('payment_order_id', '=', self.id), ('state', '!=', 'cancel')])
-        if pendientes or not ordenes:
+        if pendientes or not ordenes or ordenes.filtered(lambda po: po.state in ('draft', 'sent')):
             self.action_generar_orden_compra()
             ordenes = self.env['purchase.order'].search(
             [('payment_order_id', '=', self.id), ('state', '!=', 'cancel')])

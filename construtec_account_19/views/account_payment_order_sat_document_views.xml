@@ -30,15 +30,19 @@
                          proveedor y luego los convierte a factura desde el propio documento (ver
                          _inverse_sat_document_ids). En los demás tipos sigue de solo lectura. -->
                     <field name="sat_document_ids" nolabel="1"
-                           readonly="tipo != 'anticipo_materiales' or state not in ('borrador', 'enviado', 'aprobado', 'aplicado')"
+                           readonly="tipo != 'anticipo_materiales' or state not in ('borrador', 'enviado', 'en_compras', 'aprobado', 'aplicado')"
                            domain="[('state', 'in', ('pendiente', 'convertido_factura')), ('payment_order_id', '=', False), '|', ('direction', '=', 'recibida'), ('tipo_dte', '=', 'FESP')]">
                         <list create="false" delete="false">
+                            <field name="serie" string="Serie FEL"/>
+                            <field name="numero_documento" string="Número FEL"/>
                             <field name="numero_autorizacion" string="No. Autorización"/>
                             <field name="partner_id" string="Proveedor"/>
                             <field name="fecha_certificacion" string="Fecha"/>
                             <field name="monto_total" string="Monto"/>
-                            <field name="cuenta_contable_id" string="Cuenta Contable"/>
-                            <field name="cuenta_analitica_id" string="Cuenta Analítica"/>
+                            <field name="cuenta_contable_id" string="Cuenta Contable"
+                                   groups="account.group_account_invoice"/>
+                            <field name="cuenta_analitica_id" string="Cuenta Analítica"
+                                   groups="account.group_account_invoice"/>
                             <field name="state" string="Estado del Documento SAT" widget="badge"
                                    decoration-warning="state == 'pendiente'"
                                    decoration-success="state == 'convertido_factura'"/>

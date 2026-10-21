@@ -35,7 +35,9 @@ class AccountPaymentOrder(models.Model):
         un campo de OTRO modelo, escrito por `_resolve_sat_document_ids()`/`action_approve()`),
         así que se busca en vivo en vez de depender de un tracking exacto."""
         for rec in self:
-            rec.sat_document_ids = rec._get_sat_documents_vinculados()
+            # sudo: Compras (sin permisos de Contabilidad) también ve los documentos vinculados;
+            # leer factura_ids exige acceso a account.move.
+            rec.sat_document_ids = rec.sudo()._get_sat_documents_vinculados()
 
     def _get_sat_documents_vinculados(self):
         self.ensure_one()
@@ -54,11 +56,14 @@ class AccountPaymentOrder(models.Model):
         requisición viva o una factura pagada. Quitar libera ese vínculo. En los demás tipos el
         campo es de solo lectura en la vista y esto no hace nada."""
         for rec in self.filtered(lambda r: r.tipo == 'anticipo_materiales'):
-            actuales = rec._get_sat_documents_vinculados()
-            agregados = rec.sat_document_ids - actuales
-            quitados = actuales - rec.sat_document_ids
+            # sudo (2026-10-21): en Gestión de Compras lo hace un usuario de Compras, sin
+            # permisos sobre facturas/Documentos SAT. Los candados siguen igual: los valida
+            # write() de account.move / construtec.sat.document.
+            actuales = rec.sudo()._get_sat_documents_vinculados()
+            agregados = (rec.sat_document_ids - actuales).sudo()
+            quitados = (actuales - rec.sat_document_ids).sudo()
             if agregados:
-                rec._resolve_sat_document_ids(agregados.ids)
+                rec.sudo()._resolve_sat_document_ids(agregados.ids)
             for documento in quitados:
                 if documento.state == 'pendiente' and documento.payment_order_id == rec:
                     documento.payment_order_id = False

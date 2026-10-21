@@ -19,7 +19,7 @@
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') or state != 'enviado' or not es_procesador"/>
                     <button name="action_reject" string="Rechazar" type="object"
                             groups="construtec_account_payment_order_19.group_payment_order_approver"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') or state != 'enviado' or not es_procesador"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') or state not in ('enviado', 'en_compras') or not es_procesador"/>
                     <button name="action_reset_to_draft" string="Volver a Borrador" type="object"
                             groups="construtec_account_payment_order_19.group_payment_order_approver"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') or state != 'enviado' or not es_procesador"/>
@@ -34,13 +34,24 @@
                             groups="account.group_account_manager"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'aplicado' or not es_procesador"/>
                     <button name="action_generar_orden_compra" string="Generar Orden de Compra" type="object"
-                            groups="account.group_account_manager"
-                            invisible="tipo != 'anticipo_materiales' or state not in ('aprobado', 'aplicado') or not es_procesador"/>
+                            groups="purchase.group_purchase_user,account.group_account_manager"
+                            invisible="tipo != 'anticipo_materiales' or state not in ('en_compras', 'aprobado', 'aplicado') or not es_procesador"/>
                     <!-- Un clic: genera la Orden de Compra si hace falta y muestra su PDF para enviarlo al
                          proveedor (2026-10-17). -->
                     <button name="action_imprimir_orden_compra" string="Imprimir Orden de Compra" type="object"
-                            icon="fa-print" groups="account.group_account_manager"
-                            invisible="tipo != 'anticipo_materiales' or state not in ('aprobado', 'aplicado') or not es_procesador"/>
+                            icon="fa-print" groups="purchase.group_purchase_user,account.group_account_manager"
+                            invisible="tipo != 'anticipo_materiales' or state not in ('en_compras', 'aprobado', 'aplicado') or not es_procesador"/>
+                    <!-- Gestión de Compras (2026-10-21): Compras entrega la requisición a Contabilidad. -->
+                    <button name="action_fin_compras" string="Fin de intervención de Compras" type="object"
+                            class="oe_highlight" icon="fa-check"
+                            groups="purchase.group_purchase_user,account.group_account_manager"
+                            confirm="¿Terminar la intervención de Compras? La requisición pasa a Contabilidad para Aplicar."
+                            invisible="tipo != 'anticipo_materiales' or state != 'en_compras' or requiere_aprobacion_gerente or not es_procesador"/>
+                    <button name="action_autorizar_gerente" string="Autorizar monto (Gerente)" type="object"
+                            class="oe_highlight" icon="fa-thumbs-up"
+                            groups="construtec_account_payment_order_19.group_payment_order_approver_alto"
+                            invisible="state != 'en_compras' or not requiere_aprobacion_gerente or not es_procesador"/>
+                    <field name="requiere_aprobacion_gerente" invisible="1"/>
                     <button name="%(action_account_payment_order_quote_import_wizard)d"
                             type="action" string="Cargar Cotización" icon="fa-magic"
                             context="{'default_order_id': id}"
@@ -58,7 +69,10 @@
                     <field name="puede_conciliar" invisible="1"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="borrador,enviado,aprobado,aplicado,liquidado"
-                           invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')"/>
+                           invisible="tipo not in ('anticipo', 'anticipo_viaticos')"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="borrador,enviado,en_compras,aprobado,aplicado,liquidado"
+                           invisible="tipo != 'anticipo_materiales'"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="borrador,enviado,aprobado,liquidado"
                            invisible="tipo != 'pago_directo'"/>
@@ -343,23 +357,44 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="Cotizaciones" name="cotizaciones"
+                              invisible="tipo != 'anticipo_materiales' or not es_procesador">
+                            <div class="alert alert-warning" role="alert" invisible="not requiere_aprobacion_gerente">
+                                Compras terminó, pero con los precios reales el total llegó al umbral de
+                                aprobación: falta que un Gerente presione "Autorizar monto (Gerente)".
+                            </div>
+                            <p class="text-muted">
+                                Suba aquí las cotizaciones que recibió de los proveedores (una, dos o tres).
+                                Después actualice los precios en la pestaña Materiales, elija el Proveedor de
+                                Materiales y genere o imprima la Orden de Compra (se actualiza con los precios
+                                mientras siga en borrador). Vincule la factura en "Documentos SAT" y presione
+                                "Fin de intervención de Compras" para pasarla a Contabilidad.
+                            </p>
+                            <field name="cotizacion_attachment_ids" widget="many2many_binary" nolabel="1"
+                                   readonly="state not in ('en_compras', 'aprobado')"/>
+                            <group invisible="not compras_finalizado_date">
+                                <field name="compras_finalizado_por_id"/>
+                                <field name="compras_finalizado_date"/>
+                                <field name="aprobado_por_gerente"/>
+                            </group>
+                        </page>
                         <page string="Materiales" invisible="tipo != 'anticipo_materiales'">
                             <field name="material_line_ids"
-                                   readonly="state not in ('borrador', 'aplicado')">
+                                   readonly="state not in ('borrador', 'en_compras', 'aplicado')">
                                 <list editable="bottom">
                                     <field name="catalogo_id" optional="show" string="Producto SAT"
                                            context="{'vendor_hint': vendor_name}"
                                            readonly="parent.state != 'borrador'"/>
                                     <field name="product_name" required="1" optional="hide"
                                            readonly="parent.state != 'borrador'"/>
-                                    <field name="description" optional="show" readonly="parent.state != 'borrador'"/>
+                                    <field name="description" optional="show" readonly="parent.state not in ('borrador', 'en_compras')"/>
                                     <field name="uom_name" optional="show" readonly="parent.state != 'borrador'"/>
-                                    <field name="qty" readonly="parent.state != 'borrador'"/>
-                                    <field name="estimated_price" readonly="parent.state != 'borrador'"/>
+                                    <field name="qty" readonly="parent.state not in ('borrador', 'en_compras')"/>
+                                    <field name="estimated_price" readonly="parent.state not in ('borrador', 'en_compras')"/>
                                     <field name="subtotal" sum="Total"/>
                                     <field name="vendor_name" optional="show"
                                            column_invisible="not parent.es_procesador"
-                                           readonly="parent.state != 'borrador'"/>
+                                           readonly="parent.state not in ('borrador', 'en_compras')"/>
                                     <field name="product_id" optional="show"
                                            column_invisible="not parent.es_procesador"
                                            help="Se resuelve aquí en Enterprise, una vez Aplicada la Orden - antes de Generar Orden de Compra. Dejar vacío si el material ya está en bodega propia (no se compra)."/>
