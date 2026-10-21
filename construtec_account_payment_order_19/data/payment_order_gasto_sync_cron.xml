@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Reintenta enviar a Enterprise las facturas de gastos que quedaron en cola porque falló la
+         comunicación (o la requisición aún no estaba allá). Ver `_push_gastos_to_enterprise()`. -->
+    <record id="ir_cron_payment_order_gasto_sync_retry" model="ir.cron">
+        <field name="name">Requisición de Pago: reintentar envío de facturas de gastos</field>
+        <field name="model_id" ref="model_account_payment_order"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_retry_gasto_sync()</field>
+        <field name="interval_number">15</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+    </record>
+</odoo>

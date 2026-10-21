@@ -2101,3 +2101,58 @@ Q5,000 sin aplicar - no había ningún botón para liquidar ni forma de que la f
 Verificado con `odoo-bin shell` en `construtec_test`: Aprobado muestra Liquidar; pago de Q5,000 desde la factura ->
 sigue Aprobado, factura parcial (saldo Q2,725), pago en Pagos/Cheques; segundo pago de Q2,725 -> Liquidado; desaplicar
 un pago -> regresa a Aprobado; bolsón (Crear Pago + Liquidar) sigue terminando en Liquidado con su asiento.
+
+## Facturas de gastos: envío inmediato con cola y reintento si falla la comunicación (2026-10-21)
+
+Pedido del usuario: al guardar facturas de gastos en una requisición (Materiales o Viáticos) ya enviada, se mandan a
+Enterprise **al instante**; pero si la comunicación falla, deben quedar en una **cola con cron** en vez de perder el
+guardado. Antes, cualquier error (de red o de negocio) cancelaba el guardado completo.
+
+- **`tools/enterprise_sync_api.py`**: nueva excepción `EnterpriseConnectionError(EnterpriseSyncError)`, lanzada por
+  `_jsonrpc()` cuando falla la comunicación (`RequestException`: red, timeout, HTTP; o una respuesta ilegible). Un error
+  que Enterprise devuelve (rechazo de negocio) sigue siendo `EnterpriseSyncError`. Como es una subclase, todo el código
+  que ya atrapaba `EnterpriseSyncError` sigue igual.
+- **Cola en la requisición**: `gasto_pendiente_ids` (Many2many, tabla `account_payment_order_gasto_pendiente_rel`, las
+  facturas ya guardadas en Community que aún no llegaron a Enterprise), `gasto_sync_state`, `gasto_sync_error`,
+  `gasto_sync_date` y `gasto_sync_attempts`. Los estados de `gasto_sync_state` son:
+  - `sincronizado`;
+  - `pendiente`: la requisición todavía no está en Enterprise;
+  - `error`: falló la comunicación, se reintenta;
+  - `rechazado`: Enterprise la rechazó y no se reintenta solo.
+- **`_push_gastos_to_enterprise(mirrors, desde_cola=False)`** envía las nuevas junto con las que estuvieran en cola:
+  - Requisición sin `sync_state='synced'`: no llama a Enterprise y las deja `pendiente`. Antes,
+    `_check_puede_vincular_gastos()` bloqueaba vincular facturas en ese caso; ya no lo hace.
+  - `EnterpriseConnectionError`: el guardado sigue. Quedan en cola (`error`), con un aviso en el chatter.
+  - `EnterpriseSyncError` (rechazo): al guardar, `UserError` y se cancela el guardado, porque reintentar no lo arregla.
+    Desde la cola (cron o botón) no lanza: queda `rechazado` con nota en el chatter.
+  - Éxito: vacía la cola, `sincronizado` y nota "vinculadas en Enterprise".
+  - El receptor de Enterprise (`sync_gasto_documents_from_community`, en `construtec_account_19`) es **idempotente**:
+    volver a vincular el mismo documento a la misma requisición solo reescribe el mismo `payment_order_id`. Un reintento
+    después de una respuesta perdida no duplica nada; a lo mucho deja otra nota en el chatter de Enterprise.
+- **Cron** `ir_cron_payment_order_gasto_sync_retry` (cada 15 min, `_cron_retry_gasto_sync`): procesa requisiciones con
+  cola en `pendiente`/`error`, compañía `solicitante` y la sincronización encendida. Usa un savepoint por requisición.
+  **No reintenta `rechazado`**: eso se resuelve quitando la factura o con el botón "Reintentar envío"
+  (`action_retry_gasto_sync`, que sí reenvía todo lo pendiente, incluido lo rechazado).
+- **Quitar facturas**: ya enviada la requisición, se pueden quitar las facturas que **nunca llegaron** a Enterprise
+  (están en `gasto_pendiente_ids`), y salen de la cola. Una que ya llegó sigue sin poder quitarse.
+- **Vista** (pestaña "Facturas de Gastos"):
+  - Con cola: aviso amarillo con las facturas pendientes, su estado, intentos, el error y el botón "Reintentar envío".
+  - Todo enviado: aviso verde con la fecha del último envío y el link "Ver Requisición en Enterprise" (`enterprise_url`).
+- **Sin cambio**: en Borrador las facturas viajan con la requisición al Enviar (`sat_document_ids`). Si ese envío falla,
+  lo cubre el reintento normal de la requisición (`_cron_retry_sync`); este cron solo cubre las facturas agregadas
+  **después** de enviar.
+- Versión 19.0.1.14.0. Cambio idéntico en las tres copias (Community, odoo19e, odoo19enterprise). **No se tocó** la
+  diferencia que ya existía en `models/account_analytic_account.py` entre Community y Enterprise.
+
+Verificado con `odoo-bin shell` en `construtec_test`, con Enterprise simulado. 23 comprobaciones OK:
+- **Envío inmediato:** OK.
+- **Enterprise caído:** guarda y deja en cola, con error y aviso; una segunda factura se suma a la cola.
+- **Cron:** envía las pendientes juntas y deja la cola vacía.
+- **Rechazo al guardar:** bloquea y no deja la factura.
+- **Requisición aún no en Enterprise:** pendiente sin llamar; cuando la requisición llega, el cron envía.
+- **Quitar:** una nunca enviada se puede quitar; una ya enviada no.
+- **Rechazo desde el cron:** queda `rechazado`, no se reintenta solo, y el botón sí lo reenvía.
+- **Vistas y cron de 15 min:** OK.
+
+Enterprise (`odoo-bin -u` con el Odoo de Enterprise) carga limpio. **No verificado contra un Enterprise real ni en el
+navegador.**

@@ -1,10 +1,15 @@
+import logging
+
 from markupsafe import Markup
 
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError, ValidationError
 
 from ..tools.enterprise_sync_api import (
-    EnterpriseSyncError, create_sync_record, link_gasto_documents_in_enterprise)
+    EnterpriseConnectionError, EnterpriseSyncError, create_sync_record,
+    link_gasto_documents_in_enterprise)
+
+_logger = logging.getLogger(__name__)
 
 APPROVER_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver'
 APPROVER_MEDIO_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver_medio'
@@ -180,6 +185,23 @@ class AccountPaymentOrder(models.Model):
              'saldo vigente (sin pago o pagadas parcialmente) que no estén vinculadas a otra '
              'requisición. En Borrador se pueden quitar; ya enviada no (Enterprise ya las '
              'reclamó).')
+    # Cola de facturas de gastos (2026-10-21): al guardar se envían al instante; si la comunicación
+    # con Enterprise falla quedan aquí y `_cron_retry_gasto_sync()` las reintenta.
+    gasto_pendiente_ids = fields.Many2many(
+        'construtec.sat.invoice.mirror', relation='account_payment_order_gasto_pendiente_rel',
+        column1='order_id', column2='mirror_id', string='Facturas pendientes de enviar',
+        readonly=True, copy=False,
+        help='Facturas de gastos ya guardadas en Community que todavía NO llegaron a Enterprise '
+             '(falló la comunicación, o la requisición aún no está allá). Se reintentan solas.')
+    gasto_sync_state = fields.Selection([
+        ('sincronizado', 'Enviadas a Enterprise'),
+        ('pendiente', 'Pendiente de enviar'),
+        ('error', 'Error de comunicación (se reintenta)'),
+        ('rechazado', 'Rechazada por Enterprise'),
+    ], string='Envío de facturas de gastos', readonly=True, copy=False)
+    gasto_sync_error = fields.Text(string='Detalle del envío de facturas', readonly=True, copy=False)
+    gasto_sync_date = fields.Datetime(string='Último envío de facturas', readonly=True, copy=False)
+    gasto_sync_attempts = fields.Integer(string='Intentos de envío de facturas', readonly=True, copy=False)
     partner_es_contrata = fields.Boolean(
         string='Es Contrata', compute='_compute_partner_es_contrata',
         inverse='_inverse_partner_es_contrata',
@@ -795,29 +817,88 @@ class AccountPaymentOrder(models.Model):
             raise UserError(self.env._(
                 'La sincronización con Enterprise no está habilitada: no se pueden vincular '
                 'facturas desde esta instalación.'))
-        if self.sync_state != 'synced':
-            raise UserError(self.env._(
-                'Esta requisición todavía no se sincroniza con Enterprise: espere a que se envíe '
-                'correctamente para vincular facturas.'))
+        # Si la requisición aún no llegó a Enterprise, las facturas quedan en cola
+        # (`gasto_pendiente_ids`) y se envían cuando llegue.
 
-    def _push_gastos_to_enterprise(self, mirrors):
-        """Avisa a Enterprise las facturas de gastos recién vinculadas. Si Enterprise no responde o
-        rechaza alguna (ya pagada, vinculada a otra requisición...), la excepción cancela el
-        guardado completo: Community nunca muestra facturas que Enterprise no tiene."""
+    @api.model
+    def _gasto_labels(self, mirrors):
+        return ', '.join(m.numero_documento or m.numero_autorizacion or str(m.origin_id)
+                         for m in mirrors)
+
+    def _push_gastos_to_enterprise(self, mirrors, desde_cola=False):
+        """Envía a Enterprise las facturas de gastos nuevas (`mirrors`) junto con las que estuvieran
+        en cola. Al guardar (`desde_cola=False`):
+        - falla la COMUNICACIÓN (red, timeout, Enterprise caído) -> se guarda igual y quedan en cola
+          (`gasto_pendiente_ids`); el cron las reintenta;
+        - Enterprise RECHAZA (ya pagada, vinculada a otra requisición...) -> se cancela el guardado,
+          porque reintentar no lo arregla.
+        Desde la cola (`desde_cola=True`, cron o botón) un rechazo no lanza: queda `rechazado`.
+        El método de Enterprise es idempotente (re-vincular a la misma requisición no duplica)."""
         self.ensure_one()
         company = self.env.company
+        pendientes = self.gasto_pendiente_ids | mirrors
+        if not pendientes:
+            return
+        if self.sync_state != 'synced':
+            self._queue_gastos(pendientes, 'pendiente', self.env._(
+                'La requisición todavía no está en Enterprise; las facturas se envían cuando llegue.'),
+                avisar=bool(mirrors))
+            return
         try:
             link_gasto_documents_in_enterprise(
                 company.payment_order_sync_url, company.payment_order_sync_db,
                 company.payment_order_sync_login, company.payment_order_sync_api_key,
-                self.name, mirrors.mapped('origin_id'))
+                self.name, pendientes.mapped('origin_id'))
+        except EnterpriseConnectionError as exc:
+            self._queue_gastos(pendientes, 'error', str(exc), avisar=bool(mirrors))
+            return
         except EnterpriseSyncError as exc:
-            raise UserError(self.env._(
-                'No se pudieron vincular las facturas en Enterprise: %s', exc)) from exc
+            if not desde_cola:
+                raise UserError(self.env._(
+                    'Enterprise rechazó las facturas: %s', exc)) from exc
+            self.write({'gasto_sync_state': 'rechazado', 'gasto_sync_error': str(exc),
+                        'gasto_sync_attempts': self.gasto_sync_attempts + 1})
+            self.message_post(body=self.env._(
+                'Enterprise rechazó las facturas de gastos %(f)s: %(e)s. Quítelas de la '
+                'requisición o corrija y presione "Reintentar envío".',
+                f=self._gasto_labels(pendientes), e=exc))
+            return
+        self.write({'gasto_pendiente_ids': [(5, 0, 0)], 'gasto_sync_state': 'sincronizado',
+                    'gasto_sync_error': False, 'gasto_sync_attempts': 0,
+                    'gasto_sync_date': fields.Datetime.now()})
         self.message_post(body=self.env._(
-            'Facturas de gastos vinculadas: %s.',
-            ', '.join(m.numero_documento or m.numero_autorizacion or str(m.origin_id)
-                      for m in mirrors)))
+            'Facturas de gastos vinculadas en Enterprise: %s.', self._gasto_labels(pendientes)))
+
+    def _queue_gastos(self, mirrors, state, error, avisar=True):
+        self.ensure_one()
+        self.write({'gasto_pendiente_ids': [(4, m.id) for m in mirrors], 'gasto_sync_state': state,
+                    'gasto_sync_error': error,
+                    'gasto_sync_attempts': self.gasto_sync_attempts + (1 if state == 'error' else 0)})
+        if avisar:
+            self.message_post(body=self.env._(
+                'Facturas de gastos guardadas, pendientes de enviar a Enterprise (%(f)s): %(e)s. '
+                'Se reintenta automáticamente cada 15 minutos.',
+                f=self._gasto_labels(mirrors), e=error))
+
+    def action_retry_gasto_sync(self):
+        for rec in self:
+            rec._push_gastos_to_enterprise(self.env['construtec.sat.invoice.mirror'], desde_cola=True)
+
+    @api.model
+    def _cron_retry_gasto_sync(self):
+        pendientes = self.search([
+            ('gasto_pendiente_ids', '!=', False),
+            ('gasto_sync_state', 'in', ('pendiente', 'error')),
+            ('company_id.payment_order_role', '=', 'solicitante'),
+            ('company_id.payment_order_sync_enabled', '=', True),
+        ])
+        for rec in pendientes:
+            try:
+                with self.env.cr.savepoint():
+                    rec.with_company(rec.company_id)._push_gastos_to_enterprise(
+                        self.env['construtec.sat.invoice.mirror'], desde_cola=True)
+            except Exception:  # noqa: BLE001 - una requisición no frena a las demás
+                _logger.exception('Reintento de facturas de gastos falló para %s', rec.name)
 
     def _resolve_employee_enterprise_ref(self, vals):
         """Resuelve `employee_enterprise_ref` (el id ORIGINAL de este empleado en Enterprise,
@@ -950,10 +1031,17 @@ class AccountPaymentOrder(models.Model):
         # En Borrador se edita libremente (nada que avisar todavía); desde Enviada se empuja.
         for rec in self.filtered(lambda r: r.id in gasto_antes and r.state != 'borrador'):
             antes, ahora = gasto_antes[rec.id], rec.gasto_mirror_ids
-            if antes - ahora:
+            quitadas = antes - ahora
+            if quitadas - rec.gasto_pendiente_ids:
                 raise UserError(self.env._(
                     'Una factura de gasto ya vinculada no se puede quitar: Enterprise ya la '
                     'reclamó para esta requisición.'))
+            if quitadas:
+                # Nunca llegaron a Enterprise: se pueden quitar y salen de la cola.
+                rec.gasto_pendiente_ids -= quitadas
+                if not rec.gasto_pendiente_ids:
+                    rec.gasto_sync_state = 'sincronizado' if rec.gasto_sync_date else False
+                    rec.gasto_sync_error = False
             nuevas = ahora - antes
             if nuevas:
                 for mirror in nuevas:

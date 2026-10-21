@@ -298,6 +298,32 @@
                                 Con "Depositar a Técnicos" y varios técnicos, las facturas se agregan a la
                                 requisición de cada técnico después de enviar.
                             </p>
+                            <div class="alert alert-warning" role="alert" invisible="not gasto_pendiente_ids">
+                                <p class="mb-1">
+                                    <b>Facturas pendientes de enviar a Enterprise:</b>
+                                    <field name="gasto_pendiente_ids" widget="many2many_tags" readonly="1" nolabel="1"/>
+                                </p>
+                                <p class="mb-1">
+                                    Estado: <field name="gasto_sync_state" readonly="1" nolabel="1"/>
+                                    <span invisible="not gasto_sync_attempts"> · Intentos:
+                                        <field name="gasto_sync_attempts" readonly="1" nolabel="1"/></span>
+                                </p>
+                                <p class="mb-1" invisible="not gasto_sync_error">
+                                    <field name="gasto_sync_error" readonly="1" nolabel="1"/>
+                                </p>
+                                <p class="mb-2 text-muted" invisible="gasto_sync_state == 'rechazado'">
+                                    Ya están guardadas aquí; se reintentan solas cada 15 minutos.
+                                </p>
+                                <button name="action_retry_gasto_sync" type="object" string="Reintentar envío"
+                                        class="btn btn-secondary btn-sm" icon="fa-refresh"/>
+                            </div>
+                            <div class="alert alert-success" role="status"
+                                 invisible="gasto_pendiente_ids or gasto_sync_state != 'sincronizado'">
+                                Todas las facturas de gastos están en Enterprise (último envío:
+                                <field name="gasto_sync_date" readonly="1" nolabel="1"/>).
+                                <field name="enterprise_url" widget="url" readonly="1" nolabel="1"
+                                       string="Ver Requisición en Enterprise" invisible="not enterprise_url"/>
+                            </div>
                             <field name="gasto_mirror_ids" widget="many2many" nolabel="1"
                                    readonly="state not in ('borrador', 'enviado', 'aprobado', 'aplicado')"
                                    domain="[('payment_state', '!=', 'paid'), ('linked_order_name', '=', False)]">

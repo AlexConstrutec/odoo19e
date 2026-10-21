@@ -22,6 +22,11 @@ class EnterpriseSyncError(Exception):
     """Any failure talking to the Procesador instance (config/network/auth/API)."""
 
 
+class EnterpriseConnectionError(EnterpriseSyncError):
+    """La comunicación falló (red, timeout, HTTP, respuesta ilegible): reintentar puede
+    resolverlo. Un rechazo de Enterprise (error de negocio) sigue siendo EnterpriseSyncError."""
+
+
 def _jsonrpc(url, service, method, args):
     if not url:
         raise EnterpriseSyncError('No se configuró la URL de la instalación Procesadora.')
@@ -41,9 +46,9 @@ def _jsonrpc(url, service, method, args):
         response.raise_for_status()
         data = response.json()
     except requests.RequestException as exc:
-        raise EnterpriseSyncError(f'No se pudo conectar a la instalación Procesadora: {exc}') from exc
+        raise EnterpriseConnectionError(f'No se pudo conectar a la instalación Procesadora: {exc}') from exc
     except ValueError as exc:
-        raise EnterpriseSyncError('Respuesta inválida del servidor Procesador.') from exc
+        raise EnterpriseConnectionError('Respuesta inválida del servidor Procesador.') from exc
 
     if 'error' in data:
         err = data['error']
