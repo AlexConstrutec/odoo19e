@@ -2238,3 +2238,30 @@ Versión 19.0.1.16.0. El cambio es idéntico en las tres copias.
 **Verificado** con `odoo-bin shell` en `construtec_test`, con Enterprise simulado: 15 comprobaciones, entre ellas que
 guardar no envía, el botón envía, el cron reintenta solo los errores, el usuario normal no puede quitar una ya
 enviada y el Administrador sí. **No verificado en el navegador.**
+
+## Botón "Pasar a Gestión de Compras" (2026-10-22, Enterprise)
+
+Caso real: la RP/0020 de Enterprise se aprobó antes de que existiera Gestión de Compras. Quedó en **Aprobado** con
+todos los precios en cero, y las líneas de Materiales solo se editan en `en_compras`.
+
+`action_pasar_a_compras()` regresa una Solicitud de Materiales de **Aprobado** a **Gestión de Compras**.
+- **Quién**: Compras o Contabilidad (`_check_puede_gestionar_compras()`), solo en Enterprise (`es_procesador`).
+- **Cuándo**: solo si la requisición no tiene un pago contabilizado.
+- **Qué hace**:
+  - limpia `requiere_aprobacion_gerente`;
+  - deja una nota en el chatter;
+  - avisa a Compras.
+
+El control del umbral se conserva: al terminar Compras, si el total final llega al umbral y no aprobó un Gerente,
+hace falta su autorización.
+
+Versión 19.0.1.17.0, idéntica en las tres copias.
+
+**Verificado** con `odoo-bin shell` en `construtec_test` (Enterprise): 10 comprobaciones.
+- El botón se ve para Compras y está oculto para un usuario sin Compras.
+- Un usuario sin Compras no puede usarlo.
+- Pasa de Aprobado a Gestión de Compras, deja la nota y permite editar precios.
+- No aplica si ya está en Gestión de Compras ni a otro tipo.
+- Sobre el umbral pide Gerente y, al autorizar, vuelve a Aprobado.
+
+**No verificado en el navegador.**

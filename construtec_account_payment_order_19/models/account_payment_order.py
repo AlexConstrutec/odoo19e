@@ -2335,6 +2335,29 @@ class AccountPaymentOrder(models.Model):
                        'Aplicar.', name=self.name, monto=self.monto or 0.0))
         return True
 
+    def action_pasar_a_compras(self):
+        """Botón "Pasar a Gestión de Compras" (2026-10-22): regresa una Solicitud de Materiales que
+        quedó en Aprobado (por ejemplo, aprobada antes de existir Gestión de Compras, con precios en
+        cero) para que Compras la cotice y actualice precios. Solo antes de Aplicar (sin pago
+        contabilizado). El control del umbral se conserva: al terminar Compras, si el total llega
+        al umbral y no la aprobó un Gerente, hace falta su autorización."""
+        self.ensure_one()
+        if self.tipo != 'anticipo_materiales' or self.state != 'aprobado':
+            raise UserError(self.env._(
+                'Solo una Solicitud de Materiales en Aprobado puede pasar a Gestión de Compras.'))
+        self._check_puede_gestionar_compras()
+        if self.sudo().pago_ids.filtered(lambda p: p.state in ('in_process', 'paid')):
+            raise UserError(self.env._(
+                'Esta requisición ya tiene un pago contabilizado; no puede regresar a Gestión de '
+                'Compras.'))
+        self.write({'state': 'en_compras', 'requiere_aprobacion_gerente': False})
+        self.message_post(body=self.env._(
+            '%s regresó la requisición a Gestión de Compras.', self.env.user.name))
+        self._push_notify(
+            self._compras_partners(), self.env._('Solicitud de Materiales en Gestión de Compras'),
+            self.env._('%s está lista para cotizar y actualizar precios.', self.name))
+        return True
+
     def action_imprimir_orden_compra(self):
         """Botón "Imprimir Orden de Compra" (pedido del usuario, 2026-10-17): el Contador abre la
         Solicitud de Materiales que recibió y, de un clic, ve el PDF de la Orden de Compra para

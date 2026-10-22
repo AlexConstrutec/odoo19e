@@ -47,6 +47,11 @@
                             groups="purchase.group_purchase_user,account.group_account_manager"
                             confirm="¿Terminar la intervención de Compras? La requisición pasa a Contabilidad para Aplicar."
                             invisible="tipo != 'anticipo_materiales' or state != 'en_compras' or requiere_aprobacion_gerente or not es_procesador"/>
+                    <button name="action_pasar_a_compras" string="Pasar a Gestión de Compras" type="object"
+                            icon="fa-shopping-cart"
+                            groups="purchase.group_purchase_user,account.group_account_manager"
+                            confirm="¿Regresar la requisición a Gestión de Compras para cotizar y actualizar precios?"
+                            invisible="tipo != 'anticipo_materiales' or state != 'aprobado' or not es_procesador"/>
                     <button name="action_autorizar_gerente" string="Autorizar monto (Gerente)" type="object"
                             class="oe_highlight" icon="fa-thumbs-up"
                             groups="construtec_account_payment_order_19.group_payment_order_approver_alto"
