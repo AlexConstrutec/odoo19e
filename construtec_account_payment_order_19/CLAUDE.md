@@ -2265,3 +2265,50 @@ Versión 19.0.1.17.0, idéntica en las tres copias.
 - Sobre el umbral pide Gerente y, al autorizar, vuelve a Aprobado.
 
 **No verificado en el navegador.**
+
+## Depositar a un técnico en Materiales (2026-10-22)
+
+Pedido del usuario, y esta es la función original del módulo bolsón. En una Solicitud de Materiales, el jefe de
+técnicos puede pedir que el anticipo se le deposite **a uno de sus técnicos**. El pago se registra **a nombre del
+técnico**, y Liquidar concilia contra ese pago las facturas de los distintos proveedores. Solo aplica a Materiales;
+Viáticos sigue con su botón "Depositar a Técnicos", sin cambios.
+
+**Community: el jefe elige al técnico**
+- Campo `tecnico_deposito_partner_id` ("Depositar a Técnico", solo contactos que son empleados).
+- Al elegirlo:
+  - `pagar_a` pasa a `'tecnico'` (opción nueva del Selection).
+  - `cuenta_acreditar`, `banco` y `tipo_cuenta` toman la cuenta del técnico. Se leen con `sudo()` de los campos
+    `_raw`, como en las líneas de Viáticos (`_tecnico_deposito_bank_vals()`).
+- Al quitarlo, `pagar_a` se limpia.
+- Ya enviada la requisición, solo un aprobador o Contabilidad puede cambiar el técnico.
+- `partner_id` (el Contacto) sigue siendo el jefe.
+
+**Sincronización**
+- `_prepare_sync_vals()` manda `tecnico_deposito_enterprise_ref`: el `enterprise_employee_ref` del técnico, nunca un
+  id de Community.
+- Enterprise lo resuelve a su contacto (`_resolve_tecnico_deposito_enterprise_ref()`) y fija `pagar_a='tecnico'`.
+- La cuenta bancaria viaja en el encabezado, como siempre.
+
+**Enterprise: el pago y la liquidación**
+- `_resolve_beneficiario_pago()` devuelve al técnico. Aplicar y Crear Pago crean el pago a su nombre.
+- Liquidar (`action_conciliar()`) no cambió: cada línea conserva su contacto. Las facturas quedan pagadas y el
+  pago del técnico queda conciliado.
+- La línea de diferencia (Cuenta de Ajuste) va a nombre del técnico.
+- El Excel de transferencia muestra el nombre del técnico.
+- El aviso "anticipos sin liquidar" sigue buscando por el Contacto (el jefe).
+
+Versión 19.0.1.18.0, idéntica en las tres copias.
+
+**Verificado** con `odoo-bin shell` en `construtec_test`: 20 comprobaciones.
+- Community: el técnico cambia `pagar_a` y la cuenta bancaria, viaja en la sincronización y queda bloqueado tras
+  enviar.
+- Enterprise: resuelve al técnico y el pago queda a su nombre.
+- Liquidar con facturas de dos proveedores (Q300 + Q200 contra un pago de Q500): facturas pagadas y pago conciliado.
+- El Excel usa el nombre del técnico.
+- Regresión: la prueba de Compras sigue 30/30.
+
+Notas para reprobar:
+- En Materiales el pago queda en borrador hasta que el Contador lo confirma, así que la prueba lo publica a mano.
+- En `construtec_test` el diario de banco necesita cuenta de pagos pendientes.
+
+**No verificado en el navegador.**

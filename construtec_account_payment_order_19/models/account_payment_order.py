@@ -408,12 +408,24 @@ class AccountPaymentOrder(models.Model):
     pagar_a = fields.Selection([
         ('jefe_tecnicos', 'Jefe de Técnicos'),
         ('proveedor_directo', 'Proveedor Directo'),
+        ('tecnico', 'Técnico'),
     ], string='Pagar a',
         help='Solo para Anticipo Materiales: a quién se le entrega el dinero al Aplicar - al '
              'jefe de técnicos (`partner_id`, "Contacto", quien luego paga al proveedor) o '
              'directo al proveedor (`proveedor_materiales_id`, "Proveedor de Materiales" - ver '
              '`_resolve_beneficiario_pago()`). `partner_id` nunca se limpia por elegir aquí - '
              'siempre identifica a quien sube la Orden, sin importar a quién se le paga.')
+    # Depositar a un técnico (Materiales, 2026-10-22): el jefe de técnicos elige en Community a cuál
+    # de sus técnicos se le deposita. El pago se registra A NOMBRE DEL TÉCNICO (pagar_a='tecnico',
+    # ver `_resolve_beneficiario_pago()`) y al Liquidar el bolsón concilia las facturas de los
+    # distintos proveedores contra ese pago. `partner_id` sigue siendo el jefe (quien solicita).
+    tecnico_deposito_partner_id = fields.Many2one(
+        'res.partner', string='Depositar a Técnico', copy=False,
+        domain=[('employee', '=', True)],
+        help='Solo Materiales: el técnico al que se le deposita el anticipo (en lugar del jefe de '
+             'técnicos). El pago queda a su nombre y su cuenta bancaria se usa para el depósito; '
+             'las facturas de los proveedores se concilian contra ese pago al Liquidar. Vacío = '
+             'se deposita al jefe de técnicos, como siempre.')
     proveedor_materiales_catalogo_id = fields.Many2one(
         'construtec.materials.vendor.mirror', string='Proveedor Sugerido (Catálogo)',
         help='Elegido por el jefe de técnicos (o resuelto/creado automáticamente por "Cargar '
@@ -726,7 +738,35 @@ class AccountPaymentOrder(models.Model):
         self.ensure_one()
         if self.tipo == 'anticipo_materiales' and self.pagar_a == 'proveedor_directo':
             return self.proveedor_materiales_id
+        if self.tipo == 'anticipo_materiales' and self.pagar_a == 'tecnico':
+            return self.tecnico_deposito_partner_id
         return self.partner_id
+
+    def _tecnico_deposito_bank_vals(self, partner, company):
+        """Cuenta/banco/tipo de cuenta del técnico a depositar. sudo() sobre los campos `_raw`:
+        el jefe de técnicos no tiene hr.group_hr_manager y necesita la cuenta de SU técnico para
+        esta requisición (mismo criterio que las líneas de Viáticos, ver
+        account_payment_order_viatico_line.py)."""
+        employee = _resolve_employee_for_partner(partner, company) if partner else False
+        if not employee:
+            return {'cuenta_acreditar': False, 'banco': False, 'tipo_cuenta': False}
+        employee = employee.sudo()
+        return {
+            'cuenta_acreditar': employee.cuenta_bancaria_raw or False,
+            'banco': employee.banco_nombre_raw or False,
+            'tipo_cuenta': employee.tipo_cuenta_raw or False,
+        }
+
+    @api.onchange('tecnico_deposito_partner_id')
+    def _onchange_tecnico_deposito_partner_id(self):
+        for rec in self:
+            if rec.tipo != 'anticipo_materiales':
+                continue
+            if rec.tecnico_deposito_partner_id:
+                rec.update(rec._tecnico_deposito_bank_vals(
+                    rec.tecnico_deposito_partner_id, rec.company_id or self.env.company))
+            else:
+                rec._onchange_partner_id()
 
     @api.onchange('pagar_a')
     def _onchange_pagar_a(self):
@@ -769,6 +809,18 @@ class AccountPaymentOrder(models.Model):
             self._resolve_partner_enterprise_ref(vals)
             self._resolve_company_enterprise_ref(vals)
             self._resolve_analytic_enterprise_ref(vals)
+            self._resolve_tecnico_deposito_enterprise_ref(vals)
+            if vals.get('tecnico_deposito_partner_id'):
+                vals.setdefault('pagar_a', 'tecnico')
+                company = self.env['res.company'].browse(vals['company_id']) \
+                    if vals.get('company_id') else self.env.company
+                for key, value in self._tecnico_deposito_bank_vals(
+                        self.env['res.partner'].browse(vals['tecnico_deposito_partner_id']),
+                        company).items():
+                    # Lo que viene en vals (p. ej. corregido a mano en Community y sincronizado)
+                    # se respeta; solo se rellena lo que falte.
+                    if not vals.get(key):
+                        vals[key] = value
             self._fill_derived_vals_from_employee(vals)
             self._fill_derived_vals_from_analytic_account(vals)
         records = super().create(vals_list)
@@ -984,6 +1036,16 @@ class AccountPaymentOrder(models.Model):
             if partner:
                 vals['partner_id'] = partner.id
 
+    def _resolve_tecnico_deposito_enterprise_ref(self, vals):
+        """Recibe en Enterprise el técnico a depositar elegido en Community, como el id del
+        empleado allá (`hr.employee.enterprise_employee_ref` del espejo en Community), y lo
+        resuelve a su contacto real - mismo criterio que `_resolve_employee_enterprise_ref()`."""
+        ref = vals.pop('tecnico_deposito_enterprise_ref', None)
+        if ref and not vals.get('tecnico_deposito_partner_id'):
+            employee = self.env['hr.employee'].sudo().browse(int(ref)).exists()
+            if employee and employee.work_contact_id:
+                vals['tecnico_deposito_partner_id'] = employee.work_contact_id.id
+
     def _resolve_company_enterprise_ref(self, vals):
         """Respaldo de compañía (`res.company.payment_order_default_company_id`, configurado en
         la instalación Solicitante) para cuando el empleado no se pudo resolver arriba - ej. la
@@ -1071,6 +1133,14 @@ class AccountPaymentOrder(models.Model):
                     raise UserError(self.env._(
                         'No se puede cambiar el empleado de una Orden de Pago ya creada '
                         '- cree una nueva en su lugar.'))
+        if 'tecnico_deposito_partner_id' in vals and not (
+                self.env.user.has_group(APPROVER_GROUP_XMLID)
+                or self.env.user.has_group('account.group_account_manager')):
+            for rec in self:
+                if rec.state != 'borrador' and \
+                        vals['tecnico_deposito_partner_id'] != rec.tecnico_deposito_partner_id.id:
+                    raise UserError(self.env._(
+                        'El técnico a depositar solo se puede cambiar en Borrador.'))
         gasto_antes = {}
         if 'gasto_mirror_ids' in vals:
             for rec in self:
@@ -1107,6 +1177,18 @@ class AccountPaymentOrder(models.Model):
                            'gasto_sync_state': 'pendiente', 'gasto_sync_error': False})
         if any(k in vals for k in ('viaticos_line_ids', 'material_line_ids', 'anticipo_previo', 'tipo')):
             self._sync_monto_desde_total_acreditar()
+        if 'tecnico_deposito_partner_id' in vals:
+            for rec in self.filtered(lambda r: r.tipo == 'anticipo_materiales'):
+                if rec.tecnico_deposito_partner_id:
+                    extra = {'pagar_a': 'tecnico'} if rec.pagar_a != 'tecnico' else {}
+                    bank = rec._tecnico_deposito_bank_vals(
+                        rec.tecnico_deposito_partner_id, rec.company_id)
+                    # El formulario puede mandar la cuenta corregida a mano en el mismo guardado.
+                    bank = {k: v for k, v in bank.items() if k not in vals}
+                    if extra or bank:
+                        super(AccountPaymentOrder, rec).write({**bank, **extra})
+                elif rec.pagar_a == 'tecnico':
+                    super(AccountPaymentOrder, rec).write({'pagar_a': False})
         if 'proveedor_materiales_catalogo_id' in vals:
             self._sync_proveedor_materiales_name()
         if 'proveedor_materiales_name' in vals:
@@ -1605,6 +1687,11 @@ class AccountPaymentOrder(models.Model):
             'observaciones': self.observaciones or '',
             'anticipo_previo': self.anticipo_previo,
             'proveedor_materiales_name': self.proveedor_materiales_name or '',
+            'tecnico_deposito_enterprise_ref': (
+                _resolve_employee_for_partner(self.tecnico_deposito_partner_id, self.company_id)
+                .sudo().enterprise_employee_ref
+                if self.tipo == 'anticipo_materiales' and self.tecnico_deposito_partner_id
+                else False),
             # Ids REALES de construtec.sat.document en Enterprise - NUNCA un id de account.move
             # (decisión explícita del usuario, 2026-09-29: "de Enterprise a Community solo deben
             # copiarse los documentos SAT"). El jefe de técnicos los eligió del mirror de solo
@@ -1836,7 +1923,9 @@ class AccountPaymentOrder(models.Model):
                 # las demás líneas (que traen su propio `partner_id` real de cada factura/pago),
                 # esta línea de ajuste no viene de ningún documento, así que sin esto quedaba sin
                 # contacto.
-                'partner_id': self.partner_id.id,
+                # Depositado a un técnico: la diferencia es del técnico que recibió el dinero.
+                'partner_id': (self._resolve_beneficiario_pago() if self.pagar_a == 'tecnico'
+                               else self.partner_id).id,
                 'date_maturity': self.fecha,
             }))
 
@@ -1996,6 +2085,9 @@ class AccountPaymentOrder(models.Model):
                 raise UserError(self.env._(
                     'Define el Proveedor de Materiales antes de crear un pago - con "Pagar a: '
                     'Proveedor Directo" el pago se le hace directo a él.'))
+            if self.tipo == 'anticipo_materiales' and self.pagar_a == 'tecnico':
+                raise UserError(self.env._(
+                    'Define el Técnico a depositar antes de crear un pago.'))
             raise UserError(self.env._('Define el Contacto antes de crear un pago.'))
 
         total_facturas = sum(self.factura_ids.filtered(
@@ -2066,8 +2158,8 @@ class AccountPaymentOrder(models.Model):
             raise UserError(self.env._('Define el Diario antes de aplicar.'))
         if self.tipo == 'anticipo_materiales' and not self.pagar_a:
             raise UserError(self.env._(
-                'Define a quién se le paga (Jefe de Técnicos o Proveedor Directo) antes de '
-                'aplicar.'))
+                'Define a quién se le paga (Jefe de Técnicos, Proveedor Directo o Técnico) '
+                'antes de aplicar.'))
         self._autosugerir_proveedor_materiales_id()  # ver nota en action_approve()
         beneficiario = self._resolve_beneficiario_pago()
         if not beneficiario:
@@ -2075,6 +2167,10 @@ class AccountPaymentOrder(models.Model):
                 raise UserError(self.env._(
                     'Define el Proveedor de Materiales antes de aplicar - con "Pagar a: '
                     'Proveedor Directo" el pago se le hace directo a él.'))
+            if self.tipo == 'anticipo_materiales' and self.pagar_a == 'tecnico':
+                raise UserError(self.env._(
+                    'Define el Técnico a depositar antes de aplicar - con "Pagar a: Técnico" el '
+                    'pago se le hace a él.'))
             raise UserError(self.env._('Define el Contacto que recibirá el anticipo.'))
         if not self.monto:
             raise UserError(self.env._('Define el Monto del anticipo.'))
@@ -2472,7 +2568,9 @@ class AccountPaymentOrder(models.Model):
         tipo_cuenta_labels = dict(self._fields['tipo_cuenta'].selection)
         for fila, orden in enumerate(self, start=1):
             sheet.write(fila, 0, orden.name or '')
-            sheet.write(fila, 1, orden.partner_id.name or '')
+            nombre = (orden._resolve_beneficiario_pago() if orden.pagar_a == 'tecnico'
+                      else orden.partner_id).name
+            sheet.write(fila, 1, nombre or '')
             sheet.write(fila, 2, orden.banco or '')
             sheet.write(fila, 3, orden.cuenta_acreditar or '')
             sheet.write(fila, 4, tipo_cuenta_labels.get(orden.tipo_cuenta, '') or '')

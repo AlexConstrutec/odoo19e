@@ -109,6 +109,10 @@
                             <field name="payment_method_line_id" invisible="not es_procesador"
                                    readonly="state not in ('borrador', 'aprobado')"/>
                             <field name="pagar_a" invisible="tipo != 'anticipo_materiales' or not es_procesador"/>
+                            <field name="tecnico_deposito_partner_id"
+                                   invisible="tipo != 'anticipo_materiales' or (es_procesador and pagar_a != 'tecnico')"
+                                   readonly="state != 'borrador' and not es_procesador"
+                                   options="{'no_create': True}"/>
                             <field name="proveedor_materiales_catalogo_id" string="Proveedor Sugerido"
                                    invisible="tipo != 'anticipo_materiales' or es_procesador"/>
                             <field name="proveedor_materiales_name"
