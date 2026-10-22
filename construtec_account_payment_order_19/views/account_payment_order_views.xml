@@ -507,6 +507,11 @@
                 <filter string="Anticipos sin Liquidar" name="anticipos_sin_liquidar"
                         domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')), ('state', '=', 'aplicado')]"/>
                 <separator/>
+                <!-- Por defecto no se ven las liquidadas ni las divididas (pedido del usuario, 2026-10-22);
+                     quitando este filtro se ven todas. Va separado para combinarse (Y) con los de arriba. -->
+                <filter string="En proceso" name="en_proceso"
+                        domain="[('state', 'not in', ('liquidado', 'dividida'))]"/>
+                <separator/>
                 <filter string="Tipo" name="group_tipo" context="{'group_by': 'tipo'}"/>
                 <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
                 <filter string="Lote de Origen" name="group_lote_origen" context="{'group_by': 'lote_origen'}"/>
@@ -518,7 +523,7 @@
         <field name="name">Requisiciones de Pago</field>
         <field name="res_model">account.payment.order</field>
         <field name="view_mode">list,form</field>
-        <field name="context">{'search_default_my_orders': 1}</field>
+        <field name="context">{'search_default_my_orders': 1, 'search_default_en_proceso': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">Crea una Requisición de Pago.</p>
         </field>

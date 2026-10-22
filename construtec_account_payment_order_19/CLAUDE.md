@@ -2312,3 +2312,17 @@ Notas para reprobar:
 - En `construtec_test` el diario de banco necesita cuenta de pagos pendientes.
 
 **No verificado en el navegador.**
+
+## Filtro por defecto "En proceso" (2026-10-22)
+
+Pedido del usuario: la lista de Requisiciones de Pago ya **no muestra por defecto** las liquidadas ni las divididas.
+- **Filtro:** "En proceso" (`en_proceso`), con domain `state not in ('liquidado', 'dividida')`.
+- **Separador:** va entre `<separator/>` para que se combine (Y) con "Mis Requisiciones" y los demás filtros, en vez
+  de sumarse (O).
+- **Acción:** `action_account_payment_order` lo activa con `search_default_en_proceso`.
+- **Para ver todas:** se quita el filtro de la barra de búsqueda.
+
+Versión 19.0.1.19.0, idéntica en las tres copias.
+
+**Verificado** en `construtec_test`: el filtro está en la vista de búsqueda, la acción lo trae por defecto y deja ver
+Borrador/Aplicado pero no Liquidado/Dividida.
