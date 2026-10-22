@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_construtec_bank_statement_import_wizard_form" model="ir.ui.view">
+        <field name="name">construtec.bank.statement.import.wizard.form</field>
+        <field name="model">construtec.bank.statement.import.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <p class="text-muted">
+                    Suba el Excel (.xlsx o .xls) o CSV que descarga el banco. Se detectan solas las
+                    columnas de Fecha, Documento, Descripción y Débito/Crédito (o Monto). Al terminar
+                    se corre el empate automático.
+                </p>
+                <group>
+                    <field name="reconciliation_id"/>
+                    <field name="file" filename="filename"/>
+                    <field name="filename" invisible="1"/>
+                    <field name="only_period"/>
+                    <field name="invert_sign"/>
+                    <field name="replace_unmatched"/>
+                </group>
+                <footer>
+                    <button name="action_import" type="object" string="Importar" class="btn-primary"/>
+                    <button special="cancel" string="Cancelar"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

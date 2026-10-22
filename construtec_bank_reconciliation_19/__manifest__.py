@@ -1,0 +1,31 @@
+{
+    'name': 'Construtec Conciliación Bancaria',
+    'version': '19.0.1.0.0',
+    'category': 'Accounting/Accounting',
+    'summary': 'Conciliación bancaria mensual por diario: estado de cuenta propio (sin asientos) '
+               'empatado contra los registros del banco en Odoo, cheques en circulación y formato Diamante',
+    'author': 'Alex Martínez',
+    'website': 'https://www.linkedin.com/in/alex-martinez',
+    'license': 'LGPL-3',
+    'depends': [
+        'account',
+        'account_check_printing',
+        'mail',
+    ],
+    'data': [
+        'security/security.xml',
+        'security/ir.model.access.csv',
+        'views/construtec_bank_reconciliation_views.xml',
+        'views/construtec_bank_statement_line_views.xml',
+        'views/account_payment_views.xml',
+        'views/account_journal_views.xml',
+        'views/res_config_settings_views.xml',
+        'wizards/bank_statement_import_wizard_views.xml',
+        'wizards/bank_match_wizard_views.xml',
+        'wizards/bank_adjustment_wizard_views.xml',
+        'views/menus.xml',
+        'report/bank_reconciliation_report.xml',
+    ],
+    'application': False,
+    'installable': True,
+}

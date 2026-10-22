@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_construtec_bank_reconciliation_list" model="ir.ui.view">
+        <field name="name">construtec.bank.reconciliation.list</field>
+        <field name="model">construtec.bank.reconciliation</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="journal_id"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <field name="balance_end_real"/>
+                <field name="book_balance"/>
+                <field name="outstanding_payments" optional="show"/>
+                <field name="difference" decoration-danger="difference != 0"/>
+                <field name="unmatched_count" optional="show"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="state" widget="badge" decoration-info="state == 'draft'"
+                       decoration-warning="state == 'done'" decoration-primary="state == 'reviewed'"
+                       decoration-success="state == 'approved'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_construtec_bank_reconciliation_search" model="ir.ui.view">
+        <field name="name">construtec.bank.reconciliation.search</field>
+        <field name="model">construtec.bank.reconciliation</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="journal_id"/>
+                <filter string="Borrador" name="draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="Pendientes de firma" name="to_sign"
+                        domain="[('state', 'in', ('done', 'reviewed'))]"/>
+                <filter string="Autorizadas" name="approved" domain="[('state', '=', 'approved')]"/>
+                <separator/>
+                <filter string="Fecha de corte" name="date_to" date="date_to"/>
+                <group>
+                    <filter string="Diario" name="group_journal" context="{'group_by': 'journal_id'}"/>
+                    <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_construtec_bank_reconciliation_form" model="ir.ui.view">
+        <field name="name">construtec.bank.reconciliation.form</field>
+        <field name="model">construtec.bank.reconciliation</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_open_import_wizard" type="object" string="Importar estado de cuenta"
+                            class="btn-primary" invisible="state != 'draft' or not id"/>
+                    <button name="action_auto_match" type="object" string="Empatar automático"
+                            invisible="state != 'draft' or not statement_line_ids"/>
+                    <button name="action_open_match_wizard" type="object" string="Empatar manual"
+                            invisible="state != 'draft' or not id"/>
+                    <button name="action_refresh" type="object" string="Recalcular"
+                            invisible="state != 'draft' or not id"/>
+                    <button name="action_done" type="object" string="Marcar Hecho" class="btn-primary"
+                            invisible="state != 'draft' or not id"
+                            confirm="Al marcarla como Hecha se congelan los saldos y las partidas pendientes del mes. ¿Continuar?"/>
+                    <button name="action_review" type="object" string="Revisado" class="btn-primary"
+                            invisible="state != 'done'" groups="account.group_account_manager"/>
+                    <button name="action_approve" type="object" string="Autorizar" class="btn-primary"
+                            invisible="state != 'reviewed'" groups="account.group_account_manager"/>
+                    <button name="action_print" type="object" string="Imprimir conciliación"
+                            invisible="not id"/>
+                    <button name="action_print_account_movement" type="object" string="Movimiento de cuenta"
+                            invisible="not id"/>
+                    <button name="action_reopen" type="object" string="Reabrir"
+                            invisible="state == 'draft'" groups="account.group_account_manager"
+                            confirm="Se podrán volver a modificar los movimientos y se recalcularán las partidas pendientes. ¿Reabrir?"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,done,reviewed,approved"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-warning" role="alert"
+                         invisible="state != 'draft' or not id or not difference">
+                        La conciliación tiene diferencia: revise las líneas sin empatar y las partidas pendientes.
+                    </div>
+                    <div class="alert alert-info" role="alert" invisible="not alert_count">
+                        Hay <field name="alert_count" class="oe_inline"/> partida(s) en circulación con
+                        antigüedad mayor a la configurada: revisar si se anulan o reexpiden.
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="journal_id" readonly="state != 'draft' or statement_line_ids"
+                                   options="{'no_create': True}"/>
+                            <field name="account_id"/>
+                            <field name="date_from" readonly="state != 'draft'"/>
+                            <field name="date_to" readonly="state != 'draft'"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group>
+                            <field name="balance_start" readonly="state != 'draft'"/>
+                            <field name="balance_end_real" readonly="state != 'draft'"/>
+                            <field name="balance_end_computed"/>
+                            <field name="statement_difference"
+                                   decoration-danger="statement_difference != 0"/>
+                            <field name="balance_end_note" readonly="state != 'draft'"
+                                   invisible="not statement_difference"/>
+                            <field name="statement_attachment" filename="statement_attachment_name"
+                                   readonly="state != 'draft'"/>
+                            <field name="statement_attachment_name" invisible="1"/>
+                        </group>
+                    </group>
+                    <group string="Conciliación" invisible="not id">
+                        <group>
+                            <field name="balance_end_real" string="Saldo reportado por el banco"/>
+                            <field name="outstanding_payments" string="(-) Cheques y pagos en circulación"/>
+                            <field name="outstanding_deposits" string="(+) Depósitos en tránsito"/>
+                            <field name="unrecorded_debits" string="(+) Débitos del banco no registrados"/>
+                            <field name="unrecorded_credits" string="(-) Créditos del banco no registrados"/>
+                            <field name="conciliated_balance" string="(=) Saldo conciliado" class="fw-bold"/>
+                        </group>
+                        <group>
+                            <field name="book_balance" string="Saldo según libros" class="fw-bold"/>
+                            <field name="difference" decoration-danger="difference != 0"
+                                   decoration-success="difference == 0" class="fw-bold"/>
+                            <field name="unmatched_count"/>
+                            <field name="last_refresh"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page name="statement" string="Estado de cuenta">
+                            <field name="statement_line_ids" readonly="state != 'draft'">
+                                <list editable="bottom" decoration-muted="match_state != 'unmatched'">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="date"/>
+                                    <field name="ref"/>
+                                    <field name="name"/>
+                                    <field name="debit" sum="Débitos"/>
+                                    <field name="credit" sum="Créditos"/>
+                                    <field name="bank_balance" optional="hide"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="partner_names" optional="show"/>
+                                    <field name="move_line_ids" widget="many2many_tags" readonly="1" optional="hide"/>
+                                    <field name="match_method" optional="hide" readonly="1"/>
+                                    <field name="match_state" widget="badge" readonly="1"
+                                           decoration-warning="match_state == 'unmatched'"
+                                           decoration-success="match_state == 'matched'"
+                                           decoration-info="match_state == 'adjustment'"/>
+                                    <button name="action_open_match_wizard" type="object" string="Empatar"
+                                            icon="fa-link" invisible="match_state != 'unmatched' or not id"/>
+                                    <button name="action_open_adjustment_wizard" type="object" string="Ajuste"
+                                            icon="fa-pencil-square-o" invisible="match_state != 'unmatched' or not id"/>
+                                    <button name="action_unmatch" type="object" string="Deshacer"
+                                            icon="fa-chain-broken" invisible="match_state == 'unmatched'"
+                                            confirm="¿Deshacer el empate? Si es un ajuste, también se elimina su asiento."/>
+                                </list>
+                            </field>
+                        </page>
+                        <page name="outstanding_payments" string="Cheques y pagos en circulación">
+                            <field name="outstanding_payment_item_ids">
+                                <list decoration-danger="alert">
+                                    <field name="reference" string="Cheque / Documento"/>
+                                    <field name="date"/>
+                                    <field name="partner_name"/>
+                                    <field name="name"/>
+                                    <field name="age_days"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="amount" sum="Total"/>
+                                    <field name="alert" column_invisible="1"/>
+                                    <field name="payment_id" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page name="outstanding_deposits" string="Depósitos en tránsito">
+                            <field name="outstanding_deposit_item_ids">
+                                <list decoration-danger="alert">
+                                    <field name="reference" string="Documento"/>
+                                    <field name="date"/>
+                                    <field name="partner_name"/>
+                                    <field name="name"/>
+                                    <field name="age_days"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="amount" sum="Total"/>
+                                    <field name="alert" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page name="unrecorded" string="Notas del banco no registradas">
+                            <field name="unrecorded_item_ids">
+                                <list>
+                                    <field name="item_type"/>
+                                    <field name="date"/>
+                                    <field name="reference"/>
+                                    <field name="name"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="amount" sum="Total"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page name="signatures" string="Firmas">
+                            <group>
+                                <group string="Hecho">
+                                    <field name="done_user_id"/>
+                                    <field name="done_date"/>
+                                </group>
+                                <group string="Revisado">
+                                    <field name="reviewed_user_id"/>
+                                    <field name="reviewed_date"/>
+                                </group>
+                                <group string="Autorizado">
+                                    <field name="approved_user_id"/>
+                                    <field name="approved_date"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_construtec_bank_reconciliation" model="ir.actions.act_window">
+        <field name="name">Conciliación Bancaria</field>
+        <field name="res_model">construtec.bank.reconciliation</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_construtec_bank_reconciliation_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Cree la conciliación del mes de un diario de banco</p>
+            <p>Importe el estado de cuenta, empate sus movimientos contra los pagos registrados en
+               Odoo y cierre el mes con diferencia cero.</p>
+        </field>
+    </record>
+</odoo>

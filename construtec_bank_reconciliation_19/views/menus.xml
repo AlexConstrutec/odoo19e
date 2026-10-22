@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_construtec_bank_rec_root" name="Conciliación Bancaria"
+              parent="account.menu_finance_entries" sequence="5"
+              groups="account.group_account_readonly"/>
+    <menuitem id="menu_construtec_bank_reconciliation" name="Conciliaciones"
+              parent="menu_construtec_bank_rec_root" sequence="1"
+              action="action_construtec_bank_reconciliation"/>
+    <menuitem id="menu_construtec_bank_statement_line" name="Movimientos del banco"
+              parent="menu_construtec_bank_rec_root" sequence="2"
+              action="action_construtec_bank_statement_line"/>
+    <menuitem id="menu_construtec_payments_in_circulation" name="Pagos en circulación"
+              parent="menu_construtec_bank_rec_root" sequence="3"
+              action="action_construtec_payments_in_circulation"/>
+</odoo>

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_construtec_bank_rec" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.construtec.bank.rec</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="account.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='account']" position="inside">
+                <block title="Conciliación Bancaria Construtec" name="construtec_bank_rec_settings">
+                    <setting id="construtec_bank_rec_accounts" string="Cuentas para ajustes"
+                             help="Contrapartida de los asientos que se generan desde una nota del banco no registrada.">
+                        <div class="content-group">
+                            <div class="row mt8">
+                                <label for="bank_rec_commission_account_id" string="Comisiones" class="col-lg-5 o_light_label"/>
+                                <field name="bank_rec_commission_account_id"/>
+                            </div>
+                            <div class="row">
+                                <label for="bank_rec_interest_income_account_id" string="Intereses ganados" class="col-lg-5 o_light_label"/>
+                                <field name="bank_rec_interest_income_account_id"/>
+                            </div>
+                            <div class="row">
+                                <label for="bank_rec_interest_expense_account_id" string="Intereses debitados" class="col-lg-5 o_light_label"/>
+                                <field name="bank_rec_interest_expense_account_id"/>
+                            </div>
+                        </div>
+                    </setting>
+                    <setting id="construtec_bank_rec_matching" string="Empate y alertas">
+                        <div class="content-group">
+                            <div class="row mt8">
+                                <label for="bank_rec_match_days" string="Días de tolerancia" class="col-lg-5 o_light_label"/>
+                                <field name="bank_rec_match_days"/>
+                            </div>
+                            <div class="row">
+                                <label for="bank_rec_alert_months" string="Meses para alerta" class="col-lg-5 o_light_label"/>
+                                <field name="bank_rec_alert_months"/>
+                            </div>
+                        </div>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

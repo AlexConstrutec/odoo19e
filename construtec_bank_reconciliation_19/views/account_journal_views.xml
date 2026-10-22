@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_journal_form_construtec_bank_rec" model="ir.ui.view">
+        <field name="name">account.journal.form.construtec.bank.rec</field>
+        <field name="model">account.journal</field>
+        <field name="inherit_id" ref="account.view_account_journal_form"/>
+        <field name="arch" type="xml">
+            <page name="advanced_settings" position="before">
+                <page name="construtec_bank_rec" string="Conciliación Construtec" invisible="type != 'bank'">
+                    <group>
+                        <group>
+                            <field name="bank_rec_start_date"/>
+                            <button name="action_open_bank_reconciliations" type="object"
+                                    class="btn-link ps-0" icon="fa-university"
+                                    string="Ver conciliaciones" invisible="not id"/>
+                        </group>
+                    </group>
+                    <separator string="Partidas en circulación al arranque"/>
+                    <field name="bank_rec_opening_line_ids" invisible="not bank_rec_start_date"
+                           domain="[('account_id', '=', default_account_id), ('parent_state', '=', 'posted'), ('date', '&lt;', bank_rec_start_date)]">
+                        <list>
+                            <field name="date"/>
+                            <field name="move_name"/>
+                            <field name="partner_id"/>
+                            <field name="name"/>
+                            <field name="balance" sum="Total"/>
+                        </list>
+                    </field>
+                </page>
+            </page>
+        </field>
+    </record>
+</odoo>

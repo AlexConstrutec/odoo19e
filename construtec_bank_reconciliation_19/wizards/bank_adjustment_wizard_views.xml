@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_construtec_bank_adjustment_wizard_form" model="ir.ui.view">
+        <field name="name">construtec.bank.adjustment.wizard.form</field>
+        <field name="model">construtec.bank.adjustment.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <p class="text-muted">
+                    Registra en libros una nota del banco que todavía no estaba en Odoo. El asiento
+                    usa la cuenta de banco del diario y la contrapartida elegida, y queda empatado
+                    con la línea del estado de cuenta.
+                </p>
+                <field name="company_id" invisible="1"/>
+                <field name="currency_id" invisible="1"/>
+                <group>
+                    <group>
+                        <field name="statement_line_id"/>
+                        <field name="date"/>
+                        <field name="amount"/>
+                    </group>
+                    <group>
+                        <field name="adjustment_type"/>
+                        <field name="account_id" options="{'no_create': True}"/>
+                        <field name="label"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Registrar ajuste" class="btn-primary"/>
+                    <button special="cancel" string="Cancelar"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

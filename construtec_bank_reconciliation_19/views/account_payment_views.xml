@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_payment_tree_construtec_bank_rec" model="ir.ui.view">
+        <field name="name">account.payment.list.construtec.bank.rec</field>
+        <field name="model">account.payment</field>
+        <field name="inherit_id" ref="account.view_account_payment_tree"/>
+        <field name="arch" type="xml">
+            <field name="state" position="after">
+                <field name="construtec_bank_state" widget="badge" optional="show"
+                       invisible="construtec_bank_state == 'na'"
+                       decoration-warning="construtec_bank_state == 'circulation'"
+                       decoration-success="construtec_bank_state == 'paid'"/>
+                <field name="construtec_bank_date" optional="hide"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_account_payment_search_construtec_bank_rec" model="ir.ui.view">
+        <field name="name">account.payment.search.construtec.bank.rec</field>
+        <field name="model">account.payment</field>
+        <field name="inherit_id" ref="account.view_account_payment_search"/>
+        <field name="arch" type="xml">
+            <filter name="reconciled" position="after">
+                <separator/>
+                <filter string="En circulación (banco)" name="construtec_bank_circulation"
+                        domain="[('construtec_bank_state', '=', 'circulation')]"/>
+                <filter string="Pagado en banco" name="construtec_bank_paid"
+                        domain="[('construtec_bank_state', '=', 'paid')]"/>
+            </filter>
+        </field>
+    </record>
+
+    <record id="view_account_payment_form_construtec_bank_rec" model="ir.ui.view">
+        <field name="name">account.payment.form.construtec.bank.rec</field>
+        <field name="model">account.payment</field>
+        <field name="inherit_id" ref="account.view_account_payment_form"/>
+        <field name="arch" type="xml">
+            <field name="memo" position="after">
+                <field name="construtec_bank_state" invisible="construtec_bank_state == 'na'"/>
+                <field name="construtec_bank_date" invisible="not construtec_bank_date"/>
+            </field>
+        </field>
+    </record>
+</odoo>

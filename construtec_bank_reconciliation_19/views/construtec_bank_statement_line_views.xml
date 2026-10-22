@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_construtec_bank_statement_line_list" model="ir.ui.view">
+        <field name="name">construtec.bank.statement.line.list</field>
+        <field name="model">construtec.bank.statement.line</field>
+        <field name="arch" type="xml">
+            <list create="false" edit="false">
+                <field name="journal_id"/>
+                <field name="date"/>
+                <field name="ref"/>
+                <field name="name"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="debit" sum="Débitos"/>
+                <field name="credit" sum="Créditos"/>
+                <field name="partner_names" optional="show"/>
+                <field name="match_method" optional="hide"/>
+                <field name="match_state" widget="badge"
+                       decoration-warning="match_state == 'unmatched'"
+                       decoration-success="match_state == 'matched'"
+                       decoration-info="match_state == 'adjustment'"/>
+                <field name="reconciliation_id" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_construtec_bank_statement_line_search" model="ir.ui.view">
+        <field name="name">construtec.bank.statement.line.search</field>
+        <field name="model">construtec.bank.statement.line</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="ref"/>
+                <field name="name"/>
+                <field name="journal_id"/>
+                <field name="reconciliation_id"/>
+                <filter string="Sin empatar" name="unmatched" domain="[('match_state', '=', 'unmatched')]"/>
+                <filter string="Empatadas" name="matched" domain="[('match_state', '=', 'matched')]"/>
+                <filter string="Ajustes" name="adjustment" domain="[('match_state', '=', 'adjustment')]"/>
+                <separator/>
+                <filter string="Fecha" name="date" date="date"/>
+                <group>
+                    <filter string="Diario" name="group_journal" context="{'group_by': 'journal_id'}"/>
+                    <filter string="Estado" name="group_state" context="{'group_by': 'match_state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_construtec_bank_statement_line" model="ir.actions.act_window">
+        <field name="name">Movimientos del banco</field>
+        <field name="res_model">construtec.bank.statement.line</field>
+        <field name="view_mode">list</field>
+        <field name="search_view_id" ref="view_construtec_bank_statement_line_search"/>
+    </record>
+
+    <record id="action_construtec_payments_in_circulation" model="ir.actions.act_window">
+        <field name="name">Pagos en circulación</field>
+        <field name="res_model">account.payment</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('construtec_bank_state', '=', 'circulation')]</field>
+    </record>
+</odoo>

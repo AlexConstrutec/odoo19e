@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="construtec_bank_reconciliation_company_rule" model="ir.rule">
+        <field name="name">Conciliación bancaria Construtec multi-company</field>
+        <field name="model_id" ref="model_construtec_bank_reconciliation"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="construtec_bank_statement_line_company_rule" model="ir.rule">
+        <field name="name">Estado de cuenta Construtec multi-company</field>
+        <field name="model_id" ref="model_construtec_bank_statement_line"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+</odoo>

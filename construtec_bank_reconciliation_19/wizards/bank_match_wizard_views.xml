@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_construtec_bank_match_wizard_form" model="ir.ui.view">
+        <field name="name">construtec.bank.match.wizard.form</field>
+        <field name="model">construtec.bank.match.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <p class="text-muted">
+                    Seleccione una o varias líneas del banco y los registros de Odoo que les
+                    corresponden (por ejemplo, un débito del banco que paga varias transferencias).
+                    Los totales deben cuadrar.
+                </p>
+                <field name="reconciliation_id" invisible="1"/>
+                <field name="currency_id" invisible="1"/>
+                <field name="candidate_move_line_ids" invisible="1"/>
+                <separator string="Líneas del banco"/>
+                <field name="statement_line_ids" options="{'no_create': True}">
+                    <list>
+                        <field name="date"/>
+                        <field name="ref"/>
+                        <field name="name"/>
+                        <field name="currency_id" column_invisible="1"/>
+                        <field name="amount" sum="Total"/>
+                    </list>
+                </field>
+                <separator string="Registros en Odoo (cuenta de banco)"/>
+                <field name="move_line_ids" options="{'no_create': True}">
+                    <list>
+                        <field name="date"/>
+                        <field name="move_name"/>
+                        <field name="partner_id"/>
+                        <field name="name"/>
+                        <field name="balance" sum="Total"/>
+                    </list>
+                </field>
+                <group>
+                    <group>
+                        <field name="bank_total"/>
+                        <field name="odoo_total"/>
+                        <field name="difference" decoration-danger="difference != 0"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Empatar" class="btn-primary"/>
+                    <button special="cancel" string="Cancelar"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

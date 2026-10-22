@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_construtec_bank_reconciliation" model="ir.actions.report">
+        <field name="name">Conciliación Bancaria</field>
+        <field name="model">construtec.bank.reconciliation</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">construtec_bank_reconciliation_19.report_bank_reconciliation</field>
+        <field name="report_file">construtec_bank_reconciliation_19.report_bank_reconciliation</field>
+        <field name="print_report_name">'Conciliacion - %s' % object.name</field>
+        <field name="binding_model_id" ref="model_construtec_bank_reconciliation"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <record id="action_report_construtec_bank_account_movement" model="ir.actions.report">
+        <field name="name">Movimiento de Cuenta</field>
+        <field name="model">construtec.bank.reconciliation</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">construtec_bank_reconciliation_19.report_bank_account_movement</field>
+        <field name="report_file">construtec_bank_reconciliation_19.report_bank_account_movement</field>
+        <field name="print_report_name">'Movimiento de cuenta - %s' % object.name</field>
+        <field name="binding_model_id" ref="model_construtec_bank_reconciliation"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <!-- Encabezado común, como los reportes de Diamante -->
+    <template id="report_bank_rec_header">
+        <div class="text-center mb-3">
+            <div class="fw-bold" t-out="o.company_id.name"/>
+            <div t-if="o.company_id.vat">NIT: <span t-out="o.company_id.vat"/></div>
+            <div class="fw-bold fs-5" t-out="title"/>
+            <div t-out="o.journal_id.name"/>
+            <div t-out="o.account_id.code"/>
+            <div t-out="o._period_label()"/>
+            <div>Expresado en <span t-out="o.currency_id.currency_unit_label or o.currency_id.name"/></div>
+        </div>
+    </template>
+
+    <template id="report_bank_rec_items_table">
+        <t t-if="items">
+            <h6 class="mt-4 fw-bold" t-out="caption"/>
+            <table class="table table-sm table-borderless o_bank_rec_table" style="font-size: 10px;">
+                <thead>
+                    <tr class="border-bottom">
+                        <th>Documento</th>
+                        <th>Fecha</th>
+                        <th>A nombre de</th>
+                        <th>Descripción</th>
+                        <th class="text-end">Días</th>
+                        <th class="text-end">Cantidad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr t-foreach="items" t-as="item">
+                        <td t-out="item.reference"/>
+                        <td t-out="item.date" t-options="{'widget': 'date'}"/>
+                        <td t-out="item.partner_name"/>
+                        <td t-out="item.name"/>
+                        <td class="text-end"><span t-out="item.age_days"/><span t-if="item.alert"> *</span></td>
+                        <td class="text-end" t-out="item.amount"
+                            t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                    </tr>
+                    <tr class="border-top fw-bold">
+                        <td colspan="5">Total</td>
+                        <td class="text-end" t-out="sum(items.mapped('amount'))"
+                            t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                    </tr>
+                </tbody>
+            </table>
+        </t>
+    </template>
+
+    <template id="report_bank_reconciliation">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.basic_layout">
+                    <div class="page" style="font-size: 12px;">
+                        <t t-call="construtec_bank_reconciliation_19.report_bank_rec_header">
+                            <t t-set="title">Conciliación Bancaria</t>
+                        </t>
+                        <t t-set="money" t-value="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                        <table class="table table-sm table-borderless" style="width: 80%; margin: auto;">
+                            <tr><td colspan="3" class="fw-bold">Operaciones del banco</td></tr>
+                            <tr>
+                                <td/><td>Saldo reportado por el banco</td>
+                                <td class="text-end" t-out="o.balance_end_real" t-options="money"/>
+                            </tr>
+                            <tr>
+                                <td>-</td><td>Cheques y pagos en circulación</td>
+                                <td class="text-end" t-out="o.outstanding_payments" t-options="money"/>
+                            </tr>
+                            <tr>
+                                <td>+</td><td>Depósitos y notas en circulación</td>
+                                <td class="text-end" t-out="o.outstanding_deposits" t-options="money"/>
+                            </tr>
+                            <tr>
+                                <td>+</td><td>Débitos del banco no registrados (comisiones, intereses debitados)</td>
+                                <td class="text-end" t-out="o.unrecorded_debits" t-options="money"/>
+                            </tr>
+                            <tr>
+                                <td>-</td><td>Créditos del banco no registrados (intereses ganados)</td>
+                                <td class="text-end" t-out="o.unrecorded_credits" t-options="money"/>
+                            </tr>
+                            <tr class="border-top fw-bold">
+                                <td/><td>Saldo en el banco conciliado</td>
+                                <td class="text-end" t-out="o.conciliated_balance" t-options="money"/>
+                            </tr>
+                            <tr><td colspan="3" class="fw-bold pt-3">Operaciones internas</td></tr>
+                            <tr>
+                                <td/><td>Saldo del libro de bancos (cuenta <span t-out="o.account_id.code"/>)</td>
+                                <td class="text-end" t-out="o.book_balance" t-options="money"/>
+                            </tr>
+                            <tr class="border-top fw-bold">
+                                <td/><td>Diferencia entre libros y el banco</td>
+                                <td class="text-end" t-out="o.difference" t-options="money"/>
+                            </tr>
+                        </table>
+
+                        <t t-call="construtec_bank_reconciliation_19.report_bank_rec_items_table">
+                            <t t-set="caption">Cheques y pagos en circulación</t>
+                            <t t-set="items" t-value="o.outstanding_payment_item_ids"/>
+                        </t>
+                        <t t-call="construtec_bank_reconciliation_19.report_bank_rec_items_table">
+                            <t t-set="caption">Depósitos en tránsito</t>
+                            <t t-set="items" t-value="o.outstanding_deposit_item_ids"/>
+                        </t>
+                        <t t-call="construtec_bank_reconciliation_19.report_bank_rec_items_table">
+                            <t t-set="caption">Notas del banco no registradas</t>
+                            <t t-set="items" t-value="o.unrecorded_item_ids"/>
+                        </t>
+                        <p t-if="o.alert_count" class="text-muted" style="font-size: 10px;">
+                            * Antigüedad mayor a <span t-out="o.company_id.bank_rec_alert_months"/> meses.
+                        </p>
+                        <p t-if="o.state == 'draft'" class="text-danger fw-bold mt-3">
+                            BORRADOR - la conciliación todavía no está cerrada.
+                        </p>
+
+                        <table class="table table-borderless text-center mt-5" style="width: 100%;">
+                            <tr>
+                                <td style="width: 33%;">
+                                    <div style="border-top: 1px solid #000; margin: 0 15px;">Hecho</div>
+                                    <div t-out="o.done_user_id.name"/>
+                                    <div t-if="o.done_date" t-out="o.done_date" t-options="{'widget': 'date'}"/>
+                                </td>
+                                <td style="width: 33%;">
+                                    <div style="border-top: 1px solid #000; margin: 0 15px;">Revisado</div>
+                                    <div t-out="o.reviewed_user_id.name"/>
+                                    <div t-if="o.reviewed_date" t-out="o.reviewed_date" t-options="{'widget': 'date'}"/>
+                                </td>
+                                <td style="width: 33%;">
+                                    <div style="border-top: 1px solid #000; margin: 0 15px;">Autorizado</div>
+                                    <div t-out="o.approved_user_id.name"/>
+                                    <div t-if="o.approved_date" t-out="o.approved_date" t-options="{'widget': 'date'}"/>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_bank_account_movement">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.basic_layout">
+                    <t t-set="data" t-value="o._get_account_movement()"/>
+                    <t t-set="money" t-value="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                    <div class="page" style="font-size: 10px;">
+                        <t t-call="construtec_bank_reconciliation_19.report_bank_rec_header">
+                            <t t-set="title">Movimiento de Cuenta</t>
+                        </t>
+                        <table class="table table-sm table-borderless">
+                            <thead>
+                                <tr class="border-bottom">
+                                    <th>Día</th>
+                                    <th>Asiento</th>
+                                    <th>Descripción</th>
+                                    <th class="text-end">Cargos</th>
+                                    <th class="text-end">Abonos</th>
+                                    <th class="text-end">Saldo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td t-out="o.date_from" t-options="{'widget': 'date'}"/>
+                                    <td/>
+                                    <td>SALDO ANTERIOR AL <span t-out="o.date_from" t-options="{'widget': 'date'}"/></td>
+                                    <td/><td/>
+                                    <td class="text-end" t-out="data['opening']" t-options="money"/>
+                                </tr>
+                                <tr t-foreach="data['rows']" t-as="row">
+                                    <td t-out="row['date']" t-options="{'widget': 'date'}"/>
+                                    <td t-out="row['move']"/>
+                                    <td t-out="row['name']"/>
+                                    <td class="text-end"><t t-if="row['debit']" t-out="row['debit']" t-options="money"/></td>
+                                    <td class="text-end"><t t-if="row['credit']" t-out="row['credit']" t-options="money"/></td>
+                                    <td class="text-end" t-out="row['balance']" t-options="money"/>
+                                </tr>
+                                <tr class="border-top fw-bold">
+                                    <td colspan="3">Totales</td>
+                                    <td class="text-end" t-out="data['total_debit']" t-options="money"/>
+                                    <td class="text-end" t-out="data['total_credit']" t-options="money"/>
+                                    <td class="text-end" t-out="data['closing']" t-options="money"/>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>
