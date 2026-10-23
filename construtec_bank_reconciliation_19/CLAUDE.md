@@ -54,12 +54,23 @@ débito de planilla que paga varias transferencias).
 
 ## Importación
 
-`.xlsx` (openpyxl), `.xls` (xlrd) y `.csv` (prueba `;`, tab, `|`, `,` hasta encontrar encabezado -
-el sniffer de csv falla con montos "1,000.00"). Detecta el encabezado por palabras (Fecha, Documento,
-Descripción, Débito/Crédito o Monto, Saldo). Punto de vista del banco (Débito = retiro); opción
-"Invertir" para archivos con punto de vista contable. **PDF todavía no**: falta un lector por banco
-(se necesitan PDFs de ejemplo de cada banco); mientras, las líneas se pueden capturar a mano en la
-pestaña Estado de cuenta.
+`.xlsx` (openpyxl), `.xls` (xlrd), `.csv` (prueba `;`, tab, `|`, `,` hasta encontrar encabezado -
+el sniffer de csv falla con montos "1,000.00") y **`.pdf`**. Detecta el encabezado por palabras (Fecha,
+Documento, Descripción, Débito/Crédito o Monto, Saldo). Punto de vista del banco (Débito = retiro);
+opción "Invertir" para archivos con punto de vista contable. Si la conciliación tiene saldos en 0, los
+toma del archivo (saldo de la primera fila + débito - crédito, y saldo de la última). Si hay columna de
+saldo, valida fila por fila `saldo anterior - débito + crédito = saldo` y lo avisa en el chatter.
+
+**PDF: lector LOCAL por banco** (decisión del usuario 2026-10-23: el PDF no sale de Odoo, nada de IA
+externa). `tools/bank_pdf_parser.py` usa pdfminer (el mismo que usa `attachment_indexation`) con la
+POSICIÓN de cada renglón: encabezado por página, una fila por cada renglón con fecha, cada texto a la
+columna de encabezado más cercana, y los renglones de continuación (Banrural pone "ACH" debajo de
+"N/CREDITO TRANSFERENCIA", empezando a la izquierda del título Descripción) se unen por misma x0.
+Algunas fuentes de Banrural no decodifican tildes ("Dbito"), por eso los keywords incluyen
+`dbito`/`crdito`/`descrip`. `BANK_TEMPLATES`: **Banrural verificado** con un estado de cuenta real
+(abril-junio 2025: 158 filas, 0 que no cuadran); BI y G&T usan la detección genérica hasta tener un
+PDF de ejemplo de cada uno (el `BI BANKING.xls` de Descargas resultó ser un formulario de alta, no un
+estado de cuenta).
 
 ## Reportes
 

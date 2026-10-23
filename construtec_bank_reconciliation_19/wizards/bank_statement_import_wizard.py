@@ -8,14 +8,18 @@ from datetime import date, datetime, timedelta
 from odoo import fields, models
 from odoo.exceptions import UserError
 
+from ..tools.bank_pdf_parser import BankPdfError, parse_pdf
+
 # Palabras que identifican cada columna en el encabezado del estado de cuenta (sin tildes,
 # minúsculas). El primer encabezado que contenga alguna de ellas gana.
 COLUMN_KEYWORDS = {
     'date': ['fecha', 'date'],
     'ref': ['documento', 'referencia', 'no. doc', 'num doc', 'cheque', 'boleta', 'ref'],
-    'name': ['descripcion', 'concepto', 'detalle', 'observacion', 'transaccion'],
-    'debit': ['debito', 'cargo', 'retiro', 'egreso'],
-    'credit': ['credito', 'abono', 'deposito', 'ingreso'],
+    # 'descrip'/'dbito'/'crdito': algunos PDF (Banrural) traen las tildes con una fuente que pdfminer
+    # no decodifica, y al quitar el caracter raro queda "dbito" en vez de "debito".
+    'name': ['descripcion', 'descrip', 'concepto', 'detalle', 'observacion', 'transaccion'],
+    'debit': ['debito', 'dbito', 'cargo', 'retiro', 'egreso'],
+    'credit': ['credito', 'crdito', 'abono', 'deposito', 'ingreso'],
     'amount': ['monto', 'importe', 'valor'],
     'balance': ['saldo', 'balance'],
 }
@@ -87,13 +91,14 @@ class ConstrutecBankStatementImportWizard(models.TransientModel):
     only_period = fields.Boolean(string='Solo movimientos del periodo', default=True)
 
     def _read_rows(self):
+        """Devuelve (filas, banco_pdf): banco_pdf es la plantilla usada si el archivo es PDF."""
         content = base64.b64decode(self.file)
         name = (self.filename or '').lower()
         if name.endswith('.xlsx'):
             import openpyxl
             book = openpyxl.load_workbook(io.BytesIO(content), data_only=True, read_only=True)
             sheet = book.worksheets[0]
-            return [list(row) for row in sheet.iter_rows(values_only=True)]
+            return [list(row) for row in sheet.iter_rows(values_only=True)], False
         if name.endswith('.xls'):
             import xlrd
             book = xlrd.open_workbook(file_contents=content)
@@ -108,7 +113,7 @@ class ConstrutecBankStatementImportWizard(models.TransientModel):
                     else:
                         row.append(cell.value)
                 rows.append(row)
-            return rows
+            return rows, False
         if name.endswith('.csv') or name.endswith('.txt'):
             for encoding in ('utf-8-sig', 'latin-1'):
                 try:
@@ -121,13 +126,15 @@ class ConstrutecBankStatementImportWizard(models.TransientModel):
             for delimiter in (';', '\t', '|', ','):
                 rows = list(csv.reader(io.StringIO(text), delimiter=delimiter))
                 if self._find_header(rows):
-                    return rows
-            return list(csv.reader(io.StringIO(text)))
+                    return rows, False
+            return list(csv.reader(io.StringIO(text))), False
         if name.endswith('.pdf'):
-            raise UserError('La lectura de PDF por banco todavía no está disponible. Por ahora '
-                            'importe el Excel o CSV que descarga el banco; el PDF puede adjuntarse '
-                            'en el campo "Estado de cuenta (PDF)".')
-        raise UserError('Formato no reconocido. Use un archivo .xlsx, .xls o .csv.')
+            try:
+                bank, rows = parse_pdf(content, COLUMN_KEYWORDS)
+            except BankPdfError as exc:
+                raise UserError(str(exc)) from exc
+            return rows, bank
+        raise UserError('Formato no reconocido. Use un archivo .xlsx, .xls, .csv o .pdf.')
 
     def _detect_header(self, rows):
         found = self._find_header(rows)
@@ -158,7 +165,7 @@ class ConstrutecBankStatementImportWizard(models.TransientModel):
         rec = self.reconciliation_id
         if rec.state != 'draft':
             raise UserError('La conciliación ya está cerrada.')
-        rows = self._read_rows()
+        rows, pdf_bank = self._read_rows()
         header_index, mapping = self._detect_header(rows)
 
         def cell(row, key):
@@ -198,6 +205,18 @@ class ConstrutecBankStatementImportWizard(models.TransientModel):
         if not vals_list:
             raise UserError('El archivo no tiene movimientos dentro del periodo %s.'
                             % rec._period_label())
+        warnings = []
+        if 'balance' in mapping:
+            # Cada fila debe cumplir saldo anterior - débito + crédito = saldo (detecta filas mal leídas).
+            cur = rec.currency_id
+            for prev, line in zip(vals_list, vals_list[1:]):
+                expected = prev['bank_balance'] - line['debit'] + line['credit']
+                if prev['bank_balance'] and line['bank_balance']                         and cur.compare_amounts(expected, line['bank_balance']) != 0:
+                    warnings.append(line['date'].strftime('%d/%m/%Y') + ' ' + (line['ref'] or line['name'] or ''))
+            first, last = vals_list[0], vals_list[-1]
+            if first['bank_balance'] and cur.is_zero(rec.balance_start) and cur.is_zero(rec.balance_end_real):
+                rec.write({'balance_start': first['bank_balance'] + first['debit'] - first['credit'],
+                           'balance_end_real': last['bank_balance']})
         if self.replace_unmatched:
             rec.statement_line_ids.filtered(lambda l: l.match_state == 'unmatched').unlink()
         for seq, vals in enumerate(vals_list, start=1):
@@ -206,6 +225,13 @@ class ConstrutecBankStatementImportWizard(models.TransientModel):
         body = 'Estado de cuenta importado (%s): %s movimiento(s).' % (self.filename, len(lines))
         if skipped:
             body += ' %s fuera del periodo, omitidos.' % skipped
+        if pdf_bank:
+            body += ' Leído desde PDF (plantilla %s).' % pdf_bank
+            if not rec.statement_attachment:
+                rec.write({'statement_attachment': self.file, 'statement_attachment_name': self.filename})
+        if warnings:
+            body += ' ATENCIÓN: %s fila(s) no cuadran con el saldo del banco, revíselas: %s.' % (
+                len(warnings), ', '.join(warnings[:10]))
         rec.message_post(body=body)
         rec.action_auto_match()
         return {'type': 'ir.actions.act_window_close'}

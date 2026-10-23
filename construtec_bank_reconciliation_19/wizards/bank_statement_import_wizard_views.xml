@@ -6,9 +6,10 @@
         <field name="arch" type="xml">
             <form>
                 <p class="text-muted">
-                    Suba el Excel (.xlsx o .xls) o CSV que descarga el banco. Se detectan solas las
-                    columnas de Fecha, Documento, Descripción y Débito/Crédito (o Monto). Al terminar
-                    se corre el empate automático.
+                    Suba el Excel (.xlsx o .xls), CSV o PDF del estado de cuenta. Se detectan solas las
+                    columnas de Fecha, Documento, Descripción y Débito/Crédito (o Monto). En PDF se lee la
+                    tabla del banco (verificado con Banrural) y se revisa que cada fila cuadre con el saldo.
+                    Al terminar se corre el empate automático.
                 </p>
                 <group>
                     <field name="reconciliation_id"/>
