@@ -1,5 +1,6 @@
 from odoo import api, fields, models
 from odoo.exceptions import UserError
+from odoo.tools.misc import clean_context
 
 
 class ConstrutecBankAdjustmentWizard(models.TransientModel):
@@ -7,7 +8,7 @@ class ConstrutecBankAdjustmentWizard(models.TransientModel):
     _name = 'construtec.bank.adjustment.wizard'
     _description = 'Ajuste por nota del banco (Construtec)'
 
-    statement_line_id = fields.Many2one('construtec.bank.statement.line', required=True,
+    statement_line_id = fields.Many2one('construtec.bank.statement.line', string='Línea del banco', required=True,
                                         readonly=True)
     company_id = fields.Many2one(related='statement_line_id.company_id')
     currency_id = fields.Many2one(related='statement_line_id.currency_id')
@@ -70,7 +71,9 @@ class ConstrutecBankAdjustmentWizard(models.TransientModel):
                 vals.update({'currency_id': rec.currency_id.id, 'amount_currency': amount_currency})
             return vals
 
-        move = self.env['account.move'].create({
+        # clean_context: el botón abre este asistente con default_statement_line_id, y account.move
+        # tiene un campo nativo con ese mismo nombre (account.bank.statement.line) que lo tomaría.
+        move = self.env['account.move'].with_context(clean_context(self.env.context)).create({
             'move_type': 'entry',
             'journal_id': journal.id,
             'date': line.date,

@@ -73,7 +73,7 @@ class ConstrutecBankStatementImportWizard(models.TransientModel):
     _name = 'construtec.bank.statement.import.wizard'
     _description = 'Importar estado de cuenta (Construtec)'
 
-    reconciliation_id = fields.Many2one('construtec.bank.reconciliation', required=True,
+    reconciliation_id = fields.Many2one('construtec.bank.reconciliation', string='Conciliación', required=True,
                                         readonly=True)
     file = fields.Binary(string='Archivo', required=True)
     filename = fields.Char()

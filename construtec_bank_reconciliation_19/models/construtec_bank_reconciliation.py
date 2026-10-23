@@ -9,11 +9,11 @@ MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto
          'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 
-def _default_date_from():
+def _default_date_from(records=None):
     return date.today().replace(day=1) - relativedelta(months=1)
 
 
-def _default_date_to():
+def _default_date_to(records=None):
     return date.today().replace(day=1) - relativedelta(days=1)
 
 
@@ -181,7 +181,16 @@ class ConstrutecBankReconciliation(models.Model):
                                  'balance_end_real', 'statement_line_ids'}
         if protected and self.filtered(lambda r: r.state != 'draft'):
             raise UserError('La conciliación ya está cerrada; reábrala para modificarla.')
-        return super().write(vals)
+        res = super().write(vals)
+        if protected:
+            self.action_refresh()
+        return res
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records.action_refresh()
+        return records
 
     def unlink(self):
         if self.filtered(lambda r: r.state != 'draft'):

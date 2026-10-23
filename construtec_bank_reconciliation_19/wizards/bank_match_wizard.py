@@ -6,7 +6,7 @@ class ConstrutecBankMatchWizard(models.TransientModel):
     _name = 'construtec.bank.match.wizard'
     _description = 'Empate manual de estado de cuenta (Construtec)'
 
-    reconciliation_id = fields.Many2one('construtec.bank.reconciliation', required=True,
+    reconciliation_id = fields.Many2one('construtec.bank.reconciliation', string='Conciliación', required=True,
                                         readonly=True)
     currency_id = fields.Many2one(related='reconciliation_id.currency_id')
     statement_line_ids = fields.Many2many(

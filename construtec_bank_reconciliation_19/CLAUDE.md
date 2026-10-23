@@ -68,6 +68,23 @@ cheques en circulación, depósitos en tránsito y notas no registradas, firmas 
 y "Movimiento de Cuenta" (saldo anterior, cargos, abonos, saldo), imitando los tres reportes de
 Diamante que mandó Finanzas (BI 0920099215, agosto 2026).
 
+## Bugs reales encontrados al grabar los videos instructivos (2026-10-23)
+
+Los scripts por `odoo-bin shell` del Pass 1 nunca pasaron por la interfaz, y escondieron 2 bugs que
+la grabación (Chrome headless contra un servidor local, clics reales) sacó a la luz:
+- **`_default_date_from()` / `_default_date_to()` sin argumento**: Odoo llama `field.default(records)`,
+  así que el botón "Nuevo" tronaba con `TypeError` (en shell siempre se pasaban las fechas). Ahora
+  aceptan `records=None`.
+- **`default_statement_line_id` del contexto se colaba al asiento de ajuste**: el botón "Ajuste" abre
+  el asistente con ese default, y `account.move` tiene un campo nativo con el MISMO nombre
+  (`statement_line_id` -> `account.bank.statement.line`), así que el asiento quedaba apuntando a una
+  línea de extracto inexistente ("Registro faltante"). El asiento se crea ahora con
+  `clean_context()`. Ojo con cualquier `default_*` nuevo cuyo nombre coincida con un campo de
+  `account.move`/`account.move.line`.
+- Menores: etiquetas en inglés derivadas del nombre técnico ("Reconciliation", "Statement Line"), el
+  resumen quedaba en 0.00 hasta "Recalcular" (ahora `create()` y los cambios de saldos/fechas/líneas
+  recalculan), y el reporte decía "Expresado en Quetzal".
+
 ## Verificación
 
 Probado 2026-10-22 en `construtec_bankrec_test` (clon de `construtec_enterprise_0509`) con scripts por

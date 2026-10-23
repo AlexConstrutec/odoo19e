@@ -31,7 +31,8 @@
             <div t-out="o.journal_id.name"/>
             <div t-out="o.account_id.code"/>
             <div t-out="o._period_label()"/>
-            <div>Expresado en <span t-out="o.currency_id.currency_unit_label or o.currency_id.name"/></div>
+            <div t-if="o.currency_id.name == 'GTQ'">Expresado en Quetzales</div>
+            <div t-else="">Expresado en <span t-out="o.currency_id.currency_unit_label or o.currency_id.name"/></div>
         </div>
     </template>
 
