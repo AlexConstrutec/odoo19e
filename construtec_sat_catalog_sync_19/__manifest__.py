@@ -3,7 +3,7 @@
 {
     'name': 'Construtec Catálogo SAT (Sync)',
     'summary': 'Catálogo de productos de proveedor derivado de los Documentos SAT - mismo modelo en Enterprise y Community',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'license': 'AGPL-3',
     'category': 'Inventory',
     'author': 'Alex Martinez',
@@ -14,7 +14,6 @@
         'data/ir_cron_materials_catalog_sync.xml',
         'views/sat_product_catalog_mirror_views.xml',
         'views/sat_vendor_catalog_mirror_views.xml',
-        'views/sat_invoice_mirror_views.xml',
         'views/sat_document_views.xml',
     ],
     'installable': True,

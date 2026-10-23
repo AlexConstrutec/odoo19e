@@ -1,5 +1,5 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
-from odoo import fields, models
+from odoo import api, fields, models
 
 # Mismas listas que construtec_account_19/models/sat_document.py (Enterprise) - duplicadas a
 # propósito (ese módulo no existe en Community, no se puede importar su código Python) - mismo
@@ -45,10 +45,11 @@ class ConstructecSatDocumentMirror(models.Model):
     corrida) - upsert por `origin_id` (el id real en Enterprise), así que corridas sucesivas van
     completando el histórico sin duplicar nada, mientras cada corrida individual se queda rápida.
 
-    Deliberadamente NO reemplaza a `construtec.sat.invoice.mirror` (el modelo ya usado por
-    `construtec_account_payment_order_19` para el picker de Pago Directo) - este modelo es una
-    referencia informativa más completa/fiel, no está conectado (todavía) a ningún flujo de
-    Solicitud de Pago."""
+    Es la ÚNICA copia de los Documentos SAT en Community (2026-10-23): reemplazó a
+    `construtec.sat.invoice.mirror`, que guardaba los mismos documentos por segunda vez. La usan
+    los selectores de Pago Directo y Facturas de Gastos de `construtec_account_payment_order_19`
+    (`disponible_pago`/`linked_order_name`), la sincronización de Contactos y
+    `construtec_sat_payment_notify_19`."""
     _name = 'construtec.sat.document'
     _description = (
         'Documento SAT de proveedor en Enterprise (construtec.sat.document, direction=recibida '
@@ -57,6 +58,19 @@ class ConstructecSatDocumentMirror(models.Model):
         'modificados en los últimos días (ventana configurable, no todo el histórico cada vez).'
     )
     _order = 'fecha_certificacion desc'
+    # Búsqueda rápida desde los selectores de las requisiciones: Número/Serie FEL, No.
+    # Autorización, proveedor o NIT.
+    _rec_names_search = ['numero_documento', 'serie', 'numero_autorizacion', 'partner_name',
+                         'nit_contacto']
+
+    @api.depends('serie', 'numero_documento', 'numero_autorizacion', 'partner_name')
+    def _compute_display_name(self):
+        for rec in self:
+            if rec.serie and rec.numero_documento:
+                numero = f'{rec.serie}-{rec.numero_documento}'
+            else:
+                numero = rec.numero_documento or rec.numero_autorizacion or str(rec.origin_id or '')
+            rec.display_name = f'{numero} · {rec.partner_name}' if rec.partner_name else numero
 
     origin_id = fields.Integer(
         string='ID en Enterprise', required=True, index=True,
@@ -133,6 +147,14 @@ class ConstructecSatDocumentMirror(models.Model):
         ('reversed', 'Revertida'),
         ('invoicing_legacy', 'Facturación Heredada'),
     ], string='Estado de Pago de la Factura')
+    linked_order_name = fields.Char(
+        string='Ya Vinculada A',
+        help='El `name` (nunca un id) de la Requisición de Pago que ya tiene tomado este documento '
+             'en Enterprise (pendiente, o su factura si ya se convirtió). Vacío si ninguna.')
+    disponible_pago = fields.Boolean(
+        string='Disponible para Pago', index=True,
+        help='Se puede pedir a pagar: pendiente, o ya convertido en una factura de proveedor '
+             'publicada que no está pagada. Lo calcula la sincronización.')
     enterprise_write_date = fields.Datetime(
         string='Última Modificación en Enterprise',
         help='write_date real del documento en Enterprise al momento de esta sincronización - '

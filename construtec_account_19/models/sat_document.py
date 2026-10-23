@@ -228,6 +228,20 @@ class ConstructecSatDocument(models.Model):
              'Una vez convertido a factura, el historial de pagos reales sigue en '
              'account.move.payment_order_ids (construtec_account_payment_order_19), donde la '
              'factura resultante puede seguir pasando por varias Órdenes si se paga en abonos.')
+    # Campos que la vista compartida de construtec_account_payment_order_19 usa en los pickers de
+    # Documentos SAT (Pago Directo / Facturas de Gastos). En Community son columnas que llena la
+    # sincronización; aquí se calculan en vivo desde los datos reales (nunca se guardan).
+    partner_name = fields.Char(related='partner_id.name', string='Contacto (Nombre)')
+    linked_order_name = fields.Char(
+        string='Ya Vinculada A', compute='_compute_linked_order_name',
+        search='_search_linked_order_name',
+        help='Requisición de Pago que ya tiene tomado este documento (pendiente, o su factura si '
+             'ya se convirtió). Vacío si ninguna.')
+    disponible_pago = fields.Boolean(
+        string='Disponible para Pago', compute='_compute_disponible_pago',
+        search='_search_disponible_pago',
+        help='Documento de compra que se puede pedir a pagar: pendiente, o ya convertido en una '
+             'factura de proveedor publicada que no está pagada.')
     purchase_order_id = fields.Many2one(
         'purchase.order', string='Orden de Compra Generada', readonly=True, copy=False)
     sale_order_id = fields.Many2one(
@@ -548,6 +562,50 @@ class ConstructecSatDocument(models.Model):
             return company_currency
         currency = self.env['res.currency'].search([('name', '=', moneda_codigo)], limit=1)
         return currency or company_currency
+
+    @api.depends('payment_order_id', 'move_id.payment_order_id')
+    def _compute_linked_order_name(self):
+        for document in self:
+            orden = document.payment_order_id or document.move_id.payment_order_id
+            document.linked_order_name = orden.name or False
+
+    def _search_linked_order_name(self, operator, value):
+        valores = set(value) if operator in ('in', 'not in') else {value}
+        if valores <= {False, ''} and operator in ('=', 'in', '!=', 'not in'):
+            vacio = ['&', ('payment_order_id', '=', False), '|', ('move_id', '=', False),
+                     ('move_id.payment_order_id', '=', False)]
+            return vacio if operator in ('=', 'in') else ['!'] + vacio
+        return ['|', ('payment_order_id.name', operator, value),
+                ('move_id.payment_order_id.name', operator, value)]
+
+    @api.depends('direction', 'tipo_dte', 'state', 'move_id.move_type', 'move_id.state',
+                 'move_id.payment_state')
+    def _compute_disponible_pago(self):
+        for document in self:
+            move = document.move_id
+            document.disponible_pago = document._sat_es_compra() and (
+                document.state == 'pendiente'
+                or (document.state == 'convertido_factura'
+                    and move.move_type in ('in_invoice', 'in_refund')
+                    and move.state == 'posted'
+                    and move.payment_state != 'paid'))
+
+    def _search_disponible_pago(self, operator, value):
+        if operator in ('in', 'not in'):
+            positivo = (True in value) == (operator == 'in')
+        elif operator in ('=', '!='):
+            positivo = bool(value) == (operator == '=')
+        else:
+            return NotImplemented
+        domain = [
+            '|', ('direction', '=', 'recibida'), ('tipo_dte', 'in', list(TIPOS_DTE_FACTURA_ESPECIAL)),
+            '|', ('state', '=', 'pendiente'),
+            '&', '&', '&', ('state', '=', 'convertido_factura'),
+            ('move_id.move_type', 'in', ('in_invoice', 'in_refund')),
+            ('move_id.state', '=', 'posted'),
+            ('move_id.payment_state', '!=', 'paid'),
+        ]
+        return domain if positivo else ['!'] + domain
 
     def _sat_es_compra(self):
         """True si el documento debe contabilizarse como compra (factura de

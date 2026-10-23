@@ -1106,3 +1106,22 @@ Para la Gestión de Compras de las Solicitudes de Materiales (ver el CLAUDE.md d
 - Se agregaron las columnas Serie FEL y Número FEL.
 
 `purchase.group_purchase_user` tiene lectura sobre `construtec.sat.document`. La búsqueda de Documentos SAT ahora acepta Número FEL, Serie FEL, No. Autorización, Proveedor y NIT.
+
+## Campos para los selectores de Documentos SAT compartidos (2026-10-23)
+
+Community dejó de guardar los Documentos SAT dos veces y ahora usa la réplica `construtec.sat.document`
+(ver el CLAUDE.md de `construtec_account_payment_order_19`). La vista compartida de la requisición usa tres
+campos que el modelo real de Enterprise no tenía. Se agregaron en `models/sat_document.py`, **sin guardarse**:
+
+- `partner_name`: related de `partner_id.name`.
+- `linked_order_name`: el nombre de `payment_order_id`, o el de `move_id.payment_order_id` si ya se
+  convirtió. Se puede buscar (`= False`, `!= False` y por nombre).
+- `disponible_pago`: el documento es de compra (`_sat_es_compra()`) y además está pendiente, o ya es
+  factura de proveedor publicada y no pagada. Se puede buscar.
+
+**Trampa real**: Odoo 19 llama a los métodos `search=` con `in`/`not in` y un conjunto (`{False}`,
+`{True}`), no solo con `=`/`!=`. Los dos métodos manejan ambos casos. Con solo `=` la búsqueda devolvía
+vacío sin error.
+
+**Verificado** en `construtec_test`: compute contra búsqueda, negaciones y el dominio del selector de Pago
+Directo.

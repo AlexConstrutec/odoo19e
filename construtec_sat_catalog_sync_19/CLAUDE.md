@@ -308,3 +308,31 @@ Verificado con `odoo-bin shell` en `construtec_test`:
 - La vista de búsqueda trae los 5 campos.
 
 Cambio idéntico en las tres copias. Enterprise carga limpio. **No verificado en el navegador.**
+
+## `construtec.sat.invoice.mirror` retirado: la réplica es la única copia (2026-10-23)
+
+Pedido del usuario: los Documentos SAT ya no se guardan dos veces. Se eliminaron el modelo
+`construtec.sat.invoice.mirror`, su vista, sus permisos, `fetch_vendor_invoices()` y
+`_sync_vendor_invoices_from_enterprise()`. Lo que se dice en este archivo sobre "Facturas de Proveedor"
+es historia.
+
+- **La réplica `construtec.sat.document` absorbe lo que daba la copia vieja**:
+  - `move_amount_residual` y `move_payment_state` (ya existían);
+  - `linked_order_name` ("Ya Vinculada A") y `disponible_pago` (índice), los dos nuevos;
+  - búsqueda por número, serie, autorización, proveedor y NIT (`_rec_names_search`);
+  - `display_name` legible;
+  - columnas y filtro "Disponibles para Pago" en la vista.
+- **`_sync_sat_documents_from_enterprise()`** (lo llaman el cron y "Sincronizar ahora"), en tres pasos:
+  1. Trae completos los documentos de los últimos 7 días.
+  2. Pide el estado de pago (`fetch_sat_document_status()`) de todo documento de compra pendiente o
+     convertido, sin ventana de días, más los que Community tenía disponibles. Los que no tiene completos
+     los trae por id (`fetch_sat_documents(..., ids=...)`).
+  3. Actualiza el estado de los demás.
+
+  Así el saldo ya no queda viejo por la ventana de 7 días, que era el riesgo de tener dos copias.
+- **Disponible para pago**:
+  - un documento pendiente cuenta como saldo = `monto_total`, sin pagar;
+  - uno convertido, si su factura es de proveedor, está publicada y no está pagada.
+- En Enterprise estos campos los calcula `construtec_account_19` sobre el modelo real.
+- Versión 19.0.1.1.0. Los vínculos de las requisiciones los migra `construtec_account_payment_order_19`
+  (19.0.1.20.0).

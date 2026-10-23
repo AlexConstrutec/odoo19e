@@ -15,6 +15,8 @@
                 <field name="move_amount_residual"/>
                 <field name="move_payment_state"/>
                 <field name="state"/>
+                <field name="linked_order_name" optional="show"/>
+                <field name="disponible_pago" optional="hide"/>
                 <field name="received_date" optional="hide"/>
             </list>
         </field>
@@ -53,6 +55,8 @@
                         <group string="Estado de la Factura">
                             <field name="move_amount_residual"/>
                             <field name="move_payment_state"/>
+                            <field name="linked_order_name"/>
+                            <field name="disponible_pago"/>
                         </group>
                     </group>
                     <group string="Sincronización">
@@ -71,8 +75,12 @@
         <field name="arch" type="xml">
             <search>
                 <field name="partner_name"/>
+                <field name="numero_documento" string="Número FEL"/>
+                <field name="serie" string="Serie FEL"/>
                 <field name="numero_autorizacion"/>
                 <field name="nit_contacto"/>
+                <filter string="Disponibles para Pago" name="disponibles"
+                        domain="[('disponible_pago', '=', True)]"/>
                 <filter string="Pendientes" name="pendientes" domain="[('state', '=', 'pendiente')]"/>
                 <filter string="Convertidos a Factura" name="convertidos"
                         domain="[('state', '=', 'convertido_factura')]"/>

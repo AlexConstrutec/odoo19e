@@ -2326,3 +2326,57 @@ Versión 19.0.1.19.0, idéntica en las tres copias.
 
 **Verificado** en `construtec_test`: el filtro está en la vista de búsqueda, la acción lo trae por defecto y deja ver
 Borrador/Aplicado pero no Liquidado/Dividida.
+
+## Documentos SAT guardados una sola vez (2026-10-23)
+
+Community guardaba los Documentos SAT de Enterprise **dos veces**: en `construtec.sat.invoice.mirror`
+(lo que usaban los selectores de esta requisición) y en la réplica `construtec.sat.document`
+(`construtec_sat_catalog_sync_19`). Pedido del usuario: "que solo una vez se esté guardando". Se quedó
+la réplica; la copia vieja se retiró (ver el CLAUDE.md de `construtec_sat_catalog_sync_19`).
+
+- **Campos repuntados a `construtec.sat.document`**, con tablas nuevas (columnas `order_id`/`sat_document_id`):
+  - `factura_mirror_ids` → `account_payment_order_factura_sat_rel`;
+  - `gasto_mirror_ids` → `account_payment_order_gasto_sat_rel`;
+  - `gasto_pendiente_ids` → `account_payment_order_gasto_pendiente_sat_rel`.
+
+  Los nombres de los campos no cambiaron.
+- **Nombres de campos de la réplica** usados ahora en checks, vistas y `construtec_whatsapp_alterno_notify_19`:
+  `move_payment_state` (antes `payment_state`), `move_amount_residual` (antes `amount_residual`),
+  `nit_contacto` (antes `partner_vat`), `fecha_certificacion` (antes `fecha`). `linked_order_name` y
+  `disponible_pago` existen en ambos lados.
+- **Selectores**:
+  - Pago Directo: `nit_contacto = partner_vat_actual` y `disponible_pago`.
+  - Facturas de Gastos: `disponible_pago` y sin `linked_order_name`.
+- **`_prepare_sync_vals()` no cambió**: `sat_document_ids` sigue mandando `origin_id`, que es el id del
+  Documento SAT en Enterprise en las dos copias.
+- **En Enterprise** el modelo es el real de `construtec_account_19`, que no tiene esos campos guardados.
+  Allí `partner_name`, `linked_order_name` y `disponible_pago` se calculan en vivo y se pueden buscar (ver su
+  CLAUDE.md). La vista compartida valida en ambos lados.
+- **Migración 19.0.1.20.0**:
+  - `post-migrate.py`:
+    - Crea en la réplica los documentos que solo estaban en la copia vieja, con `direction`/`tipo_dte`
+      provisionales y `enterprise_write_date` vacío. La siguiente sincronización los completa.
+    - Copia `linked_order_name`/`disponible_pago` y los vínculos de las 3 tablas viejas, traduciendo por
+      `origin_id`.
+  - `end-migrate.py` borra la tabla vieja y las 3 tablas de vínculos. Odoo quita el modelo al actualizar,
+    pero no su tabla.
+  - En Enterprise no copia nada, porque la réplica no tiene `origin_id`. Igual borra las tablas viejas, que
+    allá siempre estuvieron vacías.
+- **Despliegue**: actualizar en el mismo comando `construtec_sat_catalog_sync_19`,
+  `construtec_account_payment_order_19`, y además `construtec_account_19` en Enterprise. En Community,
+  correr después "Sincronizar ahora" de Documentos SAT.
+
+**Verificado:**
+- Enterprise (`construtec_test`): los campos calculados y sus búsquedas, incluidas las negaciones
+  (Odoo 19 pasa `in`/`not in` a los `search=`), y el dominio del selector.
+- Community, con Enterprise simulado (16 comprobaciones):
+  - sincronización con la ventana de días, completar faltantes y apagar los que se pagaron;
+  - selectores y checks;
+  - `sat_document_ids`;
+  - `total_orden`.
+- Migración en una copia de `construtec_community_0509`:
+  - 11,511 + 1,899 = 13,410 documentos;
+  - vínculos de Pago Directo y Gastos copiados, incluido uno que solo estaba en la copia vieja;
+  - tablas viejas eliminadas.
+
+**No verificado en el navegador.**

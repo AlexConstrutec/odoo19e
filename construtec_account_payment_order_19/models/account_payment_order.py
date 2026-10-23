@@ -162,8 +162,12 @@ class AccountPaymentOrder(models.Model):
     # cuyo método _search (account_payment.py:_search_reconciled_invoice_ids) solo entiende
     # 'in'/'=' contra un id concreto, no '=False' (lo traduce a "id in ()", que excluye todo).
     # Ese chequeo se hace en Python dentro de action_conciliar().
+    # Los tres apuntan a `construtec.sat.document`, la única copia de los Documentos SAT en
+    # Community (2026-10-23; antes a `construtec.sat.invoice.mirror`, que los duplicaba). En
+    # Enterprise ese modelo es el Documento SAT real y estos campos no se usan.
     factura_mirror_ids = fields.Many2many(
-        'construtec.sat.invoice.mirror', string='Facturas (Catálogo SAT)',
+        'construtec.sat.document', relation='account_payment_order_factura_sat_rel',
+        column1='order_id', column2='sat_document_id', string='Facturas (Catálogo SAT)',
         help='Lo que un jefe de técnicos en Community realmente elige para un Pago Directo - '
              'Documentos SAT reales de Enterprise (ya factura, o todavía pendientes de '
              'convertir), vía el mirror de solo lectura de construtec_sat_catalog_sync_19 '
@@ -177,9 +181,9 @@ class AccountPaymentOrder(models.Model):
              'Enterprise mismo (es_procesador=True) - ahí se usa `factura_ids` directo, como '
              'siempre.')
     gasto_mirror_ids = fields.Many2many(
-        'construtec.sat.invoice.mirror', relation='account_payment_order_gasto_mirror_rel',
-        column1='order_id', column2='mirror_id', string='Facturas de Gastos',
-        domain=[('payment_state', '!=', 'paid')],
+        'construtec.sat.document', relation='account_payment_order_gasto_sat_rel',
+        column1='order_id', column2='sat_document_id', string='Facturas de Gastos',
+        domain=[('disponible_pago', '=', True)],
         help='Facturas (Documentos SAT) con las que el técnico gastó el anticipo de Viáticos - '
              'sirven para liquidarlo. Solo en Community. Se pueden agregar desde Borrador (viajan '
              'junto con la requisición al enviarla: `sat_document_ids`) y también después de '
@@ -194,8 +198,8 @@ class AccountPaymentOrder(models.Model):
     # guardan aquí y viajan cuando el usuario presiona "Enviar Facturas" (`action_enviar_facturas_gastos`).
     # Si en ese envío falla la comunicación, `_cron_retry_gasto_sync()` las reintenta.
     gasto_pendiente_ids = fields.Many2many(
-        'construtec.sat.invoice.mirror', relation='account_payment_order_gasto_pendiente_rel',
-        column1='order_id', column2='mirror_id', string='Facturas pendientes de enviar',
+        'construtec.sat.document', relation='account_payment_order_gasto_pendiente_sat_rel',
+        column1='order_id', column2='sat_document_id', string='Facturas pendientes de enviar',
         readonly=True, copy=False,
         help='Facturas de gastos guardadas en Community que todavía NO llegaron a Enterprise. Se '
              'mandan con el botón "Enviar Facturas"; si falla la comunicación se reintentan solas.')
@@ -850,18 +854,18 @@ class AccountPaymentOrder(models.Model):
         account_payment_order_views.xml), esto es la defensa real (por si se elige por API/script,
         o si `partner_id` cambia después de ya haber elegido facturas)."""
         label = mirror.numero_autorizacion or mirror.partner_name or str(mirror.origin_id)
-        if mirror.payment_state == 'paid':
+        if mirror.move_payment_state == 'paid':
             raise UserError(self.env._('La factura %s ya está completamente pagada.', label))
         if mirror.linked_order_name and mirror.linked_order_name != self.name:
             raise UserError(self.env._(
                 'La factura %(factura)s ya está vinculada a la Orden de Pago %(orden)s.',
                 factura=label, orden=mirror.linked_order_name))
         if (self.tipo == 'pago_directo' and self.partner_id and self.partner_id.vat
-                and mirror.partner_vat and mirror.partner_vat != self.partner_id.vat):
+                and mirror.nit_contacto and mirror.nit_contacto != self.partner_id.vat):
             raise UserError(self.env._(
                 'La factura %(factura)s es del proveedor %(otro)s, no de %(actual)s - una '
                 'Requisición de Pago Directo es para un solo proveedor.',
-                factura=label, otro=mirror.partner_name or mirror.partner_vat,
+                factura=label, otro=mirror.partner_name or mirror.nit_contacto,
                 actual=self.partner_id.name))
 
     def _check_gasto_mirror_disponible(self, mirror):
@@ -871,7 +875,7 @@ class AccountPaymentOrder(models.Model):
         gastó en varios comercios), así que no se valida el NIT."""
         self._check_factura_mirror_disponible(mirror)
         label = mirror.numero_autorizacion or mirror.partner_name or str(mirror.origin_id)
-        if mirror.state == 'convertido_factura' and mirror.amount_residual <= 0:
+        if mirror.state == 'convertido_factura' and mirror.move_amount_residual <= 0:
             raise UserError(self.env._(
                 'La factura %s ya no tiene saldo pendiente: solo se aceptan facturas sin pago o '
                 'pagadas parcialmente.', label))
@@ -1695,7 +1699,7 @@ class AccountPaymentOrder(models.Model):
             # Ids REALES de construtec.sat.document en Enterprise - NUNCA un id de account.move
             # (decisión explícita del usuario, 2026-09-29: "de Enterprise a Community solo deben
             # copiarse los documentos SAT"). El jefe de técnicos los eligió del mirror de solo
-            # lectura construtec.sat.invoice.mirror, cuyo `origin_id` ES el id real del Documento
+            # lectura construtec.sat.document (réplica), cuyo `origin_id` ES el id real del Documento
             # SAT allá, sin importar su estado. Enterprise decide qué hacer con cada uno según su
             # estado REAL en ese momento (`_resolve_sat_document_ids()`, Enterprise-only,
             # construtec_account_19) - ya `convertido_factura` (vincula el `move_id` existente) o

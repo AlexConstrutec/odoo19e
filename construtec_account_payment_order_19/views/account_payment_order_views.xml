@@ -173,21 +173,21 @@
                             <field name="partner_vat_actual" invisible="1"/>
                             <field name="factura_mirror_ids" widget="many2many" nolabel="1"
                                    readonly="state != 'borrador'"
-                                   domain="[('partner_vat', '=', partner_vat_actual)]">
-                                <list default_order="fecha desc">
+                                   domain="[('nit_contacto', '=', partner_vat_actual), ('disponible_pago', '=', True)]">
+                                <list default_order="fecha_certificacion desc">
                                     <field name="partner_name" string="Proveedor"/>
                                     <field name="numero_documento" string="Número de Factura"/>
                                     <field name="serie" string="Serie de Factura"/>
-                                    <field name="fecha" string="Fecha"/>
+                                    <field name="fecha_certificacion" string="Fecha"/>
                                     <field name="monto_total" string="Monto"/>
-                                    <field name="amount_residual" string="Saldo"/>
+                                    <field name="move_amount_residual" string="Saldo"/>
                                     <field name="state" string="Estado de Documento" widget="badge"
                                            decoration-warning="state == 'pendiente'"
                                            decoration-success="state == 'convertido_factura'"/>
-                                    <field name="payment_state" string="Estado de Pago" widget="badge"
-                                           decoration-danger="payment_state == 'not_paid'"
-                                           decoration-warning="payment_state in ('partial', 'in_payment')"
-                                           decoration-success="payment_state in ('paid', 'reversed')"/>
+                                    <field name="move_payment_state" string="Estado de Pago" widget="badge"
+                                           decoration-danger="move_payment_state == 'not_paid'"
+                                           decoration-warning="move_payment_state in ('partial', 'in_payment')"
+                                           decoration-success="move_payment_state in ('paid', 'reversed')"/>
                                     <field name="linked_order_name" string="Ya Vinculada A"/>
                                     <field name="numero_autorizacion" string="No. Autorización"
                                            optional="hide"/>
@@ -351,18 +351,18 @@
                             </div>
                             <field name="gasto_mirror_ids" widget="many2many" nolabel="1"
                                    readonly="state not in ('borrador', 'enviado', 'aprobado', 'aplicado')"
-                                   domain="[('payment_state', '!=', 'paid'), ('linked_order_name', '=', False)]">
-                                <list default_order="fecha desc">
+                                   domain="[('disponible_pago', '=', True), ('linked_order_name', '=', False)]">
+                                <list default_order="fecha_certificacion desc">
                                     <field name="partner_name" string="Proveedor"/>
                                     <field name="numero_documento" string="Número de Factura"/>
                                     <field name="serie" string="Serie de Factura"/>
-                                    <field name="fecha" string="Fecha"/>
+                                    <field name="fecha_certificacion" string="Fecha"/>
                                     <field name="monto_total" string="Monto"/>
-                                    <field name="amount_residual" string="Saldo"/>
-                                    <field name="payment_state" string="Estado de Pago" widget="badge"
-                                           decoration-danger="payment_state == 'not_paid'"
-                                           decoration-warning="payment_state in ('partial', 'in_payment')"
-                                           decoration-success="payment_state in ('paid', 'reversed')"/>
+                                    <field name="move_amount_residual" string="Saldo"/>
+                                    <field name="move_payment_state" string="Estado de Pago" widget="badge"
+                                           decoration-danger="move_payment_state == 'not_paid'"
+                                           decoration-warning="move_payment_state in ('partial', 'in_payment')"
+                                           decoration-success="move_payment_state in ('paid', 'reversed')"/>
                                     <field name="numero_autorizacion" string="No. Autorización"
                                            optional="hide"/>
                                 </list>
