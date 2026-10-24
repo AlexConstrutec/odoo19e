@@ -329,6 +329,18 @@ class ConstructecSatRetentionEmitida(models.Model):
             })
             retention.pdf_attachment_id = attachment.id
 
+        # Vincular al Documento SAT (factura del proveedor) apenas se importa - hasta 2026-10-24
+        # esto solo ocurría al apretar el botón "Vincular Factura" a mano, así que TODAS las
+        # constancias que subía el flujo automático quedaban "pendiente" para siempre (se
+        # encontraron 13 así). Si la factura ya está contabilizada, _sat_buscar_documento() también
+        # la aplica; si el Documento SAT todavía no existe, queda pendiente como antes. Nunca debe
+        # tumbar la importación (la constancia ya quedó guardada arriba).
+        try:
+            retention._sat_buscar_documento()
+        except Exception:
+            _logger.exception(
+                'No se pudo vincular automáticamente la constancia emitida %s', numero_constancia)
+
         return {'state': 'success', 'retention_id': retention.id}
 
 
@@ -433,7 +445,10 @@ class ConstructecSatRetentionEmitidaLine(models.Model):
         if float_is_zero(self.monto_retencion, precision_digits=self.currency_id.decimal_places or 2):
             return False
 
-        move = self.retention_id.move_id
+        # El contexto evita que el action_post() de abajo (re-contabilizar tras agregar la línea)
+        # vuelva a disparar el gancho de aplicación automática de AccountMove.action_post - ver
+        # esa nota en account_move.py.
+        move = self.retention_id.move_id.with_context(sat_retencion_emitida_aplicando=True)
         company = move.company_id
         account = self._sat_get_retencion_isr_account(company)
 

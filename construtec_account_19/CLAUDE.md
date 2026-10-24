@@ -1051,6 +1051,44 @@ Verificado con `odoo-bin shell`: un usuario creado con SOLO `group_payment_order
 usuario de integración) puede ahora leer `construtec.sat.document`, y sigue sin poder crear ni
 escribir nada ahí (`AccessError` confirmado en el intento de `create()`).
 
+## Constancias de ISR emitidas: vincular y aplicar solas (2026-10-24)
+
+Dos huecos reales encontrados al subir 3 constancias SAT-1911 a mano (`construtec.sat.retention.emitida`):
+
+1. **Nunca se vinculaban solas.** `create_from_pdf()` creaba la constancia pero NADIE llamaba
+   `_sat_buscar_documento()` - solo el botón "Vincular Factura". Resultado: las 13 constancias que ya
+   había subido el flujo automático seguían en `pendiente` (sin `sat_document_id`) y la factura del
+   proveedor se pagaba completa. Fix: `create_from_pdf()` llama `retention._sat_buscar_documento()` al
+   final (dentro de `try/except` - nunca debe tumbar la importación). Si el Documento SAT todavía no
+   existe, queda `pendiente` como antes (el botón sigue sirviendo); si la factura YA está contabilizada,
+   `_sat_buscar_documento()` además la aplica.
+2. **No se aplicaban al contabilizar la factura.** Constancia vinculada con la factura todavía en
+   borrador (caso normal: el contador convierte y contabiliza DESPUÉS) quedaba `pendiente de aplicar`
+   para siempre; el lado Recibidas sí tenía este gancho en `AccountMove.action_post()`, Emitidas no. Fix:
+   segundo bloque en `AccountMove.action_post()` - tras contabilizar una `in_invoice`/`in_refund` con
+   `sat_document_id`, busca las `construtec.sat.retention.emitida` con `move_id` = esa factura que
+   tengan alguna línea sin `move_line_id` y llama `_sat_intentar_aplicar_retenciones_automatica()`.
+
+**Bucle evitado a propósito**: aplicar una retención resetea la factura a borrador, agrega la línea
+negativa y VUELVE a llamar `action_post()` - eso re-dispararía el gancho de arriba indefinidamente. El
+contexto `sat_retencion_emitida_aplicando` lo fija `action_aplicar_retencion_contable()` (`move =
+retention_id.move_id.with_context(...)`) y el gancho lo respeta (`if not
+self.env.context.get('sat_retencion_emitida_aplicando')`). No quitar sin reemplazar por otra guarda.
+
+**Verificado con `odoo-bin shell` sobre un clon de `construtec_test`** (el clon se elimina al final): (A)
+constancia vinculada a una factura en borrador de Q1,000 con retención Q50 -> antes de contabilizar sin
+aplicar, después de contabilizar aplicada (total Q950, `posted`, sin bucle), y volver a llamar la
+aplicación no duplica la línea; (B) factura de Q6,800 YA contabilizada + `create_from_pdf()` con un PDF
+real (Q303.57) -> `vinculada`, aplicada, total Q6,496.43; (C) `create_from_pdf()` sin Documento SAT que
+calce -> `pendiente`, sin error. Los PDFs reales se usaron tal cual salen de la SAT.
+
+**Límite conocido, deliberado**: una constancia que llega ANTES que su Documento SAT queda `pendiente`
+(el Documento SAT es el que no existe todavía) y nada la vincula cuando éste llega después - hay que
+usar "Vincular Factura" a mano o repetir la subida. En la práctica la factura del proveedor se certifica
+antes que su constancia. Si resultara frecuente, el siguiente paso natural es un gancho simétrico en
+`construtec.sat.document.create_from_dte()` que busque constancias emitidas pendientes con ese
+serie+número.
+
 ## Common commands
 
 ```

@@ -149,6 +149,27 @@ class AccountMove(models.Model):
             ])
             for linea in lineas_pendientes:
                 linea._sat_intentar_aplicar_retencion_automatica()
+
+        # Mismo gancho, lado COMPRA (constancias de ISR EMITIDAS, construtec.sat.retention.emitida):
+        # una constancia puede quedar vinculada a un Documento SAT cuya factura todavía no estaba
+        # contabilizada (el caso normal - vinculada primero, el contador convierte/contabiliza
+        # después) y, a diferencia de Recibidas, nada la aplicaba al contabilizar - quedaba
+        # "pendiente de aplicar" y la factura se pagaba completa. El contexto
+        # `sat_retencion_emitida_aplicando` lo fija la propia aplicación (ver
+        # ConstructecSatRetentionEmitidaLine.action_aplicar_retencion_contable): esa aplicación
+        # resetea a borrador y VUELVE a contabilizar la factura, lo que re-dispararía este mismo
+        # gancho en bucle.
+        if not self.env.context.get('sat_retencion_emitida_aplicando'):
+            moves_compra = self.filtered(
+                lambda m: m.state == 'posted' and m.sat_document_id
+                and m.move_type in ('in_invoice', 'in_refund'))
+            if moves_compra:
+                retenciones = self.env['construtec.sat.retention.emitida'].search([
+                    ('move_id', 'in', moves_compra.ids),
+                ])
+                for retencion in retenciones.filtered(
+                        lambda r: any(not l.move_line_id for l in r.line_ids)):
+                    retencion._sat_intentar_aplicar_retenciones_automatica()
         return res
 
     partida_numero = fields.Integer(
