@@ -1563,6 +1563,9 @@ class AccountPaymentOrder(models.Model):
                 self.env._('Requisición de Pago aprobada'),
                 self.env._('%(name)s fue aprobada por %(aprobador)s', name=rec.name,
                            aprobador=self.env.user.name))
+            # Pago Directo: un pago registrado desde la factura mientras la requisición seguía
+            # Enviada no se tomó (_sync_pagos_nativos() solo actúa desde Aprobado) - se toma ahora.
+            rec._sync_pagos_nativos()
 
     def action_reject(self):
         self._check_is_approver()
@@ -1830,6 +1833,12 @@ class AccountPaymentOrder(models.Model):
         if self.tipo == 'pago_directo' and not self.factura_ids:
             raise UserError(self.env._(
                 'Un Pago Directo debe incluir al menos una factura.'))
+        if self.tipo == 'pago_directo' and self.state == 'aprobado':
+            # Facturas ya pagadas desde la propia factura (p. ej. mientras la requisición seguía
+            # Enviada): se toman esos pagos y, si ya no queda saldo, se liquida sin neteo.
+            self._sync_pagos_nativos()
+            if self.state == 'liquidado':
+                return True
 
         # Solo las líneas de por cobrar/por pagar representan la deuda con el proveedor o
         # el contacto - las demás (caja, banco, "Pagos Pendientes"/outstanding) son solo el
@@ -1849,6 +1858,9 @@ class AccountPaymentOrder(models.Model):
             for line in factura.line_ids:
                 if line.account_id.reconcile and line.account_id.account_type in CUENTAS_A_NETEAR:
                     if line.reconciled:
+                        if self.tipo == 'pago_directo':
+                            # Ya pagada desde la propia factura - no hay nada que netear.
+                            continue
                         raise UserError(self.env._('La factura %s ya está conciliada.', factura.name))
                     facturas_montos.append((line, -line.amount_residual))
 

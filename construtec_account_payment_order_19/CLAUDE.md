@@ -2380,3 +2380,24 @@ la réplica; la copia vieja se retiró (ver el CLAUDE.md de `construtec_sat_cata
   - tablas viejas eliminadas.
 
 **No verificado en el navegador.**
+
+## Bug real: Pago Directo pagado desde la factura mientras seguía Enviado (2026-10-24, Enterprise)
+
+Caso real: en Enterprise, se pagó la factura de una requisición de Pago Directo que seguía en **Enviado**, y después
+se aprobó. La requisición quedó en Aprobado sin tomar el pago, y "Liquidar" tronaba con "La factura ... ya está
+conciliada".
+
+**Causa:** `_sync_pagos_nativos()` solo actúa en `aprobado`/`liquidado`, y solo se dispara al crear o borrar una
+conciliación. El pago se hizo en Enviado (se ignoró) y Aprobar no volvía a revisar.
+
+**Fix:**
+- `action_approve()` llama `_sync_pagos_nativos()` al final: Pago Directo toma los pagos ya aplicados en la factura,
+  y si ya no queda saldo pasa directo a Liquidado.
+- `action_conciliar()` en Pago Directo Aprobado corre primero `_sync_pagos_nativos()`; si con eso queda Liquidado,
+  termina ahí (repara las requisiciones que ya quedaron atoradas, con solo darle "Liquidar").
+- En Pago Directo, una línea de factura ya conciliada (pagada desde la factura) se omite en vez de tronar. Anticipo
+  sigue con el error de siempre.
+
+**Verificado** en `construtec_test` (Enterprise): pago completo en Enviado y luego Aprobar deja Liquidado con el pago
+vinculado; una requisición ya atorada en Aprobado se liquida con "Liquidar" sin asiento de bolsón; un pago parcial en
+Enviado queda Aprobado con el pago vinculado. **No verificado en el navegador.**
