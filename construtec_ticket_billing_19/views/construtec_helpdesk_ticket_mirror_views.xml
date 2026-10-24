@@ -32,6 +32,18 @@
                             <field name="received_date" readonly="1" />
                         </group>
                     </group>
+                    <group string="Requisiciones de Pago" invisible="not payment_order_ids">
+                        <field name="payment_order_ids" nolabel="1" colspan="2" readonly="1">
+                            <list>
+                                <field name="name" />
+                                <field name="external_ref" string="No. en Community" optional="show" />
+                                <field name="tipo" />
+                                <field name="fecha" />
+                                <field name="monto" />
+                                <field name="state" widget="badge" />
+                            </list>
+                        </field>
+                    </group>
                     <group string="Vínculo Community / Enterprise" invisible="not community_url">
                         <field name="community_url" widget="url" string="Ver Ticket en Community" />
                     </group>

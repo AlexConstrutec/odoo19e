@@ -2401,3 +2401,10 @@ conciliación. El pago se hizo en Enviado (se ignoró) y Aprobar no volvía a re
 **Verificado** en `construtec_test` (Enterprise): pago completo en Enviado y luego Aprobar deja Liquidado con el pago
 vinculado; una requisición ya atorada en Aprobado se liquida con "Liquidar" sin asiento de bolsón; un pago parcial en
 Enviado queda Aprobado con el pago vinculado. **No verificado en el navegador.**
+
+## Observaciones visible también en Pago Directo (2026-10-24)
+
+El grupo "Observaciones / Instrucciones" del formulario ya no se oculta en Pago Directo (antes solo Anticipo,
+Viáticos y Materiales). El campo ya viajaba a Enterprise para todos los tipos (`_prepare_sync_vals()`).
+El ticket obligatorio de toda requisición vive en `construtec_helpdesk_field_service` (Community); el vínculo
+requisición ↔ ticket en Enterprise, en `construtec_ticket_billing_19`.

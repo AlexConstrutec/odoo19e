@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_account_payment_order_form_ticket_mirror" model="ir.ui.view">
+        <field name="name">account.payment.order.view.form.ticket.mirror</field>
+        <field name="model">account.payment.order</field>
+        <field name="inherit_id" ref="construtec_account_payment_order_19.view_account_payment_order_form" />
+        <field name="arch" type="xml">
+            <field name="analytic_account_id" position="before">
+                <field name="ticket_mirror_id" invisible="not ticket_mirror_id" />
+            </field>
+        </field>
+    </record>
+
+    <record id="view_account_payment_order_list_ticket_mirror" model="ir.ui.view">
+        <field name="name">account.payment.order.view.list.ticket.mirror</field>
+        <field name="model">account.payment.order</field>
+        <field name="inherit_id" ref="construtec_account_payment_order_19.view_account_payment_order_list" />
+        <field name="arch" type="xml">
+            <field name="partner_id" position="after">
+                <field name="ticket_mirror_id" optional="show" />
+            </field>
+        </field>
+    </record>
+
+    <record id="view_account_payment_order_search_ticket_mirror" model="ir.ui.view">
+        <field name="name">account.payment.order.view.search.ticket.mirror</field>
+        <field name="model">account.payment.order</field>
+        <field name="inherit_id" ref="construtec_account_payment_order_19.view_account_payment_order_search" />
+        <field name="arch" type="xml">
+            <field name="partner_id" position="after">
+                <field name="ticket_mirror_id" />
+            </field>
+            <filter name="group_lote_origen" position="after">
+                <filter string="Ticket" name="group_ticket_mirror" context="{'group_by': 'ticket_mirror_id'}" />
+            </filter>
+        </field>
+    </record>
+</odoo>

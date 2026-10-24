@@ -459,7 +459,7 @@
                             </p>
                         </page>
                     </notebook>
-                    <group invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')">
+                    <group>
                         <field name="observaciones"/>
                     </group>
                 </sheet>

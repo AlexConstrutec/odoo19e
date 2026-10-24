@@ -110,3 +110,20 @@ plan + requisiciones). Están en el formulario y la lista del espejo y en la pes
 las filas ya recibidas quedan con `costo_general = costo_total` (el plan no existía) hasta que Community reenvíe el ticket. Un empuje del formato anterior
 (solo `costo_total`) sigue siendo válido. **Desplegar este módulo antes que Community**: el upsert escribe las claves tal cual y fallaría con un campo
 inexistente. Probado en `construtec_test` (instalación, upsert, formato anterior, vistas y migración).
+
+## Requisiciones de Pago vinculadas al Ticket (2026-10-24, versión 19.0.1.2.0)
+
+Pedido del usuario: en Enterprise debe saberse qué ticket originó cada requisición (no solo la cuenta analítica).
+El módulo ahora depende de `construtec_account_payment_order_19`.
+
+- `account.payment.order.ticket_mirror_id` (Many2one al espejo, solo lectura) y `construtec.helpdesk.ticket.mirror.
+  payment_order_ids` (One2many). Se ve en el formulario, la lista y la búsqueda de requisiciones (agrupar por Ticket),
+  y como lista dentro del formulario del espejo.
+- Llega por **número de ticket**, por dos caminos (cubre cualquier orden de llegada):
+  - la requisición trae `ticket_number` (`create()` lo saca de vals; si el espejo no existe aún, crea uno solo con el
+    número - `_get_or_create_by_number()` - que el siguiente envío del ticket completa);
+  - el ticket trae `payment_order_refs` (nombres en Community = `external_ref`): `_link_payment_orders()` vincula las que
+    ya existen y suelta las que ya no le pertenecen. Un envío sin esa clave no toca los vínculos.
+- `sudo()` al escribir las requisiciones: el usuario de integración no necesita permiso de escritura sobre ellas.
+
+Verificado en `construtec_test` (11 casos, rollback). **No verificado en el navegador.**

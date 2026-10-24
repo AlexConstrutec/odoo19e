@@ -93,6 +93,9 @@ class ConstructecHelpdeskTicketMirror(models.Model):
              'mano, así nunca se desincroniza de la Factura real.')
     received_date = fields.Datetime(
         string='Última Recepción', default=fields.Datetime.now, readonly=True)
+    payment_order_ids = fields.One2many(
+        'account.payment.order', 'ticket_mirror_id', string='Requisiciones de Pago', readonly=True,
+        help='Las Requisiciones de Pago recibidas de Community que pertenecen a este Ticket.')
 
     _number_uniq = models.Constraint(
         'unique(number)',
@@ -181,9 +184,33 @@ class ConstructecHelpdeskTicketMirror(models.Model):
         if not vals.get('company_id'):
             vals['company_id'] = self.env.company.id
         self._resolve_analytic_enterprise_ref(vals)
+        payment_order_refs = vals.pop('payment_order_refs', None)
         entry = self.search([('number', '=', number)], limit=1)
         if entry:
             entry.write(vals)
         else:
             entry = self.create(vals)
+        if payment_order_refs is not None:
+            entry._link_payment_orders(payment_order_refs)
         return entry.id
+
+    @api.model
+    def _get_or_create_by_number(self, number):
+        entry = self.search([('number', '=', number)], limit=1)
+        return entry or self.create({'number': number, 'name': number})
+
+    def _link_payment_orders(self, refs):
+        """Vincula a este ticket las requisiciones recibidas cuyo `external_ref` (el nombre en
+        Community) viene en `refs`, y suelta las que ya no le pertenecen. Las requisiciones que
+        todavía no llegaron a Enterprise se vinculan solas al llegar (`ticket_number`).
+        `sudo()`: el usuario de integración no necesita permiso de escritura sobre requisiciones."""
+        self.ensure_one()
+        Order = self.env['account.payment.order'].sudo()
+        nuevas = Order.search([('external_ref', 'in', refs or []), ('origin', '=', 'synced'),
+                               ('ticket_mirror_id', '!=', self.id)]) if refs else Order
+        if nuevas:
+            nuevas.write({'ticket_mirror_id': self.id})
+        sobrantes = Order.search([('ticket_mirror_id', '=', self.id),
+                                  ('external_ref', 'not in', refs or [])])
+        if sobrantes:
+            sobrantes.write({'ticket_mirror_id': False})
