@@ -100,7 +100,7 @@
                     <group>
                         <group>
                             <field name="tipo"/>
-                            <field name="analytic_account_id"
+                            <field name="analytic_account_id" options="{'no_create': True}"
                                    invisible="tipo not in ('anticipo_viaticos', 'anticipo_materiales')"/>
                             <field name="proyecto" invisible="1"/>
                             <field name="journal_id" invisible="not es_procesador"
