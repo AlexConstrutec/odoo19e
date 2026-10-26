@@ -1,4 +1,5 @@
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
 from .account_payment_order import _resolve_employee_for_partner
 
@@ -150,6 +151,23 @@ class AccountPaymentOrderViaticoLine(models.Model):
                     vals.setdefault('banco', empleado.banco_nombre_raw or False)
                     vals.setdefault('tipo_cuenta', empleado.tipo_cuenta_raw or False)
         return super().create(vals_list)
+
+    def write(self, vals):
+        if any(k in vals for k in ('cantidad', 'costo_individual')):
+            fuera_de_borrador = self.mapped('order_id').filtered(lambda o: o.state != 'borrador')
+            if fuera_de_borrador.filtered(lambda o: not o.puede_editar_montos_viaticos):
+                raise UserError(self.env._(
+                    'Fuera de Borrador, solo Contabilidad en Enterprise puede corregir los montos '
+                    'de Viáticos, y solo con la requisición Enviada o Aprobada.'))
+            res = super().write(vals)
+            # Editar la línea directo (no a través de la requisición) también debe mover el monto.
+            self.mapped('order_id')._sync_monto_desde_total_acreditar()
+            for order in fuera_de_borrador:
+                order.message_post(body=self.env._(
+                    'Montos de Viáticos corregidos por %(user)s. Nuevo total: %(total)s',
+                    user=self.env.user.name, total=order.total_acreditar))
+            return res
+        return super().write(vals)
 
     @api.depends('cantidad', 'costo_individual')
     def _compute_total(self):

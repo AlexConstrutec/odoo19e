@@ -2408,3 +2408,21 @@ El grupo "Observaciones / Instrucciones" del formulario ya no se oculta en Pago 
 Viáticos y Materiales). El campo ya viajaba a Enterprise para todos los tipos (`_prepare_sync_vals()`).
 El ticket obligatorio de toda requisición vive en `construtec_helpdesk_field_service` (Community); el vínculo
 requisición ↔ ticket en Enterprise, en `construtec_ticket_billing_19`.
+
+## Contabilidad corrige montos de Viáticos en Enviado/Aprobado (2026-10-26, Enterprise)
+
+Pedido del usuario: en Enterprise, el contador puede editar los montos de los viáticos con la requisición Enviada o Aprobada.
+
+- `puede_editar_montos_viaticos` (compute, `depends_context('uid')`): Viáticos, `state in ('enviado', 'aprobado')`,
+  compañía `procesador` y usuario en `account.group_account_invoice` (Facturación; Administrador lo implica).
+- Vista: la lista `viaticos_line_ids` queda editable con ese campo, pero solo **Cantidad** y **Costo Individual**; técnico,
+  puesto, departamento y cuenta bancaria siguen fijos fuera de Borrador (`parent.state != 'borrador'`).
+- Servidor: `viatico.line.write()` bloquea cambiar cantidad/costo fuera de Borrador si no se cumple lo anterior, recalcula
+  `monto` (`_sync_monto_desde_total_acreditar()`) y deja una nota en el chatter. `account.payment.order.write()` bloquea
+  agregar o quitar líneas de Viáticos fuera de Borrador.
+- Community: el pull de estado ya trae `monto` (se actualiza aunque el estado no cambie). Las **líneas** de Community no se
+  actualizan; solo el total.
+- No re-evalúa el umbral de aprobación: si el contador sube el monto de una requisición ya Aprobada por encima del umbral,
+  no se pide de nuevo al Gerente.
+
+Verificado en `construtec_test` (11 comprobaciones, rollback). **No verificado en el navegador.**

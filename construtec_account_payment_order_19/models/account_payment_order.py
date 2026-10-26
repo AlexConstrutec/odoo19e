@@ -11,6 +11,10 @@ from ..tools.enterprise_sync_api import (
 
 _logger = logging.getLogger(__name__)
 
+# Corrección de montos de Viáticos en Enterprise (Enviado/Aprobado) - ver
+# `puede_editar_montos_viaticos`.
+VIATICOS_MONTOS_GROUP_XMLID = 'account.group_account_invoice'
+VIATICOS_MONTOS_STATES = ('enviado', 'aprobado')
 APPROVER_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver'
 APPROVER_MEDIO_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver_medio'
 APPROVER_ALTO_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_approver_alto'
@@ -332,6 +336,11 @@ class AccountPaymentOrder(models.Model):
              'así que se resuelve aquí. Decisión explícita del usuario: la aprobación ocurre '
              'solo en la instalación Procesadora (Enterprise); una instalación Solicitante '
              '(Community) nunca debe ver estos botones.')
+    puede_editar_montos_viaticos = fields.Boolean(
+        compute='_compute_puede_editar_montos_viaticos',
+        help='Enterprise: el contador (Facturación) puede corregir Cantidad/Costo Individual de '
+             'las líneas de Viáticos mientras la requisición está Enviada o Aprobada (pedido del '
+             'usuario 2026-10-26). El monto se recalcula solo y Community lo recibe en el pull.')
     requested_by_id = fields.Many2one('res.users', string='Solicitado por',
                                        default=lambda self: self.env.user, readonly=True, copy=False,
                                        help='Técnico para la regla de seguridad "ve las propias" '
@@ -1116,7 +1125,25 @@ class AccountPaymentOrder(models.Model):
         analytic_account = self.env['account.analytic.account'].browse(analytic_account_id)
         vals.setdefault('proyecto', analytic_account.name)
 
+    @api.depends('state', 'tipo', 'company_id.payment_order_role')
+    @api.depends_context('uid')
+    def _compute_puede_editar_montos_viaticos(self):
+        es_contador = self.env.user.has_group(VIATICOS_MONTOS_GROUP_XMLID)
+        for rec in self:
+            rec.puede_editar_montos_viaticos = bool(
+                es_contador and rec.tipo == 'anticipo_viaticos'
+                and rec.state in VIATICOS_MONTOS_STATES
+                and rec.company_id.payment_order_role == 'procesador')
+
     def write(self, vals):
+        if 'viaticos_line_ids' in vals and any(
+                cmd[0] in (0, 2, 3) for cmd in vals['viaticos_line_ids']
+                if isinstance(cmd, (list, tuple))):
+            if self.filtered(lambda r: r.state != 'borrador'):
+                # Fuera de Borrador solo se corrigen montos de las líneas existentes, nunca se
+                # agregan ni quitan técnicos.
+                raise UserError(self.env._(
+                    'Solo se pueden agregar o quitar técnicos de Viáticos en Borrador.'))
         if not self.env.user.has_group(APPROVER_GROUP_XMLID):
             for rec in self:
                 # Anti-suplantación, para Anticipo Viáticos y Anticipo Materiales - en ambos

@@ -283,20 +283,30 @@
                                 <field name="lote_origen" invisible="not lote_origen" readonly="1"/>
                                 <field name="depositar_directo_tecnicos" invisible="1"/>
                             </group>
-                            <field name="viaticos_line_ids" readonly="state != 'borrador'">
+                            <field name="puede_editar_montos_viaticos" invisible="1"/>
+                            <!-- Enterprise (2026-10-26): Contabilidad corrige Cantidad/Costo en
+                                 Enviado/Aprobado; el resto de la línea sigue fijo fuera de Borrador. -->
+                            <field name="viaticos_line_ids"
+                                   readonly="state != 'borrador' and not puede_editar_montos_viaticos">
                                 <list editable="bottom"
                                       decoration-danger="not cuenta_acreditar or not tipo_cuenta or not banco">
-                                    <field name="employee_partner_id" required="1"/>
-                                    <field name="departamento" optional="hide"/>
-                                    <field name="puesto" optional="show"/>
+                                    <field name="employee_partner_id" required="1"
+                                           readonly="parent.state != 'borrador'"/>
+                                    <field name="departamento" optional="hide"
+                                           readonly="parent.state != 'borrador'"/>
+                                    <field name="puesto" optional="show"
+                                           readonly="parent.state != 'borrador'"/>
                                     <field name="cantidad"/>
                                     <field name="costo_individual"/>
                                     <field name="total" sum="Total"/>
                                     <field name="viaticos_sin_liquidar_count" string="Sin Liquidar"
                                            decoration-warning="viaticos_sin_liquidar_count &gt; 0"/>
-                                    <field name="cuenta_acreditar" optional="hide"/>
-                                    <field name="tipo_cuenta" optional="hide"/>
-                                    <field name="banco" optional="hide"/>
+                                    <field name="cuenta_acreditar" optional="hide"
+                                           readonly="parent.state != 'borrador'"/>
+                                    <field name="tipo_cuenta" optional="hide"
+                                           readonly="parent.state != 'borrador'"/>
+                                    <field name="banco" optional="hide"
+                                           readonly="parent.state != 'borrador'"/>
                                 </list>
                             </field>
                             <group class="oe_subtotal_footer oe_right">
