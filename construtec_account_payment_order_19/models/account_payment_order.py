@@ -2197,6 +2197,9 @@ class AccountPaymentOrder(models.Model):
                 'Aprobar primero (todo Anticipo debe pasar por ese camino, incluso uno '
                 'creado directo en Enterprise).'))
         self._check_es_administrador_contable()
+        if self.requiere_aprobacion_gerente:
+            raise UserError(self.env._(
+                'Falta la autorización del Gerente: el monto llegó al umbral de aprobación.'))
         if not self.journal_id:
             raise UserError(self.env._('Define el Diario antes de aplicar.'))
         if self.tipo == 'anticipo_materiales' and not self.pagar_a:
@@ -2448,15 +2451,44 @@ class AccountPaymentOrder(models.Model):
         return self._finalizar_compras()
 
     def action_autorizar_gerente(self):
-        """El Gerente autoriza el monto final que dejó Compras y la requisición pasa a Contabilidad."""
+        """El Gerente autoriza el monto: el final que dejó Compras (la requisición pasa a
+        Contabilidad) o el que Contabilidad corrigió en Viáticos ya Aprobados (sigue Aprobada)."""
         self.ensure_one()
         if not self.env.user.has_group(APPROVER_ALTO_GROUP_XMLID):
             raise AccessError(self.env._('Solo un Aprobador Nivel Alto (Gerente) puede autorizar.'))
-        if self.state != 'en_compras' or not self.requiere_aprobacion_gerente:
+        if self.state not in ('en_compras', 'aprobado') or not self.requiere_aprobacion_gerente:
             raise UserError(self.env._('Esta requisición no está esperando la autorización del Gerente.'))
         self._sync_monto_desde_total_acreditar()
         self.aprobado_por_gerente = True
+        if self.state == 'aprobado':
+            self.requiere_aprobacion_gerente = False
+            self.message_post(body=self.env._(
+                'Monto de Q%(monto).2f autorizado por el Gerente %(user)s.',
+                monto=self.total_acreditar, user=self.env.user.name))
+            return True
         return self._finalizar_compras()
+
+    def _revisar_umbral_tras_correccion(self):
+        """Tras corregir montos de Viáticos en una requisición ya Aprobada: si el total llega al
+        umbral y no la aprobó un Gerente, queda esperando su autorización (no se puede Aplicar).
+        Si vuelve a quedar bajo el umbral, deja de esperarla. Pedido del usuario 2026-10-26."""
+        for rec in self.filtered(lambda r: r.state == 'aprobado' and not r.aprobado_por_gerente):
+            threshold = rec.company_id.payment_order_approval_threshold or 0.0
+            requiere = rec.total_acreditar >= threshold
+            if requiere == rec.requiere_aprobacion_gerente:
+                continue
+            rec.requiere_aprobacion_gerente = requiere
+            if not requiere:
+                rec.message_post(body=self.env._(
+                    'El total volvió a quedar bajo el umbral: ya no requiere autorización del Gerente.'))
+                continue
+            gerentes = self.env['res.users'].search(
+                [('group_ids', 'in', self.env.ref(APPROVER_ALTO_GROUP_XMLID).ids)]).partner_id
+            rec._push_notify(
+                gerentes, self.env._('Autorización de Gerente requerida'),
+                self.env._('%(name)s: Contabilidad corrigió los viáticos y el total (Q%(monto).2f) '
+                           'llegó al umbral de Q%(umbral).2f. Falta tu autorización para Aplicarla.',
+                           name=rec.name, monto=rec.total_acreditar, umbral=threshold))
 
     def _finalizar_compras(self):
         self.ensure_one()

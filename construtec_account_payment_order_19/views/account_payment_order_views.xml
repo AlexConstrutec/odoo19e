@@ -29,7 +29,7 @@
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales', 'pago_directo') or state in ('cancelado', 'rechazado', 'aplicado', 'liquidado', 'dividida')"/>
                     <button name="action_aplicar" string="Aplicar" type="object" class="oe_highlight"
                             groups="account.group_account_manager"
-                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'aprobado' or not es_procesador"/>
+                            invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'aprobado' or requiere_aprobacion_gerente or not es_procesador"/>
                     <button name="action_cancelar_anticipo_aplicado" string="Cancelar" type="object"
                             groups="account.group_account_manager"
                             invisible="tipo not in ('anticipo', 'anticipo_viaticos', 'anticipo_materiales') or state != 'aplicado' or not es_procesador"/>
@@ -55,7 +55,7 @@
                     <button name="action_autorizar_gerente" string="Autorizar monto (Gerente)" type="object"
                             class="oe_highlight" icon="fa-thumbs-up"
                             groups="construtec_account_payment_order_19.group_payment_order_approver_alto"
-                            invisible="state != 'en_compras' or not requiere_aprobacion_gerente or not es_procesador"/>
+                            invisible="state not in ('en_compras', 'aprobado') or not requiere_aprobacion_gerente or not es_procesador"/>
                     <field name="requiere_aprobacion_gerente" invisible="1"/>
                     <button name="%(action_account_payment_order_quote_import_wizard)d"
                             type="action" string="Cargar Cotización" icon="fa-magic"
@@ -283,6 +283,11 @@
                                 <field name="lote_origen" invisible="not lote_origen" readonly="1"/>
                                 <field name="depositar_directo_tecnicos" invisible="1"/>
                             </group>
+                            <div class="alert alert-warning" role="alert"
+                                 invisible="state != 'aprobado' or not requiere_aprobacion_gerente">
+                                Con los montos corregidos el total llegó al umbral de aprobación: falta que
+                                un Gerente presione "Autorizar monto (Gerente)" antes de Aplicar.
+                            </div>
                             <field name="puede_editar_montos_viaticos" invisible="1"/>
                             <!-- Enterprise (2026-10-26): Contabilidad corrige Cantidad/Costo en
                                  Enviado/Aprobado; el resto de la línea sigue fijo fuera de Borrador. -->

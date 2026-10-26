@@ -2422,7 +2422,10 @@ Pedido del usuario: en Enterprise, el contador puede editar los montos de los vi
   agregar o quitar líneas de Viáticos fuera de Borrador.
 - Community: el pull de estado ya trae `monto` (se actualiza aunque el estado no cambie). Las **líneas** de Community no se
   actualizan; solo el total.
-- No re-evalúa el umbral de aprobación: si el contador sube el monto de una requisición ya Aprobada por encima del umbral,
-  no se pide de nuevo al Gerente.
+- **Umbral tras corregir (19.0.1.22.0)**: si en una requisición **Aprobada** que no aprobó un Gerente el total corregido
+  llega al umbral, `_revisar_umbral_tras_correccion()` marca `requiere_aprobacion_gerente` y avisa a los Gerentes; Aplicar
+  queda bloqueado (botón oculto y `UserError` en `action_aplicar()`) hasta que un Nivel Alto presione "Autorizar monto
+  (Gerente)" (`action_autorizar_gerente()`, que ahora también acepta `aprobado` y la deja Aprobada). Si el total vuelve a
+  quedar bajo el umbral, deja de pedirse. En **Enviado** no se marca nada: el umbral normal se aplica al Aprobar.
 
 Verificado en `construtec_test` (11 comprobaciones, rollback). **No verificado en el navegador.**

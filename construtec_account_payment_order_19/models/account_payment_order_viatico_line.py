@@ -162,6 +162,7 @@ class AccountPaymentOrderViaticoLine(models.Model):
             res = super().write(vals)
             # Editar la línea directo (no a través de la requisición) también debe mover el monto.
             self.mapped('order_id')._sync_monto_desde_total_acreditar()
+            fuera_de_borrador._revisar_umbral_tras_correccion()
             for order in fuera_de_borrador:
                 order.message_post(body=self.env._(
                     'Montos de Viáticos corregidos por %(user)s. Nuevo total: %(total)s',
