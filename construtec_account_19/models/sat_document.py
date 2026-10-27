@@ -660,8 +660,9 @@ class ConstructecSatDocument(models.Model):
     def _sat_find_or_create_partner(self, nit, name):
         if not nit:
             return self.env['res.partner']
-        from .sat_document_import import _fix_mangled_accents
-        name = _fix_mangled_accents(name) if name else name
+        from .sat_document_import import _fix_mangled_accents, _refresh_learned_words
+        _refresh_learned_words(self.env, max_age=86400)
+        name =_fix_mangled_accents(name) if name else name
         partner = self.env['res.partner'].search([('vat', '=', nit)], limit=1)
         if partner:
             # Si el contacto quedó con "?" en lugar de tildes y ahora llega un nombre mejor

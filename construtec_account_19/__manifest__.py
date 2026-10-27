@@ -32,6 +32,7 @@
         'views/sat_retention_views.xml',
         'views/sat_retention_emitida_views.xml',
         'data/ir_cron_sat_product_catalog.xml',
+        'data/ir_cron_fix_accents.xml',
     ],
     'application': False,
     'installable': True,

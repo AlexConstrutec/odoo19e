@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ir_cron_sat_fix_mangled_accents" model="ir.cron">
+        <field name="name">Documentos SAT: aprender vocabulario y corregir tildes dañadas ("?")</field>
+        <field name="model_id" ref="model_construtec_sat_document"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_fix_mangled_accents()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+    </record>
+</odoo>

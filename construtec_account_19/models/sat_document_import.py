@@ -73,6 +73,49 @@ def _strip_accents_upper(text):
 _KNOWN_WORDS_UPPER = {_strip_accents_upper(w) for w in _KNOWN_WORDS_RAW}
 
 
+# Vocabulario APRENDIDO de los datos propios (palabras con tilde/ñ ya limpias en
+# contactos, productos y documentos SAT), en minúsculas. Complementa el diccionario
+# fijo de arriba: una palabra con '?' se corrige con él solo si de las seis posibles
+# vocales acentuadas EXACTAMENTE UNA existe ya, bien escrita, en la propia base (si hay
+# dos candidatas válidas, no se adivina). Se llena con _refresh_learned_words() (cron
+# diario / botón); mientras esté vacío solo cuenta el diccionario fijo.
+_LEARNED_WORDS = frozenset()
+_LEARNED_AT = 0.0
+_ACCENT_CHARS = 'áéíóúñÁÉÍÓÚÑ'
+_LEARN_SOURCES = (
+    ("res_partner", "name"),
+    ("product_template", "name->>'en_US'"),
+    ("construtec_sat_document", "nombre_emisor"),
+    ("construtec_sat_document", "nombre_receptor"),
+    ("construtec_sat_document", "nombre_comercial_emisor"),
+    ("construtec_sat_document", "direccion_emisor"),
+    ("construtec_sat_document_line", "descripcion"),
+)
+
+
+def _refresh_learned_words(env, max_age=0):
+    """Recalcula el vocabulario aprendido (palabras con tilde/ñ sin '?', mínimo 3 letras).
+    `max_age` (segundos): no recalcula si el último cálculo es más reciente; 0 = forzar."""
+    import time
+    global _LEARNED_WORDS, _LEARNED_AT
+    if max_age and _LEARNED_WORDS and time.time() - _LEARNED_AT < max_age:
+        return _LEARNED_WORDS
+    words = set()
+    pattern = '[[:alpha:]]*[%s][[:alpha:]]*' % _ACCENT_CHARS
+    for table, expr in _LEARN_SOURCES:
+        env.cr.execute("SELECT to_regclass(%s)", (table,))
+        if not env.cr.fetchone()[0]:
+            continue
+        env.cr.execute(
+            "SELECT DISTINCT lower(m[1]) FROM ("
+            "  SELECT regexp_matches(" + expr + ", %s, 'g') AS m FROM " + table +
+            "  WHERE " + expr + " ~ %s) t", ('(' + pattern + ')', '[%s]' % _ACCENT_CHARS))
+        words.update(w for (w,) in env.cr.fetchall() if len(w) >= 3 and '?' not in w)
+    _LEARNED_WORDS = frozenset(words)
+    _LEARNED_AT = time.time()
+    return _LEARNED_WORDS
+
+
 def _fix_mangled_accents(text):
     if not text or '?' not in text:
         return text
@@ -92,6 +135,13 @@ def _fix_mangled_accents(text):
             # en el resultado si hay coincidencia.
             if _strip_accents_upper(candidate) in _KNOWN_WORDS_UPPER:
                 return candidate
+        # Vocabulario aprendido: solo si hay una única candidata conocida.
+        if _LEARNED_WORDS:
+            conocidas = [
+                token.replace('?', accented, 1) for accented in candidatos
+                if token.replace('?', accented, 1).lower() in _LEARNED_WORDS]
+            if len(conocidas) == 1:
+                return conocidas[0]
         return token
 
     return re.sub(r'[^\W\d_]*\?[^\W\d_]*', _fix_token, text, flags=re.UNICODE)
@@ -650,6 +700,11 @@ class ConstructecSatDocument(models.Model):
         }
 
     @api.model
+    def _cron_fix_mangled_accents(self):
+        """Cron diario: aprende vocabulario de la base y repara los nombres con '?'."""
+        self.action_fix_mangled_accents()
+
+    @api.model
     def action_fix_mangled_accents(self):
         """Botón/acción "Corregir Acentos Dañados": repara con el mismo diccionario
         de _fix_mangled_accents() nombres que quedaron con un '?' literal en vez de
@@ -666,6 +721,7 @@ class ConstructecSatDocument(models.Model):
         servidor para revisión manual, en vez de arriesgar un dato incorrecto en
         un documento fiscal o en el catálogo de productos.
         """
+        _refresh_learned_words(self.env)
         corregidos = []
         sin_resolver = []
 
