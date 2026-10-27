@@ -131,6 +131,54 @@ class AccountPaymentOrder(models.Model):
              'mano para ese tipo (ver `_sync_monto_desde_total_acreditar()`, disparado por '
              'onchange y en create()/write()). Para un Anticipo normal (sin pestañas de detalle) '
              'sigue siendo un monto capturado a mano, como siempre.')
+    # Costo real (2026-10-27): lo que de verdad costó la requisición, calculado en Enterprise (allí
+    # están las facturas y el inventario) y traído a Community por el pull de estado. En Community
+    # estos campos se escriben desde ese pull; el compute solo conserva el valor existente.
+    costo_facturas = fields.Monetary(
+        string='Costo por Facturas', currency_field='currency_id',
+        compute='_compute_costo_facturas', store=True, readonly=False,
+        help='Suma del subtotal SIN IVA de las facturas de proveedor ya publicadas y vinculadas a '
+             'esta requisición (una nota de crédito resta). Se calcula en Enterprise y se trae a '
+             'Community. El IVA no cuenta: es crédito fiscal, no costo.')
+    costo_traslados = fields.Monetary(
+        string='Costo por Traslados', currency_field='currency_id',
+        compute='_compute_costo_traslados', store=True, readonly=False,
+        help='Valor de inventario (costo) del material que salió de bodega hacia el cliente en los '
+             'traslados ya validados de esta requisición. Se calcula en Enterprise y se trae a '
+             'Community.')
+    costo_real = fields.Monetary(
+        string='Costo Real', currency_field='currency_id',
+        compute='_compute_costo_real', store=True,
+        help='Costo por Facturas + Costo por Traslados: lo que la requisición realmente costó, '
+             'a diferencia de `monto` (lo que se pidió/pagó).')
+
+    @api.depends('factura_ids.amount_untaxed_signed', 'factura_ids.state')
+    def _compute_costo_facturas(self):
+        for rec in self:
+            if rec.company_id.payment_order_role == 'procesador':
+                # sudo: quien edita la requisición no necesariamente puede leer facturas.
+                rec.costo_facturas = sum(
+                    -m.amount_untaxed_signed for m in rec.sudo().factura_ids if m.state == 'posted')
+            else:
+                rec.costo_facturas = rec.costo_facturas  # Community: lo escribe el pull
+
+    @api.depends('company_id.payment_order_role')
+    def _compute_costo_traslados(self):
+        for rec in self:
+            if rec.company_id.payment_order_role == 'procesador':
+                rec.costo_traslados = rec._calcular_costo_traslados()
+            else:
+                rec.costo_traslados = rec.costo_traslados  # Community: lo escribe el pull
+
+    def _calcular_costo_traslados(self):
+        """Gancho: el módulo de inventario de Enterprise lo reemplaza con el valor real."""
+        return 0.0
+
+    @api.depends('costo_facturas', 'costo_traslados')
+    def _compute_costo_real(self):
+        for rec in self:
+            rec.costo_real = rec.costo_facturas + rec.costo_traslados
+
     available_payment_method_line_ids = fields.Many2many(
         'account.payment.method.line', compute='_compute_available_payment_method_line_ids',
         help='Auxiliar para el dominio de `payment_method_line_id` - navegar '

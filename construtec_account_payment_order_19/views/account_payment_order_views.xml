@@ -467,6 +467,12 @@
                                     <field name="user_id"/>
                                 </group>
                             </group>
+                            <group string="Costo Real (Facturas y Traslados)"
+                                   invisible="not costo_facturas and not costo_traslados">
+                                <field name="costo_facturas"/>
+                                <field name="costo_traslados"/>
+                                <field name="costo_real" class="fw-bold"/>
+                            </group>
                             <group string="Vínculo Community / Enterprise"
                                    invisible="not community_url and not enterprise_url">
                                 <field name="community_url" widget="url" invisible="not community_url"

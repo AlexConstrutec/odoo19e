@@ -1,4 +1,4 @@
-from odoo import fields, models
+from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 
@@ -7,6 +7,18 @@ class AccountPaymentOrder(models.Model):
 
     traslado_picking_ids = fields.One2many(
         'stock.picking', 'payment_order_id', string='Traslados desde Bodega', readonly=True)
+
+    @api.depends('company_id.payment_order_role', 'traslado_picking_ids.state',
+                 'traslado_picking_ids.move_ids.value')
+    def _compute_costo_traslados(self):
+        return super()._compute_costo_traslados()
+
+    def _calcular_costo_traslados(self):
+        """Valor de inventario (costo) de lo que salió de bodega en los traslados ya validados.
+        El movimiento de salida tiene valor negativo: se toma el valor absoluto."""
+        self.ensure_one()
+        hechos = self.sudo().traslado_picking_ids.filtered(lambda p: p.state == 'done')
+        return abs(sum(hechos.move_ids.mapped('value')))
 
     def _lineas_bodega(self):
         return self.material_line_ids.filtered('de_bodega')

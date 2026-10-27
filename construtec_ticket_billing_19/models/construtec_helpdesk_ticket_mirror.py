@@ -42,6 +42,30 @@ class ConstructecHelpdeskTicketMirror(models.Model):
         string='Costo Total', currency_field='currency_id',
         help='Suma de Costo por Plan + Costo por Requisiciones de Pago, tal como llegó en el último '
              'empuje de Community (2026-10-19: ahora el Ticket manda los tres costos).')
+    # Costeo real (2026-10-27): calculado AQUÍ desde las requisiciones vinculadas (que ya traen su
+    # costo por facturas y traslados), no empujado desde Community - así quien factura ve siempre
+    # el costo real actual. Solo cuentan requisiciones Aprobadas/Aplicadas/Liquidadas.
+    costo_viaticos = fields.Monetary(
+        string='Viáticos', currency_field='currency_id', compute='_compute_costeo_real', store=True,
+        help='`monto` de las requisiciones de Viáticos vigentes.')
+    costo_materiales = fields.Monetary(
+        string='Materiales', currency_field='currency_id', compute='_compute_costeo_real', store=True,
+        help='`monto` de las requisiciones de Materiales vigentes.')
+    costo_pago_directo = fields.Monetary(
+        string='Pagos Directos', currency_field='currency_id', compute='_compute_costeo_real',
+        store=True, help='`monto` de las requisiciones de Pago Directo vigentes.')
+    costo_facturas = fields.Monetary(
+        string='Facturas Vinculadas', currency_field='currency_id', compute='_compute_costeo_real',
+        store=True,
+        help='Subtotal sin IVA de las facturas de proveedor realmente vinculadas a las requisiciones.')
+    costo_traslados = fields.Monetary(
+        string='Traslados de Bodega', currency_field='currency_id', compute='_compute_costeo_real',
+        store=True,
+        help='Costo de inventario del material que salió de bodega hacia el cliente.')
+    costo_real = fields.Monetary(
+        string='Costo Real', currency_field='currency_id', compute='_compute_costeo_real', store=True,
+        help='Facturas vinculadas + Traslados de bodega: lo que el ticket realmente costó según sus '
+             'requisiciones (a diferencia de Viáticos/Materiales/Pagos Directos, que son lo pedido).')
     currency_id = fields.Many2one(
         'res.currency', string='Moneda', default=lambda self: self.env.company.currency_id)
     stage_name = fields.Char(string='Etapa (Community)')
@@ -102,6 +126,22 @@ class ConstructecHelpdeskTicketMirror(models.Model):
         'Ya existe un Ticket con ese número - sync_from_community() debió actualizarlo, no '
         'crear uno nuevo.',
     )
+
+    @api.depends('payment_order_ids.state', 'payment_order_ids.tipo', 'payment_order_ids.monto',
+                 'payment_order_ids.costo_facturas', 'payment_order_ids.costo_traslados')
+    def _compute_costeo_real(self):
+        for rec in self:
+            vigentes = rec.payment_order_ids.filtered(
+                lambda o: o.state in ('en_compras', 'aprobado', 'aplicado', 'liquidado'))
+            rec.costo_viaticos = sum(vigentes.filtered(
+                lambda o: o.tipo == 'anticipo_viaticos').mapped('monto'))
+            rec.costo_materiales = sum(vigentes.filtered(
+                lambda o: o.tipo == 'anticipo_materiales').mapped('monto'))
+            rec.costo_pago_directo = sum(vigentes.filtered(
+                lambda o: o.tipo == 'pago_directo').mapped('monto'))
+            rec.costo_facturas = sum(vigentes.mapped('costo_facturas'))
+            rec.costo_traslados = sum(vigentes.mapped('costo_traslados'))
+            rec.costo_real = rec.costo_facturas + rec.costo_traslados
 
     @api.depends('move_id.state', 'move_id.payment_state', 'move_id.reconciled_payment_ids')
     def _compute_billing_state(self):

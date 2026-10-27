@@ -25,6 +25,9 @@
                             <field name="costo_plan" sum="Total" optional="show" />
                             <field name="costo_total" sum="Total" optional="show" />
                             <field name="costo_general" sum="Total" />
+                            <field name="costo_facturas" sum="Total" optional="hide" />
+                            <field name="costo_traslados" sum="Total" optional="hide" />
+                            <field name="costo_real" sum="Total" optional="show" />
                             <field name="billing_state" />
                             <field name="community_url" widget="url" string="Link Community" />
                         </list>

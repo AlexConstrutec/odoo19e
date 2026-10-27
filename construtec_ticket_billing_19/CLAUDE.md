@@ -127,3 +127,13 @@ El módulo ahora depende de `construtec_account_payment_order_19`.
 - `sudo()` al escribir las requisiciones: el usuario de integración no necesita permiso de escritura sobre ellas.
 
 Verificado en `construtec_test` (11 casos, rollback). **No verificado en el navegador.**
+
+
+## Costeo real del ticket según sus requisiciones (2026-10-27)
+
+El espejo calcula, desde `payment_order_ids` (requisiciones vinculadas, En Compras/Aprobadas/Aplicadas/Liquidadas): **Viáticos**,
+**Materiales** y **Pagos Directos** (su `monto`, lo pedido), **Facturas Vinculadas** y **Traslados de Bodega** (lo real, ver
+`construtec_account_payment_order_19`) y **Costo Real** = facturas + traslados. No se empujan desde Community: se recalculan aquí
+(`_compute_costeo_real`) cada vez que cambia una requisición, así quien factura ve siempre el costo real actual.
+Se muestran en el formulario del ticket (grupo "Costeo Real"), en la lista (columna Costo Real) y en el selector de tickets de la
+factura. Versión 19.0.1.3.0.

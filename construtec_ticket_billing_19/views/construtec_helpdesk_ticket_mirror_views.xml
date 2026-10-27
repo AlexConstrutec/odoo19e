@@ -32,6 +32,18 @@
                             <field name="received_date" readonly="1" />
                         </group>
                     </group>
+                    <group string="Costeo Real según las Requisiciones de Pago" invisible="not payment_order_ids">
+                        <group>
+                            <field name="costo_viaticos" readonly="1" />
+                            <field name="costo_materiales" readonly="1" />
+                            <field name="costo_pago_directo" readonly="1" />
+                        </group>
+                        <group>
+                            <field name="costo_facturas" readonly="1" />
+                            <field name="costo_traslados" readonly="1" />
+                            <field name="costo_real" readonly="1" class="fw-bold" />
+                        </group>
+                    </group>
                     <group string="Requisiciones de Pago" invisible="not payment_order_ids">
                         <field name="payment_order_ids" nolabel="1" colspan="2" readonly="1">
                             <list>
@@ -40,6 +52,9 @@
                                 <field name="tipo" />
                                 <field name="fecha" />
                                 <field name="monto" />
+                                <field name="costo_facturas" optional="show" />
+                                <field name="costo_traslados" optional="show" />
+                                <field name="costo_real" optional="show" />
                                 <field name="state" widget="badge" />
                             </list>
                         </field>
@@ -67,6 +82,9 @@
                 <field name="costo_plan" sum="Total" optional="show" />
                 <field name="costo_total" sum="Total" optional="show" />
                 <field name="costo_general" sum="Total" />
+                <field name="costo_facturas" sum="Total" optional="hide" />
+                <field name="costo_traslados" sum="Total" optional="hide" />
+                <field name="costo_real" sum="Total" optional="show" />
                 <field name="move_id" />
                 <field name="billing_state" />
                 <field name="community_url" widget="url" string="Ver en Community" optional="show" />

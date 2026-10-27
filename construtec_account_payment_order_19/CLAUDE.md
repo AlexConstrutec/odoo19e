@@ -2453,3 +2453,23 @@ revisa la existencia, traslada lo que hay y compra el faltante (piden 25, hay 20
 - Versión 19.0.1.23.0. Orden de despliegue: Enterprise primero (instalar el módulo nuevo; `purchase_stock` ya está en el árbol).
 
 Verificado en `construtec_test` (Enterprise 17 comprobaciones, con Compras sin Inventario; Community 3). **No verificado en el navegador.**
+
+
+## Costo real de la requisición: facturas y traslados (2026-10-27)
+
+Pedido del usuario: muchos jefes de técnicos piden material y cantidad sin precio, así que `monto` no dice cuánto costó de verdad.
+Cada requisición ahora tiene el **costo real**, calculado en Enterprise y traído a Community.
+
+- `costo_facturas`: subtotal **sin IVA** de las facturas de proveedor publicadas y vinculadas (`factura_ids`); una nota de crédito resta.
+  El IVA no cuenta porque es crédito fiscal. Si se quisiera con IVA, cambiar `amount_untaxed_signed` por `amount_total_signed`.
+- `costo_traslados`: costo de inventario (`stock.move.value`) del material que salió de bodega hacia el cliente en traslados ya
+  validados. Lo calcula `construtec_payment_order_stock_19` (gancho `_calcular_costo_traslados()`); sin ese módulo vale 0.
+- `costo_real` = facturas + traslados. **`monto` sigue siendo lo pedido/pagado** (no se tocó).
+- Son campos guardados con compute que, en Community, **solo conservan el valor** (`readonly=False`): lo escribe el pull de estado
+  (`_pull_payment_order_status()`, que ahora también pide y compara `costo_facturas`/`costo_traslados`; un cambio solo de costo
+  también se refleja). Viajan en el pull de cada hora, así que una factura publicada hoy llega a Community en la siguiente corrida.
+- Se ven en la pestaña Información (grupo "Costo Real", oculto si ambos son 0).
+- Caveat: Viáticos sin factura (efectivo sin comprobante) no aparecen en `costo_real`; para eso siguen `monto` y el desglose por tipo.
+- Versión 19.0.1.24.0. Orden de despliegue: Enterprise primero (los campos tienen que existir allá para que el pull los lea).
+
+Verificado en `construtec_test` (Enterprise 9 y Community 6 comprobaciones). **No verificado en el navegador.**
