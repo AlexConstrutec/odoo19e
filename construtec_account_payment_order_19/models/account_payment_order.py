@@ -1780,6 +1780,7 @@ class AccountPaymentOrder(models.Model):
                     'qty': line.qty,
                     'estimated_price': line.estimated_price,
                     'vendor_name': line.vendor_name or '',
+                    'de_bodega': line.de_bodega,
                 })
                 for line in self.material_line_ids
             ],
@@ -2316,10 +2317,15 @@ class AccountPaymentOrder(models.Model):
         borradores = self.purchase_order_ids.filtered(lambda po: po.state in ('draft', 'sent'))
         borradores.filtered(lambda po: po.partner_id != self.proveedor_materiales_id).write(
             {'partner_id': self.proveedor_materiales_id.id})
+        self._check_bodega_revisada()
         lineas = self.material_line_ids.filtered(
-            lambda l: (l.product_id or default_product) and not l.purchase_order_line_id)
+            lambda l: (l.product_id or default_product) and not l.purchase_order_line_id
+            and l.qty_comprar > 0)
         if not lineas and borradores:
             return self._action_open_purchase_orders(borradores, actualizadas)
+        if not lineas and self.material_line_ids and not any(self.material_line_ids.mapped('qty_comprar')):
+            raise UserError(self.env._(
+                'No hay nada que comprar: todo se traslada desde bodega.'))
         if not lineas:
             raise UserError(self.env._(
                 'No hay líneas de materiales pendientes de comprar con Producto - asigna un '
@@ -2337,7 +2343,7 @@ class AccountPaymentOrder(models.Model):
                 (0, 0, {
                     'product_id': (linea.product_id or default_product).id,
                     'name': linea.description or linea.product_name,
-                    'product_qty': linea.qty,
+                    'product_qty': linea.qty_comprar,
                     'product_uom_id': (linea.product_id or default_product).uom_id.id,
                     'price_unit': linea.estimated_price,
                     'analytic_distribution': analytic_distribution,
@@ -2378,8 +2384,14 @@ class AccountPaymentOrder(models.Model):
             vals = {}
             if po_line.price_unit != linea.estimated_price:
                 vals['price_unit'] = linea.estimated_price
-            if po_line.product_qty != linea.qty:
-                vals['product_qty'] = linea.qty
+            if linea.qty_comprar <= 0:
+                # Ya no hay que comprar nada de esta línea (Compras trasladó todo desde bodega).
+                linea.purchase_order_line_id = False
+                po_line.unlink()
+                cambiadas += 1
+                continue
+            if po_line.product_qty != linea.qty_comprar:
+                vals['product_qty'] = linea.qty_comprar
             nombre = linea.description or linea.product_name
             if nombre and po_line.name != nombre:
                 vals['name'] = nombre
@@ -2418,11 +2430,17 @@ class AccountPaymentOrder(models.Model):
                 'Fin de intervención de Compras solo aplica a Solicitudes de Materiales en '
                 'Gestión de Compras.'))
         self._check_puede_gestionar_compras()
-        if not self._compras_tiene_factura():
+        self._check_bodega_revisada()
+        self._check_traslados_listos()
+        hay_compra = any(l.qty_comprar > 0 for l in self.material_line_ids)
+        if hay_compra and not self._compras_tiene_factura():
             raise UserError(self.env._(
                 'Vincula la factura del proveedor (Documento SAT) antes de terminar la '
                 'intervención de Compras.'))
         self._sync_monto_desde_total_acreditar()
+        if not hay_compra:
+            # Todo salió de bodega: no hay nada que pagar, la requisición se cierra aquí.
+            return self._cerrar_solo_bodega()
         threshold = self.company_id.payment_order_approval_threshold or 0.0
         if self.total_acreditar >= threshold and not self.aprobado_por_gerente:
             if not self.env.user.has_group(APPROVER_ALTO_GROUP_XMLID):
@@ -2490,6 +2508,36 @@ class AccountPaymentOrder(models.Model):
                            'llegó al umbral de Q%(umbral).2f. Falta tu autorización para Aplicarla.',
                            name=rec.name, monto=rec.total_acreditar, umbral=threshold))
 
+    def _check_bodega_revisada(self):
+        """Las líneas de bodega necesitan que Compras defina cuánto se traslada antes de comprar o
+        cerrar (en Enterprise: botón "Revisar existencias")."""
+        self.ensure_one()
+        sin_revisar = self.material_line_ids.filtered(lambda l: l.de_bodega and not l.bodega_revisada)
+        if sin_revisar:
+            raise UserError(self.env._(
+                'Revisa la existencia de las líneas de bodega antes de continuar: %s.',
+                ', '.join(sin_revisar.mapped(lambda l: l.description or l.product_name))))
+
+    def _check_traslados_listos(self):
+        """Gancho: en Enterprise (módulo de inventario) exige que lo que se traslada ya tenga su
+        traslado validado. Aquí no hay inventario, no hace nada."""
+        return True
+
+    def _cerrar_solo_bodega(self):
+        """Requisición cuyo material sale 100 % de bodega: sin compra, sin factura y sin pago, se
+        cierra como Liquidada al terminar Compras (supuesto confirmado por el usuario 2026-10-27)."""
+        self.ensure_one()
+        self.write({
+            'state': 'liquidado',
+            'requiere_aprobacion_gerente': False,
+            'compras_finalizado_por_id': self.env.user.id,
+            'compras_finalizado_date': fields.Datetime.now(),
+        })
+        self.message_post(body=self.env._(
+            'Todo el material salió de bodega: no hay compra ni pago, la requisición se cerró como '
+            'Liquidada.'))
+        return True
+
     def _finalizar_compras(self):
         self.ensure_one()
         self.write({
@@ -2545,9 +2593,13 @@ class AccountPaymentOrder(models.Model):
         self._check_puede_gestionar_compras()
         default_product = self.company_id.payment_order_default_material_product_id
         pendientes = self.material_line_ids.filtered(
-            lambda l: (l.product_id or default_product) and not l.purchase_order_line_id)
+            lambda l: (l.product_id or default_product) and not l.purchase_order_line_id
+            and l.qty_comprar > 0)
         ordenes = self.env['purchase.order'].search(
             [('payment_order_id', '=', self.id), ('state', '!=', 'cancel')])
+        if not (pendientes or ordenes) and self.material_line_ids and not any(
+                self.material_line_ids.mapped('qty_comprar')):
+            raise UserError(self.env._('No hay nada que comprar: todo se traslada desde bodega.'))
         if pendientes or not ordenes or ordenes.filtered(lambda po: po.state in ('draft', 'sent')):
             self.action_generar_orden_compra()
             ordenes = self.env['purchase.order'].search(

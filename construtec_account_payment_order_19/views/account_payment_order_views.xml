@@ -407,7 +407,7 @@
                         <page string="Materiales" invisible="tipo != 'anticipo_materiales'">
                             <field name="material_line_ids"
                                    readonly="state not in ('borrador', 'en_compras', 'aplicado')">
-                                <list editable="bottom">
+                                <list editable="bottom" decoration-info="de_bodega">
                                     <field name="catalogo_id" optional="show" string="Producto SAT"
                                            context="{'vendor_hint': vendor_name}"
                                            readonly="parent.state != 'borrador'"/>
@@ -417,6 +417,12 @@
                                     <field name="uom_name" optional="show" readonly="parent.state != 'borrador'"/>
                                     <field name="qty" readonly="parent.state not in ('borrador', 'en_compras')"/>
                                     <field name="estimated_price" readonly="parent.state not in ('borrador', 'en_compras')"/>
+                                    <field name="de_bodega" readonly="parent.state != 'borrador'"
+                                           help="Ya está en bodega: solo pido que se traslade. Compras revisa la existencia; si no alcanza, el faltante se compra."/>
+                                    <field name="bodega_revisada" column_invisible="1"/>
+                                    <field name="qty_trasladar" column_invisible="not parent.es_procesador"
+                                           readonly="parent.state != 'en_compras' or not de_bodega"/>
+                                    <field name="qty_comprar" column_invisible="not parent.es_procesador"/>
                                     <field name="subtotal" sum="Total"/>
                                     <field name="vendor_name" optional="show"
                                            column_invisible="not parent.es_procesador"

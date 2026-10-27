@@ -2429,3 +2429,27 @@ Pedido del usuario: en Enterprise, el contador puede editar los montos de los vi
   quedar bajo el umbral, deja de pedirse. En **Enviado** no se marca nada: el umbral normal se aplica al Aprobar.
 
 Verificado en `construtec_test` (11 comprobaciones, rollback). **No verificado en el navegador.**
+
+## Materiales desde bodega: casilla "Bodega" y compra solo del faltante (2026-10-27)
+
+Pedido del usuario: el jefe de técnicos sabe que un material ya está en bodega y solo pide que se traslade; Compras (Enterprise)
+revisa la existencia, traslada lo que hay y compra el faltante (piden 25, hay 20: se trasladan 20 y se compran 5).
+
+- **Línea de material** (módulo compartido): `de_bodega` (casilla "Bodega", la marca el jefe en Borrador; viaja a Enterprise),
+  `qty_trasladar` (la define Compras), `bodega_revisada` y `qty_comprar` (compute guardado). `qty_comprar` = toda la cantidad si no es
+  de bodega; si es de bodega, `pedido - a trasladar` **solo después de revisada** (antes, 0). `subtotal` ahora usa `qty_comprar`: una
+  línea de bodega no pide dinero hasta que Compras revisa; el monto sube solo y el flujo del umbral/Gerente ya existente lo cubre.
+- **Compras**: la Orden de Compra, su actualización e "Imprimir" usan `qty_comprar` (una línea sin nada que comprar no genera línea de
+  compra; si ya la tenía en borrador, se quita). "Fin de intervención" exige revisar las líneas de bodega y el gancho
+  `_check_traslados_listos()`; la factura solo se exige si hay algo que comprar. **Si todo sale de bodega (nada que comprar) la
+  requisición se cierra como Liquidada** (`_cerrar_solo_bodega()`, sin factura ni pago).
+- **Módulo nuevo solo de Enterprise `construtec_payment_order_stock_19`** (depende de `purchase_stock`; el módulo compartido no puede
+  depender de `stock` porque Community no lo tiene): bodega de origen, "Disponible" (existencia libre en vivo), traslado por línea y
+  tres botones - **Revisar existencias** (propone trasladar `min(pedido, disponible)`; editar "A trasladar" a mano también cuenta como
+  revisada), **Generar traslado** (un traslado de salida por bodega, hacia la ubicación de **Clientes**, reservado) y **Validar traslado**
+  (lo valida Compras). Todo con `sudo()`: Compras no necesita permisos de Inventario. Fin de Compras exige los traslados validados.
+- **No se lleva existencia a Community** (pedido del usuario). Tampoco se imputa costo a la cuenta analítica del ticket: el movimiento
+  de inventario a Clientes no genera líneas analíticas en Odoo 19; el traslado queda con la requisición como origen.
+- Versión 19.0.1.23.0. Orden de despliegue: Enterprise primero (instalar el módulo nuevo; `purchase_stock` ya está en el árbol).
+
+Verificado en `construtec_test` (Enterprise 17 comprobaciones, con Compras sin Inventario; Community 3). **No verificado en el navegador.**

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_account_payment_order_form_stock" model="ir.ui.view">
+        <field name="name">account.payment.order.view.form.stock</field>
+        <field name="model">account.payment.order</field>
+        <field name="inherit_id" ref="construtec_account_payment_order_19.view_account_payment_order_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='action_imprimir_orden_compra']" position="after">
+                <button name="action_revisar_existencias" string="Revisar existencias" type="object"
+                        icon="fa-cubes" groups="purchase.group_purchase_user,account.group_account_manager"
+                        invisible="tipo != 'anticipo_materiales' or state != 'en_compras' or not es_procesador"/>
+                <button name="action_generar_traslado" string="Generar traslado" type="object"
+                        icon="fa-truck" groups="purchase.group_purchase_user,account.group_account_manager"
+                        invisible="tipo != 'anticipo_materiales' or state != 'en_compras' or not es_procesador"/>
+                <button name="action_validar_traslado" string="Validar traslado" type="object"
+                        icon="fa-check-square-o" groups="purchase.group_purchase_user,account.group_account_manager"
+                        invisible="tipo != 'anticipo_materiales' or state != 'en_compras' or not es_procesador"/>
+            </xpath>
+            <xpath expr="//field[@name='material_line_ids']/list/field[@name='qty_comprar']" position="after">
+                <field name="warehouse_id" optional="show" options="{'no_create': True}"
+                       column_invisible="not parent.es_procesador"
+                       readonly="not de_bodega or traslado_picking_id or parent.state != 'en_compras'"/>
+                <field name="qty_disponible" optional="show" column_invisible="not parent.es_procesador"/>
+                <field name="traslado_picking_id" optional="show" column_invisible="not parent.es_procesador"/>
+            </xpath>
+            <xpath expr="//field[@name='material_line_ids']/list/field[@name='qty_trasladar']" position="attributes">
+                <attribute name="readonly">parent.state != 'en_compras' or not de_bodega or traslado_picking_id</attribute>
+            </xpath>
+            <xpath expr="//field[@name='material_line_ids']" position="after">
+                <field name="traslado_picking_ids" widget="many2many_tags" readonly="1"
+                       invisible="not traslado_picking_ids"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

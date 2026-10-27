@@ -1,4 +1,5 @@
 from odoo import api, fields, models
+from odoo.exceptions import ValidationError
 
 
 class AccountPaymentOrderMaterialLine(models.Model):
@@ -50,10 +51,46 @@ class AccountPaymentOrderMaterialLine(models.Model):
         help='Se llena al generar la Orden de Compra (`action_generar_orden_compra()`) - evita '
              'generar dos veces la misma línea.')
 
-    @api.depends('qty', 'estimated_price')
+    de_bodega = fields.Boolean(
+        string='Bodega',
+        help='El jefe de técnicos sabe que este material ya está en bodega y pide que se traslade '
+             '(no se compra). Compras (Enterprise) revisa la existencia: si no alcanza, el faltante '
+             'sí se compra. Una línea de bodega no pide dinero hasta que Compras define cuánto '
+             'comprar (2026-10-27).')
+    bodega_revisada = fields.Boolean(
+        string='Existencia revisada', readonly=True, copy=False,
+        help='Compras ya definió cuánto se traslada y cuánto se compra de esta línea de bodega.')
+    qty_trasladar = fields.Float(
+        string='A trasladar', copy=False,
+        help='Cantidad que sale de bodega (la define Compras en Enterprise).')
+    qty_comprar = fields.Float(
+        string='A comprar', compute='_compute_qty_comprar', store=True,
+        help='Lo que sí se compra: toda la cantidad en una línea normal; en una línea de bodega, '
+             'el faltante (pedido - a trasladar) una vez que Compras revisó la existencia '
+             '(mientras tanto, 0).')
+
+    @api.depends('qty', 'de_bodega', 'bodega_revisada', 'qty_trasladar')
+    def _compute_qty_comprar(self):
+        for line in self:
+            if not line.de_bodega:
+                line.qty_comprar = line.qty
+            elif line.bodega_revisada:
+                line.qty_comprar = max(line.qty - line.qty_trasladar, 0.0)
+            else:
+                line.qty_comprar = 0.0
+
+    @api.depends('qty_comprar', 'estimated_price')
     def _compute_subtotal(self):
         for line in self:
-            line.subtotal = line.qty * line.estimated_price
+            line.subtotal = line.qty_comprar * line.estimated_price
+
+    @api.constrains('qty_trasladar', 'qty')
+    def _check_qty_trasladar(self):
+        for line in self:
+            if line.qty_trasladar < 0 or line.qty_trasladar > line.qty:
+                raise ValidationError(self.env._(
+                    'La cantidad a trasladar de "%s" debe estar entre 0 y la cantidad pedida.',
+                    line.product_name))
 
     @api.model_create_multi
     def create(self, vals_list):
