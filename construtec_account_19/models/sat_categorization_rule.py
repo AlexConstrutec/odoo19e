@@ -1,5 +1,6 @@
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
+from odoo.tools import float_is_zero
 
 from .sat_document_import import _strip_accents_upper
 
@@ -121,7 +122,15 @@ class ConstructecSatCategorizationRule(models.Model):
         if regla.account_id and not line.account_id:
             vals['account_id'] = regla.account_id.id
         if regla.tax_ids and not line.tax_ids:
-            vals['tax_ids'] = [(6, 0, regla.tax_ids.ids)]
+            taxes = regla.tax_ids
+            # Una regla sugiere siempre los mismos impuestos, pero el IVA solo aplica si el
+            # propio DTE lo trae en la línea (mismo criterio que action_convertir_a_factura
+            # al poner el IVA por defecto): un Pequeño Contribuyente (FPEQ) con hospedaje
+            # lleva INGUAT pero no IVA, y sin esto la regla le sugeriría IVA de más.
+            if float_is_zero(line.monto_iva, precision_digits=2):
+                taxes -= document._sat_get_default_iva_tax()
+            if taxes:
+                vals['tax_ids'] = [(6, 0, taxes.ids)]
         if vals:
             line.write(vals)
             return True

@@ -1089,6 +1089,27 @@ antes que su constancia. Si resultara frecuente, el siguiente paso natural es un
 `construtec.sat.document.create_from_dte()` que busque constancias emitidas pendientes con ese
 serie+número.
 
+## Reglas de categorización: el IVA solo se sugiere si la línea lo trae (2026-10-27)
+
+Caso real: la regla "Hospedaje (INGUAT)" (palabras `hospedaje, alojamiento, habitaci, noche, suite`, condición
+`monto_turismo_hospedaje`, impuestos IVA 12% + INGUAT 10%) funciona para FACT, pero un Pequeño Contribuyente (FPEQ) con
+hospedaje lleva INGUAT y NO IVA - de 239 documentos pendientes con turismo, 26 eran FPEQ. Una regla sugiere siempre los
+mismos impuestos, así que a esos les habría puesto IVA de más.
+
+`_sat_apply_to_line()` (`models/sat_categorization_rule.py`): si `line.monto_iva` es cero, quita de la sugerencia el IVA
+(`document._sat_get_default_iva_tax()`); si no queda ningún impuesto, no escribe `tax_ids`. Es el mismo criterio que ya
+usa `action_convertir_a_factura()` para poner el IVA por defecto (solo con `monto_iva > 0`). Las reglas de combustible no
+cambian porque sus líneas siempre traen IVA. Sigue siendo una sugerencia que solo rellena líneas sin impuestos.
+
+El impuesto **INGUAT** (Construtec, `account.tax` id 16 en producción) es de compras, 10%, **incluido en el precio** igual
+que el IVA (en Odoo 19 se define con `price_include_override='tax_included'`, no con `price_include`), grupo de impuestos
+propio "INGUAT" y sin cuenta en las líneas de reparto (el monto cae en la cuenta del gasto de la línea: el INGUAT no es
+crédito fiscal). Base de ejemplo: 396.50 = 325.00 + IVA 39.00 + INGUAT 32.50.
+
+Verificado con `odoo-bin shell` sobre un clon de `construtec_test`: FACT con IVA recibe IVA+INGUAT, FPEQ sin IVA solo
+INGUAT, una línea sin palabra clave no recibe nada, una línea con impuestos propios no se pisa y una regla solo-IVA con
+IVA en la línea queda igual.
+
 ## Common commands
 
 ```
