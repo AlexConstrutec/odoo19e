@@ -57,7 +57,7 @@ class ConstructecHelpdeskTicketMirror(models.Model):
     costo_facturas = fields.Monetary(
         string='Facturas Vinculadas', currency_field='currency_id', compute='_compute_costeo_real',
         store=True,
-        help='Subtotal sin IVA de las facturas de proveedor realmente vinculadas a las requisiciones.')
+        help='Total con IVA de las facturas de proveedor realmente vinculadas a las requisiciones.')
     costo_traslados = fields.Monetary(
         string='Traslados de Bodega', currency_field='currency_id', compute='_compute_costeo_real',
         store=True,

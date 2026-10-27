@@ -137,9 +137,9 @@ class AccountPaymentOrder(models.Model):
     costo_facturas = fields.Monetary(
         string='Costo por Facturas', currency_field='currency_id',
         compute='_compute_costo_facturas', store=True, readonly=False,
-        help='Suma del subtotal SIN IVA de las facturas de proveedor ya publicadas y vinculadas a '
+        help='Suma del total CON IVA de las facturas de proveedor ya publicadas y vinculadas a '
              'esta requisición (una nota de crédito resta). Se calcula en Enterprise y se trae a '
-             'Community. El IVA no cuenta: es crédito fiscal, no costo.')
+             'Community.')
     costo_traslados = fields.Monetary(
         string='Costo por Traslados', currency_field='currency_id',
         compute='_compute_costo_traslados', store=True, readonly=False,
@@ -152,13 +152,13 @@ class AccountPaymentOrder(models.Model):
         help='Costo por Facturas + Costo por Traslados: lo que la requisición realmente costó, '
              'a diferencia de `monto` (lo que se pidió/pagó).')
 
-    @api.depends('factura_ids.amount_untaxed_signed', 'factura_ids.state')
+    @api.depends('factura_ids.amount_total_signed', 'factura_ids.state')
     def _compute_costo_facturas(self):
         for rec in self:
             if rec.company_id.payment_order_role == 'procesador':
                 # sudo: quien edita la requisición no necesariamente puede leer facturas.
                 rec.costo_facturas = sum(
-                    -m.amount_untaxed_signed for m in rec.sudo().factura_ids if m.state == 'posted')
+                    -m.amount_total_signed for m in rec.sudo().factura_ids if m.state == 'posted')
             else:
                 rec.costo_facturas = rec.costo_facturas  # Community: lo escribe el pull
 
