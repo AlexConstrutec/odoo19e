@@ -305,7 +305,20 @@ class HrEmployee(models.Model):
         for employee in to_create_in_enterprise:
             employee._create_employee_in_enterprise()
         records._sync_user_phone()
+        records._refresh_partner_employee_flag()
         return records
+
+    def _refresh_partner_employee_flag(self):
+        """Recalcula `res.partner.employee` ("es empleado") de los contactos de estos empleados.
+        Ese Boolean es un compute guardado de Odoo core que puede quedarse en falso aunque el
+        contacto ya tenga su ficha de empleado (caso real 2026-10-28: Mynor Rodrigo Mijangos Cotí
+        no aparecía como técnico en una requisición de viáticos). Los selectores de empleado de
+        este módulo filtran por ese Boolean, así que se refresca al crear/editar el empleado y en
+        cada sincronización."""
+        partners = self.with_context(active_test=False).sudo().mapped('work_contact_id')
+        if partners:
+            self.env.add_to_compute(partners._fields['employee'], partners)
+            partners.flush_recordset(['employee'])
 
     def _sync_user_phone(self):
         """Garantiza que el usuario de Odoo vinculado (user_id) tenga el MISMO teléfono que el
@@ -385,6 +398,8 @@ class HrEmployee(models.Model):
                 employee.write(employee_vals)
         if {'user_id', 'work_phone', 'mobile_phone', 'private_phone'} & set(vals):
             self._sync_user_phone()
+        if {'work_contact_id', 'user_id', 'active'} & set(vals):
+            self._refresh_partner_employee_flag()
         if to_push:
             # Acumula sobre los campos ya pendientes (ej. un push anterior falló) - así un
             # reintento manda todo lo que de verdad cambió desde el último éxito, ni más ni
