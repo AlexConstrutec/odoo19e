@@ -131,6 +131,14 @@ class AccountPaymentOrder(models.Model):
              'mano para ese tipo (ver `_sync_monto_desde_total_acreditar()`, disparado por '
              'onchange y en create()/write()). Para un Anticipo normal (sin pestañas de detalle) '
              'sigue siendo un monto capturado a mano, como siempre.')
+    prioridad = fields.Selection(
+        selection=[('0', 'Baja'), ('1', 'Media'), ('2', 'Alta'), ('3', 'Muy Alta')],
+        string='Prioridad', default='1', index=True,
+        help='Urgencia de la requisición (estrellas, igual que la prioridad de los tickets). Con '
+             '"Muy Alta" (3 estrellas), los avisos de WhatsApp Alterno a grupos etiquetan al puesto '
+             'configurado en la notificación (ej. Gerente Financiero). Se manda a Enterprise al '
+             'enviar y los cambios hechos allá regresan a Community con la sincronización de estado.')
+
     # Costo real (2026-10-27): lo que de verdad costó la requisición, calculado en Enterprise (allí
     # están las facturas y el inventario) y traído a Community por el pull de estado. En Community
     # estos campos se escriben desde ese pull; el compute solo conserva el valor existente.
@@ -1734,6 +1742,7 @@ class AccountPaymentOrder(models.Model):
         return {
             'tipo': self.tipo,
             'external_ref': self.name,
+            'prioridad': self.prioridad or '1',
             'origin': 'synced',
             # Ids "de vuelta" hacia esta base - deliberadamente SÍ son ids (a diferencia de
             # employee_enterprise_ref/etc., que se resuelven como FK reales del otro lado, este

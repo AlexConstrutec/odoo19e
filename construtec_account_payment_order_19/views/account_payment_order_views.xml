@@ -137,6 +137,8 @@
                         </group>
                         <group>
                             <field name="fecha"/>
+                            <field name="prioridad" widget="priority"
+                                   readonly="state != 'borrador' and not es_procesador"/>
                             <field name="periodo_del" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="periodo_al" invisible="tipo != 'anticipo_viaticos'"/>
                             <field name="user_id" invisible="tipo == 'anticipo_viaticos'"/>
@@ -502,6 +504,7 @@
             <list string="Requisiciones de Pago">
                 <field name="name"/>
                 <field name="fecha"/>
+                <field name="prioridad" widget="priority" optional="show"/>
                 <field name="tipo"/>
                 <field name="partner_id"/>
                 <field name="total_acreditar" sum="Total" optional="show"/>
@@ -533,12 +536,15 @@
                         domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')), ('state', '=', 'liquidado')]"/>
                 <filter string="Anticipos sin Liquidar" name="anticipos_sin_liquidar"
                         domain="[('tipo', 'in', ('anticipo', 'anticipo_viaticos', 'anticipo_materiales')), ('state', '=', 'aplicado')]"/>
+                <filter string="Prioridad Muy Alta" name="prioridad_muy_alta"
+                        domain="[('prioridad', '=', '3')]"/>
                 <separator/>
                 <!-- Por defecto no se ven las liquidadas ni las divididas (pedido del usuario, 2026-10-22);
                      quitando este filtro se ven todas. Va separado para combinarse (Y) con los de arriba. -->
                 <filter string="En proceso" name="en_proceso"
                         domain="[('state', 'not in', ('liquidado', 'dividida'))]"/>
                 <separator/>
+                <filter string="Prioridad" name="group_prioridad" context="{'group_by': 'prioridad'}"/>
                 <filter string="Tipo" name="group_tipo" context="{'group_by': 'tipo'}"/>
                 <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
                 <filter string="Lote de Origen" name="group_lote_origen" context="{'group_by': 'lote_origen'}"/>
