@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_payment_order_aplicar_wizard_form" model="ir.ui.view">
+        <field name="name">account.payment.order.aplicar.wizard.form</field>
+        <field name="model">account.payment.order.aplicar.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <field name="order_id" invisible="1"/>
+                <p>¿Desea que Odoo genere el pago de esta requisición?</p>
+                <ul>
+                    <li><b>Sí:</b> se crea el pago con el diario, método y monto de la requisición y se aplica.</li>
+                    <li><b>No:</b> solo se aplica la requisición; el pago se registra por separado.</li>
+                </ul>
+                <footer>
+                    <button name="action_con_pago" type="object" string="Sí, generar el pago" class="btn-primary"/>
+                    <button name="action_sin_pago" type="object" string="No, solo aplicar"/>
+                    <button special="cancel" string="Cancelar"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

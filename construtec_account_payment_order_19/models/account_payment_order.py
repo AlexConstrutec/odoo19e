@@ -2258,57 +2258,84 @@ class AccountPaymentOrder(models.Model):
         if self.requiere_aprobacion_gerente:
             raise UserError(self.env._(
                 'Falta la autorización del Gerente: el monto llegó al umbral de aprobación.'))
-        if not self.journal_id:
-            raise UserError(self.env._('Define el Diario antes de aplicar.'))
-        if self.tipo == 'anticipo_materiales' and not self.pagar_a:
-            raise UserError(self.env._(
-                'Define a quién se le paga (Jefe de Técnicos, Proveedor Directo o Técnico) '
-                'antes de aplicar.'))
-        self._autosugerir_proveedor_materiales_id()  # ver nota en action_approve()
-        beneficiario = self._resolve_beneficiario_pago()
-        if not beneficiario:
-            if self.tipo == 'anticipo_materiales' and self.pagar_a == 'proveedor_directo':
-                raise UserError(self.env._(
-                    'Define el Proveedor de Materiales antes de aplicar - con "Pagar a: '
-                    'Proveedor Directo" el pago se le hace directo a él.'))
-            if self.tipo == 'anticipo_materiales' and self.pagar_a == 'tecnico':
-                raise UserError(self.env._(
-                    'Define el Técnico a depositar antes de aplicar - con "Pagar a: Técnico" el '
-                    'pago se le hace a él.'))
-            raise UserError(self.env._('Define el Contacto que recibirá el anticipo.'))
-        if not self.monto:
-            raise UserError(self.env._('Define el Monto del anticipo.'))
-        self._aplicar_cuenta_anticipo_por_tipo()
-        if not self.cuenta_anticipo_id:
-            raise UserError(self.env._('Define la Cuenta de Anticipos por Liquidar.'))
-
-        payment_vals = {
-            'payment_type': 'outbound',
-            'partner_type': 'supplier',
-            'partner_id': beneficiario.id,
-            'amount': self.monto,
-            'currency_id': self.currency_id.id,
-            'journal_id': self.journal_id.id,
-            'date': self.fecha,
-            'memo': self.name,
-            'destination_account_id': self.cuenta_anticipo_id.id,
-            # Vinculado a pago_ids (relación inversa vía payment_order_id) - no hay un campo
-            # dedicado tipo "Pago del Anticipo" (existió, se retiró: `pago_ids` ya cubre el
-            # mismo caso genéricamente, incluyendo un eventual pago adicional - ver
-            # action_crear_pago()/CLAUDE.md).
-            'payment_order_id': self.id,
+        # 2026-11-05 (pedido del usuario): antes de aplicar se le pregunta al contador si Odoo debe
+        # generar el pago. El resto de las validaciones y la aplicación viven en `_aplicar()`.
+        return {
+            'type': 'ir.actions.act_window',
+            'name': self.env._('Aplicar requisición'),
+            'res_model': 'account.payment.order.aplicar.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_order_id': self.id},
         }
-        if self.payment_method_line_id:
-            payment_vals['payment_method_line_id'] = self.payment_method_line_id.id
-        payment = self.env['account.payment'].create(payment_vals)
-        if self.tipo == 'anticipo_materiales':
-            # Materiales (2026-10-19, pedido del usuario): el pago queda en BORRADOR para que el
-            # Contador lo revise y lo confirme desde Pagos. Liquidar solo netea pagos confirmados.
-            self.message_post(body=self.env._(
-                'Se generó el pago %s en borrador: confírmalo desde Pagos/Cheques antes de liquidar.',
-                payment.name or payment.display_name))
+
+    def _aplicar(self, crear_pago=True):
+        """Aplica la requisición. Con `crear_pago=True` genera el pago (comportamiento de siempre:
+        valida diario, beneficiario y cuenta de anticipos). Con `crear_pago=False` solo la pasa a
+        Aplicado - el contador registra el pago aparte (Crear Pago o agregándolo en Pagos)."""
+        self.ensure_one()
+        if self.state != 'aprobado':
+            raise UserError(self.env._(
+                'Solo se puede Aplicar una Orden de Pago ya Aprobada.'))
+        self._check_es_administrador_contable()
+        if self.requiere_aprobacion_gerente:
+            raise UserError(self.env._(
+                'Falta la autorización del Gerente: el monto llegó al umbral de aprobación.'))
+        if crear_pago:
+            if not self.journal_id:
+                raise UserError(self.env._('Define el Diario antes de aplicar.'))
+            if self.tipo == 'anticipo_materiales' and not self.pagar_a:
+                raise UserError(self.env._(
+                    'Define a quién se le paga (Jefe de Técnicos, Proveedor Directo o Técnico) '
+                    'antes de aplicar.'))
+            self._autosugerir_proveedor_materiales_id()  # ver nota en action_approve()
+            beneficiario = self._resolve_beneficiario_pago()
+            if not beneficiario:
+                if self.tipo == 'anticipo_materiales' and self.pagar_a == 'proveedor_directo':
+                    raise UserError(self.env._(
+                        'Define el Proveedor de Materiales antes de aplicar - con "Pagar a: '
+                        'Proveedor Directo" el pago se le hace directo a él.'))
+                if self.tipo == 'anticipo_materiales' and self.pagar_a == 'tecnico':
+                    raise UserError(self.env._(
+                        'Define el Técnico a depositar antes de aplicar - con "Pagar a: Técnico" el '
+                        'pago se le hace a él.'))
+                raise UserError(self.env._('Define el Contacto que recibirá el anticipo.'))
+            if not self.monto:
+                raise UserError(self.env._('Define el Monto del anticipo.'))
+            self._aplicar_cuenta_anticipo_por_tipo()
+            if not self.cuenta_anticipo_id:
+                raise UserError(self.env._('Define la Cuenta de Anticipos por Liquidar.'))
+
+            payment_vals = {
+                'payment_type': 'outbound',
+                'partner_type': 'supplier',
+                'partner_id': beneficiario.id,
+                'amount': self.monto,
+                'currency_id': self.currency_id.id,
+                'journal_id': self.journal_id.id,
+                'date': self.fecha,
+                'memo': self.name,
+                'destination_account_id': self.cuenta_anticipo_id.id,
+                # Vinculado a pago_ids (relación inversa vía payment_order_id) - no hay un campo
+                # dedicado tipo "Pago del Anticipo" (existió, se retiró: `pago_ids` ya cubre el
+                # mismo caso genéricamente, incluyendo un eventual pago adicional - ver
+                # action_crear_pago()/CLAUDE.md).
+                'payment_order_id': self.id,
+            }
+            if self.payment_method_line_id:
+                payment_vals['payment_method_line_id'] = self.payment_method_line_id.id
+            payment = self.env['account.payment'].create(payment_vals)
+            if self.tipo == 'anticipo_materiales':
+                # Materiales (2026-10-19, pedido del usuario): el pago queda en BORRADOR para que el
+                # Contador lo revise y lo confirme desde Pagos. Liquidar solo netea pagos confirmados.
+                self.message_post(body=self.env._(
+                    'Se generó el pago %s en borrador: confírmalo desde Pagos/Cheques antes de liquidar.',
+                    payment.name or payment.display_name))
+            else:
+                payment.action_post()
         else:
-            payment.action_post()
+            self.message_post(body=self.env._(
+                'Requisición aplicada sin generar el pago desde Odoo: el pago se registra por separado.'))
         self.write({'state': 'aplicado'})
         self._push_notify(
             self.requested_by_id.partner_id,
