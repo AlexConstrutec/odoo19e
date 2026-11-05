@@ -409,7 +409,7 @@
                         </page>
                         <page string="Materiales" invisible="tipo != 'anticipo_materiales'">
                             <field name="material_line_ids"
-                                   readonly="state not in ('borrador', 'en_compras', 'aplicado')">
+                                   readonly="state not in ('borrador', 'en_compras')">
                                 <list editable="bottom" decoration-info="de_bodega">
                                     <field name="catalogo_id" optional="show" string="Producto SAT"
                                            context="{'vendor_hint': vendor_name}"

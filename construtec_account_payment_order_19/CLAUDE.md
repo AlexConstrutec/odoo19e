@@ -27,3 +27,11 @@ mostrar solo los diarios de la compañía de la requisición; y al presionar **A
   diario/beneficiario/cuenta. El pago se registra después con "Crear Pago" o agregándolo en Pagos.
 - Versión 19.0.1.28.0. Verificado en `construtec_bankrec_test` (clon de Enterprise, shell + rollback): tarjeta de crédito + Sí crea 1
   pago (en proceso) con el diario de tarjeta; banco + No aplica sin pagos. **No verificado en el navegador.**
+
+## Materiales bloqueado después del Fin de intervención de Compras (2026-11-05)
+
+Pedido del usuario (caso RP/0521): las líneas de la pestaña Materiales (`material_line_ids`) se editan en Borrador y en Gestión de
+Compras, y quedan **bloqueadas desde que Compras presiona "Fin de intervención de Compras"**. Antes seguían editables en estado
+Aplicado; ahora el One2many es de solo lectura en cualquier estado distinto de `borrador`/`en_compras` (vista, `readonly=` del campo).
+Para volver a editar hay que usar "Pasar a Gestión de Compras" (desde Aprobado). Solo bloquea la interfaz: el código (importar
+cotización, Orden de Compra, sincronización) sigue escribiendo las líneas como antes. Versión 19.0.1.29.0.
