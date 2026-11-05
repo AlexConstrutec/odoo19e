@@ -49,6 +49,7 @@ GASTOS_STATES_EDITABLES = ('borrador', 'enviado', 'en_compras', 'aprobado', 'apl
 # Solicitudes de Materiales entre Aprobar y Aplicar (cotizaciones, precios, Orden de Compra,
 # factura) y las entrega a Contabilidad con "Fin de intervención de Compras".
 COMPRAS_GROUP_XMLID = 'purchase.group_purchase_user'
+CONTADOR_AVISOS_GROUP_XMLID = 'construtec_account_payment_order_19.group_payment_order_contador_avisos'
 
 
 def _resolve_employee_for_partner(partner, company):
@@ -2630,8 +2631,13 @@ class AccountPaymentOrder(models.Model):
             'compras_finalizado_por_id': self.env.user.id,
             'compras_finalizado_date': fields.Datetime.now(),
         })
+        # Solo quien está en "Contador (avisos de requisiciones)" - antes eran todos los
+        # Administradores de Contabilidad, y le llegaba a gente que no lleva este proceso.
         contables = self.env['res.users'].search(
-            [('group_ids', 'in', self.env.ref('account.group_account_manager').ids)]).partner_id
+            [('group_ids', 'in', self.env.ref(CONTADOR_AVISOS_GROUP_XMLID).ids)]).partner_id
+        if not contables:
+            _logger.warning('%s: nadie en el grupo "Contador (avisos de requisiciones)"; no se '
+                            'avisa a Contabilidad.', self.name)
         self._push_notify(
             contables, self.env._('Solicitud de Materiales lista para Contabilidad'),
             self.env._('%(name)s: Compras terminó su intervención (Q%(monto).2f). Lista para '
