@@ -68,10 +68,17 @@ export class GeoMapField extends Component {
             this.hasPoint ? [this.lat, this.lng] : DEFAULT_CENTER,
             this.hasPoint ? 15 : 7
         );
-        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        // Sin API key: calles (OpenStreetMap) y satélite (Esri World Imagery), con selector.
+        const calles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
             maxZoom: 19,
             attribution: "&copy; OpenStreetMap",
-        }).addTo(this.map);
+        });
+        const satelite = L.tileLayer(
+            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            { maxZoom: 19, attribution: "Imágenes &copy; Esri, Maxar, Earthstar Geographics" }
+        );
+        calles.addTo(this.map);
+        L.control.layers({ Calles: calles, Satélite: satelite }).addTo(this.map);
         if (!this.props.readonly) {
             this.map.on("click", (ev) => this.setPoint(ev.latlng.lat, ev.latlng.lng));
         }
@@ -110,6 +117,15 @@ export class GeoMapField extends Component {
             geo_latitude: Number(lat.toFixed(7)),
             geo_longitude: Number(lng.toFixed(7)),
         });
+    }
+
+    openStreetView() {
+        // URL oficial de Google Maps (no requiere key): abre Street View en esa coordenada.
+        window.open(
+            `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${this.lat},${this.lng}`,
+            "_blank",
+            "noopener"
+        );
     }
 
     useMyLocation() {

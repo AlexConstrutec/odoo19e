@@ -3,7 +3,7 @@
     "name": "Construtec - Ubicación geográfica de Cuentas Analíticas",
     "summary": "Región y coordenada exacta (con mapa) en la cuenta analítica, sincronizadas "
                "entre Community y Enterprise en ambos sentidos.",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "category": "Accounting/Accounting",
     "author": "Alex Martinez",
     "license": "AGPL-3",
