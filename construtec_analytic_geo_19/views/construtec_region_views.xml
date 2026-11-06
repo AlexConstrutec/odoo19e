@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="construtec_region_view_list" model="ir.ui.view">
+        <field name="name">construtec.region.list</field>
+        <field name="model">construtec.region</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="name" />
+                <field name="code" />
+                <field name="analytic_account_count" string="Ubicaciones" />
+            </list>
+        </field>
+    </record>
+    <record id="construtec_region_action" model="ir.actions.act_window">
+        <field name="name">Regiones</field>
+        <field name="res_model">construtec.region</field>
+        <field name="view_mode">list</field>
+    </record>
+    <menuitem id="construtec_region_menu" name="Regiones" parent="account.menu_analytic_accounting"
+              action="construtec_region_action" sequence="35"
+              groups="analytic.group_analytic_accounting" />
+</odoo>

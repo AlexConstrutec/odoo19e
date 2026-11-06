@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_construtec_region_user,construtec.region.user,model_construtec_region,base.group_user,1,0,0,0
+access_construtec_region_analytic,construtec.region.analytic,model_construtec_region,analytic.group_analytic_accounting,1,1,1,1
+access_construtec_region_manager,construtec.region.manager,model_construtec_region,account.group_account_manager,1,1,1,1

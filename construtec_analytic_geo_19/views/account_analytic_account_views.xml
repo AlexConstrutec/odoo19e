@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_account_analytic_account_form_geo" model="ir.ui.view">
+        <field name="name">account.analytic.account.form.geo</field>
+        <field name="model">account.analytic.account</field>
+        <field name="inherit_id" ref="analytic.view_account_analytic_account_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="Ubicación geográfica (ruta de tickets)">
+                    <group>
+                        <field name="region_id" />
+                        <field name="geo_latitude" />
+                        <field name="geo_longitude" />
+                    </group>
+                    <group>
+                        <field name="geo_sync_state" widget="badge"
+                               decoration-success="geo_sync_state == 'ok'"
+                               decoration-warning="geo_sync_state == 'pending'"
+                               decoration-danger="geo_sync_state == 'error'" />
+                        <field name="geo_write_date" />
+                        <field name="geo_sync_error" invisible="not geo_sync_error" />
+                    </group>
+                    <field name="geo_map" widget="construtec_geo_map" nolabel="1" colspan="2" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_account_analytic_account_search_geo" model="ir.ui.view">
+        <field name="name">account.analytic.account.search.geo</field>
+        <field name="model">account.analytic.account</field>
+        <field name="inherit_id" ref="analytic.view_account_analytic_account_search" />
+        <field name="arch" type="xml">
+            <search position="inside">
+                <field name="region_id" />
+                <filter name="sin_region" string="Sin región" domain="[('region_id', '=', False)]" />
+                <filter name="sin_coordenada" string="Sin coordenada"
+                        domain="[('geo_latitude', '=', 0), ('geo_longitude', '=', 0)]" />
+                <group>
+                    <filter name="group_region" string="Región" context="{'group_by': 'region_id'}" />
+                </group>
+            </search>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,8 @@
+# construtec_analytic_geo_19
+
+Región y coordenada exacta (con mapa Leaflet/OpenStreetMap) en `account.analytic.account`, para dar la ubicación y la región de un ticket (base para ver la ruta). **Módulo compartido: copia EXACTA en Odoo19C, Odoo19E/odoo19e y odoo19e/odoo19enterprise** (`depends: account, construtec_account_payment_order_19`, presentes en ambas ediciones).
+
+- `construtec.region` (nombre único, código): menú Contabilidad > Contabilidad analítica > Regiones. Se empareja **por nombre** entre bases, nunca por id (`_find_or_create_by_name`).
+- Cuenta analítica: `region_id`, `geo_latitude`, `geo_longitude` (el pin se coloca con un clic/arrastre en el widget `construtec_geo_map`, sobre el campo auxiliar `geo_map`; botón "Mi ubicación"), `geo_write_date`, `geo_sync_state` (ok/pending/error), `geo_sync_error`. Leaflet va incluido en `static/src/lib/leaflet` (los tiles se piden a tile.openstreetmap.org: requiere internet).
+- **Sync en ambos sentidos, gana la edición más reciente** (`geo_write_date`). Solo Community inicia (cron cada 15 min, `_cron_sync_geo`; en Enterprise no hace nada): 1) empuja las cuentas `pending`/`error` con `sync_geo_from_community()` (método RPC whitelisted de Enterprise; si Enterprise tiene una edición más nueva la devuelve y Community la adopta), 2) jala las ubicaciones de Enterprise y adopta las más recientes que la local. Estado por cuenta con reintento (`error` se reintenta en el siguiente ciclo). Pendiente: URL cruzada entre bases.
+- Probado en `community_test_4_noviembre` y `enterprise_test_4_noviembre` por shell con RPC simulado (la sync real sigue apagada en las BD locales). El widget del mapa se probó solo si se indica abajo.

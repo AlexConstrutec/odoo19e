@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+    <t t-name="construtec_analytic_geo_19.GeoMapField">
+        <div class="o_construtec_geo_map w-100">
+            <div t-ref="map" style="height: 320px; width: 100%; border-radius: 6px;"/>
+            <div t-if="!props.readonly" class="mt-1 d-flex align-items-center gap-2">
+                <span class="text-muted small">Clic en el mapa o arrastra el pin para fijar la coordenada exacta.</span>
+                <button type="button" class="btn btn-sm btn-secondary" t-on-click="useMyLocation">Mi ubicación</button>
+            </div>
+        </div>
+    </t>
+</templates>
