@@ -23,6 +23,7 @@
                             <field name="area_analytic_account_id" readonly="1" />
                             <field name="costo_plan" readonly="1" />
                             <field name="costo_total" readonly="1" />
+                            <field name="costo_intervenciones" readonly="1" />
                             <field name="costo_general" readonly="1" class="fw-bold" />
                             <field name="currency_id" invisible="1" />
                         </group>
@@ -44,6 +45,17 @@
                             <field name="costo_traslados" readonly="1" />
                             <field name="costo_real" readonly="1" class="fw-bold" />
                         </group>
+                    </group>
+                    <group string="Intervenciones directas" invisible="not intervention_ids">
+                        <field name="intervention_ids" nolabel="1" colspan="2" readonly="1">
+                            <list>
+                                <field name="fecha" />
+                                <field name="tecnico" />
+                                <field name="observacion" />
+                                <field name="monto" sum="Total" />
+                                <field name="currency_id" column_invisible="1" />
+                            </list>
+                        </field>
                     </group>
                     <group string="Requisiciones de Pago" invisible="not payment_order_ids">
                         <field name="payment_order_ids" nolabel="1" colspan="2" readonly="1">

@@ -38,6 +38,14 @@ class ConstructecHelpdeskTicketMirror(models.Model):
              'ya Aprobadas, Aplicadas o Liquidadas, tal como llegó en el último empuje - un espejo, '
              'no algo calculado aquí. (El nombre del campo se conserva por compatibilidad: antes era '
              'el único costo; el total de los dos es `costo_general`.)')
+    costo_intervenciones = fields.Monetary(
+        string='Costo por Intervenciones', currency_field='currency_id',
+        help='Total de las intervenciones directas (visitas/atenciones) anotadas en el ticket en '
+             'Community, tal como llegó en el último empuje (2026-11-05). Ya está incluido en '
+             '`costo_general`.')
+    intervention_ids = fields.One2many(
+        'construtec.helpdesk.ticket.mirror.intervention', 'mirror_id', string='Intervenciones',
+        readonly=True)
     costo_general = fields.Monetary(
         string='Costo Total', currency_field='currency_id',
         help='Suma de Costo por Plan + Costo por Requisiciones de Pago, tal como llegó en el último '
@@ -241,6 +249,7 @@ class ConstructecHelpdeskTicketMirror(models.Model):
         self._resolve_analytic_enterprise_ref(vals)
         self._resolve_area_enterprise_ref(vals)
         payment_order_refs = vals.pop('payment_order_refs', None)
+        intervention_lines = vals.pop('intervention_lines', None)
         entry = self.search([('number', '=', number)], limit=1)
         if entry:
             entry.write(vals)
@@ -248,6 +257,12 @@ class ConstructecHelpdeskTicketMirror(models.Model):
             entry = self.create(vals)
         if payment_order_refs is not None:
             entry._link_payment_orders(payment_order_refs)
+        if intervention_lines is not None:
+            # Community reenvía el conjunto completo: se reemplaza, nunca se acumula.
+            entry.intervention_ids.unlink()
+            for line in intervention_lines:
+                self.env['construtec.helpdesk.ticket.mirror.intervention'].create(
+                    dict(line, mirror_id=entry.id))
         return entry.id
 
     @api.model

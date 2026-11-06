@@ -144,3 +144,8 @@ factura. Versión 19.0.1.3.0.
 - Factura de venta: `_compute_ticket_analytic_distribution()` reparte por combinación (ubicación, área): llaves `"id1,id2"`, `"id2"` o `"id1"` según lo que tenga cada ticket. Las ubicaciones ya viven en planes distintos al de área, así que Odoo acepta ambas cuentas en un renglón sin mover ninguna cuenta de plan.
 - Orden de Compra desde la requisición: `action_generar_orden_compra()` (override aquí, el módulo compartido no se tocó) agrega el área a las líneas cuyo reparto sigue siendo el original.
 - Probado en `enterprise_test_4_noviembre` (shell, rollback): resolución del ref, reparto `{'18,301': 50, '301': 25, '18': 25}` en la factura, requisición con área. La generación real de la OC no se probó.
+
+## Intervenciones directas del ticket (2026-11-05, versión 19.0.1.5.0)
+
+- Community manda `costo_intervenciones` y `intervention_lines` (origin_id/fecha/tecnico/observacion/monto) en cada empuje del ticket. El espejo guarda el total y reemplaza sus líneas (`construtec.helpdesk.ticket.mirror.intervention`, solo lectura) por el conjunto recibido. Se muestran en el formulario del espejo. El total ya viene dentro de `costo_general`. Desplegar Enterprise antes que Community (si no, el write de `costo_intervenciones` falla).
+- Probado en `enterprise_test_4_noviembre` (shell, rollback): upsert y reemplazo de líneas.
