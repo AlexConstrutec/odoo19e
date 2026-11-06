@@ -137,3 +137,10 @@ El espejo calcula, desde `payment_order_ids` (requisiciones vinculadas, En Compr
 (`_compute_costeo_real`) cada vez que cambia una requisición, así quien factura ve siempre el costo real actual.
 Se muestran en el formulario del ticket (grupo "Costeo Real"), en la lista (columna Costo Real) y en el selector de tickets de la
 factura. Versión 19.0.1.3.0.
+
+## Área de Negocio en la distribución analítica (2026-11-05, versión 19.0.1.4.0)
+
+- Reutiliza el plan **"Área de Negocio"** que ya creó `construtec_account_19` (no se creó un plan "Área" aparte). El espejo del ticket y la requisición guardan `area_analytic_account_id`, resuelto desde `area_analytic_enterprise_ref` (Community lo manda en cada push del ticket; la requisición lo manda al crearse, es una foto).
+- Factura de venta: `_compute_ticket_analytic_distribution()` reparte por combinación (ubicación, área): llaves `"id1,id2"`, `"id2"` o `"id1"` según lo que tenga cada ticket. Las ubicaciones ya viven en planes distintos al de área, así que Odoo acepta ambas cuentas en un renglón sin mover ninguna cuenta de plan.
+- Orden de Compra desde la requisición: `action_generar_orden_compra()` (override aquí, el módulo compartido no se tocó) agrega el área a las líneas cuyo reparto sigue siendo el original.
+- Probado en `enterprise_test_4_noviembre` (shell, rollback): resolución del ref, reparto `{'18,301': 50, '301': 25, '18': 25}` en la factura, requisición con área. La generación real de la OC no se probó.

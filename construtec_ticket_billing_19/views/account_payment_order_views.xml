@@ -7,6 +7,7 @@
         <field name="arch" type="xml">
             <field name="analytic_account_id" position="before">
                 <field name="ticket_mirror_id" invisible="not ticket_mirror_id" />
+                <field name="area_analytic_account_id" invisible="not area_analytic_account_id" />
             </field>
         </field>
     </record>

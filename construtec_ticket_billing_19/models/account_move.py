@@ -63,20 +63,26 @@ class AccountMove(models.Model):
         más tickets (empate → mayor id), para que la suma cierre en exactamente 100.00, nunca
         99.99/100.01 por arrastre de decimales."""
         self.ensure_one()
-        tickets = self.ticket_mirror_ids.filtered('analytic_account_id')
+        # Dos planes (2026-11-05): Ubicación + Área de Negocio. Cada combinación distinta
+        # (ubicación, área) es un renglón con llave "id1,id2"; un ticket sin una de las dos usa
+        # solo la que tenga. Sin ninguna, queda fuera del reparto.
+        tickets = self.ticket_mirror_ids.filtered(
+            lambda t: t.analytic_account_id or t.area_analytic_account_id)
         total = len(tickets)
         if not total:
             return False
         conteo = {}
         for ticket in tickets:
-            conteo[ticket.analytic_account_id] = conteo.get(ticket.analytic_account_id, 0) + 1
+            llave = ','.join(str(a.id) for a in (
+                ticket.analytic_account_id, ticket.area_analytic_account_id) if a)
+            conteo[llave] = conteo.get(llave, 0) + 1
         precision = self.env['decimal.precision'].precision_get('Percentage Analytic')
-        porcentajes = {cuenta: round(cantidad / total * 100, precision) for cuenta, cantidad in conteo.items()}
+        porcentajes = {k: round(c / total * 100, precision) for k, c in conteo.items()}
         remanente = round(100 - sum(porcentajes.values()), precision)
         if remanente:
-            cuenta_mayor = max(conteo, key=lambda c: (conteo[c], c.id))
-            porcentajes[cuenta_mayor] = round(porcentajes[cuenta_mayor] + remanente, precision)
-        return {str(cuenta.id): pct for cuenta, pct in porcentajes.items()}
+            llave_mayor = max(conteo, key=lambda k: (conteo[k], k))
+            porcentajes[llave_mayor] = round(porcentajes[llave_mayor] + remanente, precision)
+        return porcentajes
 
     def _apply_ticket_analytic_distribution(self):
         """Aplica el reparto de `_compute_ticket_analytic_distribution()` a las líneas de la

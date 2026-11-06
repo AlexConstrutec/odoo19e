@@ -22,6 +22,7 @@
                             <field name="ticket_label" string="Ticket" />
                             <field name="partner_name" />
                             <field name="analytic_account_id" />
+                            <field name="area_analytic_account_id" optional="show" />
                             <field name="costo_plan" sum="Total" optional="show" />
                             <field name="costo_total" sum="Total" optional="show" />
                             <field name="costo_general" sum="Total" />

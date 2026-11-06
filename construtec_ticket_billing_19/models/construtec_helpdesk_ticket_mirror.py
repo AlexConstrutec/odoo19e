@@ -83,6 +83,12 @@ class ConstructecHelpdeskTicketMirror(models.Model):
              'order._resolve_analytic_enterprise_ref()` (construtec_account_payment_order_19). '
              'Alimenta la distribución analítica automática de la Factura, ver `account.move.'
              '_compute_ticket_analytic_distribution()`.')
+    area_analytic_account_id = fields.Many2one(
+        'account.analytic.account', string='Área de Negocio',
+        help='Área (cuenta del plan "Área de Negocio") del EQUIPO del ticket en Community '
+             '(2026-11-05) - resuelta vía `area_analytic_enterprise_ref`, igual que la Ubicación. '
+             'Segundo plan de la distribución analítica de la Factura, ver `account.move.'
+             '_compute_ticket_analytic_distribution()`.')
     company_id = fields.Many2one(
         'res.company', string='Compañía', default=lambda self: self.env.company)
     origin_record_id = fields.Integer(
@@ -201,6 +207,15 @@ class ConstructecHelpdeskTicketMirror(models.Model):
         analytic_account = self.env['account.analytic.account'].browse(int(ref)).exists() if ref else False
         vals['analytic_account_id'] = analytic_account.id if analytic_account else False
 
+    def _resolve_area_enterprise_ref(self, vals):
+        """Igual que `_resolve_analytic_enterprise_ref()`, para el Área: Community la manda en
+        CADA push (vacía si el equipo no tiene área), así que, si la clave viene, manda ella."""
+        if 'area_analytic_enterprise_ref' not in vals:
+            return
+        ref = vals.pop('area_analytic_enterprise_ref')
+        area = self.env['account.analytic.account'].browse(int(ref)).exists() if ref else False
+        vals['area_analytic_account_id'] = area.id if area else False
+
     @api.model
     def sync_from_community(self, vals):
         """Punto de entrada único, llamado vía XML-RPC estándar de Odoo (`/jsonrpc`) desde
@@ -224,6 +239,7 @@ class ConstructecHelpdeskTicketMirror(models.Model):
         if not vals.get('company_id'):
             vals['company_id'] = self.env.company.id
         self._resolve_analytic_enterprise_ref(vals)
+        self._resolve_area_enterprise_ref(vals)
         payment_order_refs = vals.pop('payment_order_refs', None)
         entry = self.search([('number', '=', number)], limit=1)
         if entry:
