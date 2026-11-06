@@ -39,12 +39,12 @@ class ConstructecHelpdeskTicketMirror(models.Model):
              'no algo calculado aquí. (El nombre del campo se conserva por compatibilidad: antes era '
              'el único costo; el total de los dos es `costo_general`.)')
     costo_intervenciones = fields.Monetary(
-        string='Costo por Intervenciones', currency_field='currency_id',
-        help='Total de las intervenciones directas (visitas/atenciones) anotadas en el ticket en '
+        string='Costos directos', currency_field='currency_id',
+        help='Total de los costos directos (visitas/atenciones) anotadas en el ticket en '
              'Community, tal como llegó en el último empuje (2026-11-05). Ya está incluido en '
              '`costo_general`.')
     intervention_ids = fields.One2many(
-        'construtec.helpdesk.ticket.mirror.intervention', 'mirror_id', string='Intervenciones',
+        'construtec.helpdesk.ticket.mirror.intervention', 'mirror_id', string='Costos directos',
         readonly=True)
     costo_general = fields.Monetary(
         string='Costo Total', currency_field='currency_id',

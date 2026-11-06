@@ -46,7 +46,7 @@
                             <field name="costo_real" readonly="1" class="fw-bold" />
                         </group>
                     </group>
-                    <group string="Intervenciones directas" invisible="not intervention_ids">
+                    <group string="Costos directos" invisible="not intervention_ids">
                         <field name="intervention_ids" nolabel="1" colspan="2" readonly="1">
                             <list>
                                 <field name="fecha" />

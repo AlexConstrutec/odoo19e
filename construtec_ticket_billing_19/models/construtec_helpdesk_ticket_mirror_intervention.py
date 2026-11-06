@@ -4,7 +4,7 @@ from odoo import fields, models
 
 class ConstructecHelpdeskTicketMirrorIntervention(models.Model):
     _name = 'construtec.helpdesk.ticket.mirror.intervention'
-    _description = 'Intervención directa de un ticket de Community (espejo)'
+    _description = 'Costo directo de un ticket de Community (espejo)'
     _order = 'fecha desc, id desc'
 
     mirror_id = fields.Many2one(
