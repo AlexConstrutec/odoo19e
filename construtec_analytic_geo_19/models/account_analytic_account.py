@@ -20,8 +20,10 @@ class AccountAnalyticAccount(models.Model):
     geo_latitude = fields.Float(string="Latitud", digits=(10, 7))
     geo_longitude = fields.Float(string="Longitud", digits=(10, 7))
     geo_map = fields.Char(
-        string="Mapa", compute="_compute_geo_map",
-        help="Solo sostiene el widget del mapa (no guarda nada): el pin se coloca con un clic.")
+        string="Mapa", compute="_compute_geo_map", readonly=False,
+        help="Solo sostiene el widget del mapa (no guarda nada): el pin se coloca con un clic. "
+             "`readonly=False` es indispensable: un campo calculado es de solo lectura por "
+             "defecto y el widget del mapa no deja seleccionar en solo lectura.")
     geo_write_date = fields.Datetime(
         string="Ubicación editada", readonly=True, copy=False,
         help="Cuándo se editó por última vez región/coordenada, en cualquiera de las dos "

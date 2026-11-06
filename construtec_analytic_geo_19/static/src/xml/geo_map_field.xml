@@ -2,6 +2,10 @@
 <templates xml:space="preserve">
     <t t-name="construtec_analytic_geo_19.GeoMapField">
         <div class="o_construtec_geo_map w-100">
+            <div class="mb-1 btn-group btn-group-sm">
+                <button type="button" t-attf-class="btn #{state.satelite ? 'btn-outline-secondary' : 'btn-secondary'}" t-on-click="() => this.setSatelite(false)">Calles</button>
+                <button type="button" t-attf-class="btn #{state.satelite ? 'btn-secondary' : 'btn-outline-secondary'}" t-on-click="() => this.setSatelite(true)">Satélite</button>
+            </div>
             <div t-ref="map" style="height: 320px; width: 100%; border-radius: 6px;"/>
             <div class="mt-1" t-if="hasPoint">
                 <button type="button" class="btn btn-sm btn-link p-0" t-on-click="openStreetView">Ver en Street View (nueva pestaña)</button>

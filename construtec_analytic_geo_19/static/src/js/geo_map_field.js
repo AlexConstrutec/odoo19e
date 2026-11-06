@@ -1,7 +1,7 @@
 /** @odoo-module **/
 import { registry } from "@web/core/registry";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
-import { Component, onMounted, onWillStart, onWillUnmount, useEffect, useRef } from "@odoo/owl";
+import { Component, onMounted, onWillStart, onWillUnmount, useEffect, useRef, useState } from "@odoo/owl";
 
 const LEAFLET_CSS = "/construtec_analytic_geo_19/static/src/lib/leaflet/leaflet.css";
 const LEAFLET_JS = "/construtec_analytic_geo_19/static/src/lib/leaflet/leaflet.js";
@@ -38,6 +38,7 @@ export class GeoMapField extends Component {
         this.mapRef = useRef("map");
         this.map = null;
         this.marker = null;
+        this.state = useState({ satelite: false });
         onWillStart(() => ensureLeaflet());
         onMounted(() => this.initMap());
         onWillUnmount(() => {
@@ -78,7 +79,8 @@ export class GeoMapField extends Component {
             { maxZoom: 19, attribution: "Imágenes &copy; Esri, Maxar, Earthstar Geographics" }
         );
         calles.addTo(this.map);
-        L.control.layers({ Calles: calles, Satélite: satelite }).addTo(this.map);
+        this.layers = { calles, satelite };
+        this.state.satelite = false;
         if (!this.props.readonly) {
             this.map.on("click", (ev) => this.setPoint(ev.latlng.lat, ev.latlng.lng));
         }
@@ -117,6 +119,21 @@ export class GeoMapField extends Component {
             geo_latitude: Number(lat.toFixed(7)),
             geo_longitude: Number(lng.toFixed(7)),
         });
+    }
+
+    setSatelite(on) {
+        if (!this.map) {
+            return;
+        }
+        this.state.satelite = on;
+        const { calles, satelite } = this.layers;
+        if (on) {
+            this.map.removeLayer(calles);
+            satelite.addTo(this.map);
+        } else {
+            this.map.removeLayer(satelite);
+            calles.addTo(this.map);
+        }
     }
 
     openStreetView() {

@@ -9,3 +9,7 @@ Región y coordenada exacta (con mapa Leaflet/OpenStreetMap) en `account.analyti
 
 ## Capas del mapa y Street View (2026-11-06, 19.0.1.1.0)
 - El mapa tiene selector Calles (OpenStreetMap) / Satélite (Esri World Imagery) para ubicar la construcción exacta, **sin API key** (igual que el mapa del marcaje de asistencia, que usa Leaflet + OpenStreetMap). "Ver en Street View" abre Google Maps en otra pestaña (URL oficial sin key); solo para ver, Google no puede devolver el punto a Odoo sin API Key. Si algún día se quiere Street View incrustado y seleccionable, requiere una API Key de Google Maps.
+
+## Corrección: el mapa no dejaba seleccionar (2026-11-06, 19.0.1.2.0)
+- Bug real, visto en navegador: `geo_map` es un campo calculado y Odoo los marca solo lectura, así que el widget (`props.readonly`) no activaba el clic ni el arrastre. Arreglo: `readonly=False` en `geo_map`. Además se quitó el control de capas de Leaflet (su icono necesita `layers.png`, que no está en la copia de Leaflet) y se reemplazó por botones Calles/Satélite propios.
+- Verificado en el navegador (copia `community_test_4_noviembre`, puerto 8069): clic coloca el pin y llena latitud/longitud, satélite funciona, guardar sin errores. El 404 de recurso en consola no viene de este módulo.
