@@ -149,3 +149,7 @@ factura. Versión 19.0.1.3.0.
 
 - Community manda `costo_intervenciones` y `intervention_lines` (origin_id/fecha/tecnico/observacion/monto) en cada empuje del ticket. El espejo guarda el total y reemplaza sus líneas (`construtec.helpdesk.ticket.mirror.intervention`, solo lectura) por el conjunto recibido. Se muestran en el formulario del espejo. El total ya viene dentro de `costo_general`. Desplegar Enterprise antes que Community (si no, el write de `costo_intervenciones` falla).
 - Probado en `enterprise_test_4_noviembre` (shell, rollback): upsert y reemplazo de líneas.
+
+## Ticket padre / proyecto (2026-11-09, versión 19.0.1.6.0)
+
+- Community manda `parent_number` en cada empuje. El espejo guarda `parent_id` (resuelto por número; si el padre no ha llegado se crea un espejo con solo el número; un ticket nunca es su propio padre) y `child_ids`. `costo_proyecto` / `costo_real_proyecto` (stored) = costo del padre + el de sus hijos, **calculados aquí** a partir de los espejos. Formulario: grupo "Tickets del proyecto"; lista: columnas opcionales. Probado en `enterprise_test_4_noviembre` (shell).

@@ -38,6 +38,24 @@ class ConstructecHelpdeskTicketMirror(models.Model):
              'ya Aprobadas, Aplicadas o Liquidadas, tal como llegó en el último empuje - un espejo, '
              'no algo calculado aquí. (El nombre del campo se conserva por compatibilidad: antes era '
              'el único costo; el total de los dos es `costo_general`.)')
+    parent_id = fields.Many2one(
+        'construtec.helpdesk.ticket.mirror', string='Ticket padre (proyecto)', index=True,
+        ondelete='set null',
+        help='Proyecto al que pertenece este ticket en Community (`parent_number`, resuelto por '
+             'número). Community lo manda en cada empuje, vacío si no tiene padre.')
+    child_ids = fields.One2many(
+        'construtec.helpdesk.ticket.mirror', 'parent_id', string='Tickets del proyecto',
+        readonly=True)
+    es_proyecto = fields.Boolean(compute='_compute_costo_proyecto', store=True)
+    costo_proyecto = fields.Monetary(
+        string='Costo total del proyecto', currency_field='currency_id',
+        compute='_compute_costo_proyecto', store=True,
+        help='Costo Total (`costo_general`) del ticket padre + el de todos sus tickets hijos. '
+             'Se calcula aquí con los espejos, no viene de Community.')
+    costo_real_proyecto = fields.Monetary(
+        string='Costo real del proyecto', currency_field='currency_id',
+        compute='_compute_costo_proyecto', store=True,
+        help='Costo Real (facturas + traslados) del padre + el de sus hijos.')
     costo_intervenciones = fields.Monetary(
         string='Costos directos', currency_field='currency_id',
         help='Total de los costos directos (visitas/atenciones) anotadas en el ticket en '
@@ -157,6 +175,13 @@ class ConstructecHelpdeskTicketMirror(models.Model):
             rec.costo_traslados = sum(vigentes.mapped('costo_traslados'))
             rec.costo_real = rec.costo_facturas + rec.costo_traslados
 
+    @api.depends('costo_general', 'costo_real', 'child_ids.costo_general', 'child_ids.costo_real')
+    def _compute_costo_proyecto(self):
+        for rec in self:
+            rec.es_proyecto = bool(rec.child_ids)
+            rec.costo_proyecto = rec.costo_general + sum(rec.child_ids.mapped('costo_general'))
+            rec.costo_real_proyecto = rec.costo_real + sum(rec.child_ids.mapped('costo_real'))
+
     @api.depends('move_id.state', 'move_id.payment_state', 'move_id.reconciled_payment_ids')
     def _compute_billing_state(self):
         for rec in self:
@@ -250,6 +275,13 @@ class ConstructecHelpdeskTicketMirror(models.Model):
         self._resolve_area_enterprise_ref(vals)
         payment_order_refs = vals.pop('payment_order_refs', None)
         intervention_lines = vals.pop('intervention_lines', None)
+        if 'parent_number' in vals:
+            # Igual que la Ubicación: si la clave viene, manda ella (vacía = sin padre). Si el
+            # padre todavía no llegó, se crea el espejo solo con su número (el siguiente envío
+            # del padre lo completa).
+            parent_number = vals.pop('parent_number')
+            parent = self._get_or_create_by_number(parent_number) if parent_number else False
+            vals['parent_id'] = parent.id if parent and parent.number != number else False
         entry = self.search([('number', '=', number)], limit=1)
         if entry:
             entry.write(vals)

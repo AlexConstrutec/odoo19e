@@ -25,6 +25,10 @@
                             <field name="costo_total" readonly="1" />
                             <field name="costo_intervenciones" readonly="1" />
                             <field name="costo_general" readonly="1" class="fw-bold" />
+                            <field name="parent_id" readonly="1" invisible="not parent_id" />
+                            <field name="es_proyecto" invisible="1" />
+                            <field name="costo_proyecto" readonly="1" class="fw-bold" invisible="not es_proyecto" />
+                            <field name="costo_real_proyecto" readonly="1" invisible="not es_proyecto" />
                             <field name="currency_id" invisible="1" />
                         </group>
                         <group>
@@ -45,6 +49,17 @@
                             <field name="costo_traslados" readonly="1" />
                             <field name="costo_real" readonly="1" class="fw-bold" />
                         </group>
+                    </group>
+                    <group string="Tickets del proyecto" invisible="not child_ids">
+                        <field name="child_ids" nolabel="1" colspan="2" readonly="1">
+                            <list>
+                                <field name="ticket_label" />
+                                <field name="stage_name" />
+                                <field name="costo_general" sum="Total" />
+                                <field name="costo_real" sum="Total" />
+                                <field name="currency_id" column_invisible="1" />
+                            </list>
+                        </field>
                     </group>
                     <group string="Costos directos" invisible="not intervention_ids">
                         <field name="intervention_ids" nolabel="1" colspan="2" readonly="1">
@@ -96,6 +111,8 @@
                 <field name="costo_plan" sum="Total" optional="show" />
                 <field name="costo_total" sum="Total" optional="show" />
                 <field name="costo_general" sum="Total" />
+                <field name="costo_proyecto" optional="hide" />
+                <field name="parent_id" optional="hide" />
                 <field name="costo_facturas" sum="Total" optional="hide" />
                 <field name="costo_traslados" sum="Total" optional="hide" />
                 <field name="costo_real" sum="Total" optional="show" />
