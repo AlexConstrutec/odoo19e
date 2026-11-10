@@ -157,3 +157,7 @@ factura. Versión 19.0.1.3.0.
 ## Costos directos: estado de comunicación (2026-11-09, versión 19.0.1.7.0)
 
 - Cada línea espejo (`construtec.helpdesk.ticket.mirror.intervention`) trae `comunicado` y `comunicado_fecha` (si Community ya se lo comunicó al cliente). Se ve en la lista de "Costos directos" del espejo. Probado en `enterprise_test_4_noviembre` (actualización limpia).
+
+## Renombre (2026-11-09, 19.0.1.7.1)
+
+"Costos directos" se llama ahora "Trabajos realizados con costos" (solo etiquetas del espejo y de su vista).

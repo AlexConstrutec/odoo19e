@@ -61,7 +61,7 @@
                             </list>
                         </field>
                     </group>
-                    <group string="Costos directos" invisible="not intervention_ids">
+                    <group string="Trabajos realizados con costos" invisible="not intervention_ids">
                         <field name="intervention_ids" nolabel="1" colspan="2" readonly="1">
                             <list>
                                 <field name="fecha" />

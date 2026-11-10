@@ -57,12 +57,12 @@ class ConstructecHelpdeskTicketMirror(models.Model):
         compute='_compute_costo_proyecto', store=True,
         help='Costo Real (facturas + traslados) del padre + el de sus hijos.')
     costo_intervenciones = fields.Monetary(
-        string='Costos directos', currency_field='currency_id',
+        string='Trabajos realizados con costos', currency_field='currency_id',
         help='Total de los costos directos (visitas/atenciones) anotadas en el ticket en '
              'Community, tal como llegó en el último empuje (2026-11-05). Ya está incluido en '
              '`costo_general`.')
     intervention_ids = fields.One2many(
-        'construtec.helpdesk.ticket.mirror.intervention', 'mirror_id', string='Costos directos',
+        'construtec.helpdesk.ticket.mirror.intervention', 'mirror_id', string='Trabajos realizados con costos',
         readonly=True)
     costo_general = fields.Monetary(
         string='Costo Total', currency_field='currency_id',
