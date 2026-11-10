@@ -153,3 +153,7 @@ factura. Versión 19.0.1.3.0.
 ## Ticket padre / proyecto (2026-11-09, versión 19.0.1.6.0)
 
 - Community manda `parent_number` en cada empuje. El espejo guarda `parent_id` (resuelto por número; si el padre no ha llegado se crea un espejo con solo el número; un ticket nunca es su propio padre) y `child_ids`. `costo_proyecto` / `costo_real_proyecto` (stored) = costo del padre + el de sus hijos, **calculados aquí** a partir de los espejos. Formulario: grupo "Tickets del proyecto"; lista: columnas opcionales. Probado en `enterprise_test_4_noviembre` (shell).
+
+## Costos directos: estado de comunicación (2026-11-09, versión 19.0.1.7.0)
+
+- Cada línea espejo (`construtec.helpdesk.ticket.mirror.intervention`) trae `comunicado` y `comunicado_fecha` (si Community ya se lo comunicó al cliente). Se ve en la lista de "Costos directos" del espejo. Probado en `enterprise_test_4_noviembre` (actualización limpia).

@@ -68,6 +68,7 @@
                                 <field name="tecnico" />
                                 <field name="observacion" />
                                 <field name="monto" sum="Total" />
+                                <field name="comunicado" string="Comunicado" />
                                 <field name="currency_id" column_invisible="1" />
                             </list>
                         </field>

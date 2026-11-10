@@ -14,4 +14,8 @@ class ConstructecHelpdeskTicketMirrorIntervention(models.Model):
     tecnico = fields.Char(string='Quién')
     observacion = fields.Text(string='Observación')
     monto = fields.Monetary(currency_field='currency_id')
+    comunicado = fields.Boolean(
+        string='Comunicado al cliente',
+        help='Si en Community ya se le comunicó este costo al cliente (y es visible en su portal).')
+    comunicado_fecha = fields.Datetime(string='Comunicado el')
     currency_id = fields.Many2one(related='mirror_id.currency_id', store=True)
