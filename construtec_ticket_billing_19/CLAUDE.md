@@ -173,3 +173,9 @@ pagos y facturas: un renglón con llave `"ubicación,área": 100`. Ya existían 
 - Sin Área solo viaja la Ubicación; el Área exige que el equipo tenga su cuenta de área en Community y que el ticket se reenvíe.
 - Límite: pagos de clientes a facturas de venta no se tocan.
 - Probado en `enterprise_test_4_noviembre` (shell, rollback). Sin probar en navegador.
+
+### Ajuste 19.0.1.8.1 (2026-11-16): ampliar "solo Ubicación" a Ubicación + Área
+`_apply_ticket_analytic_to_lines()` ya no solo llena líneas vacías: también cambia las que tienen exactamente `{ubicación: 100}` a
+`{"ubicación,área": 100}` (una distribución distinta, fijada a mano, no se toca). `_apply_ticket_analytic_to_documents()` aplica a facturas
+de proveedor, pagos y asiento de la requisición; se llama al reenviar el ticket si cambió la Ubicación o el Área (`sync_from_community`) y en
+la migración `19.0.1.8.1`. Hallazgo en producción (2026-11-16): el plan de áreas se llama "AREAS CONSTRUTEC" (9 cuentas); solo TKT-0157 tenía área.

@@ -289,6 +289,12 @@ class ConstructecHelpdeskTicketMirror(models.Model):
             entry = self.create(vals)
         if payment_order_refs is not None:
             entry._link_payment_orders(payment_order_refs)
+        # Si llegó/cambió la Ubicación o el Área, lo ya contabilizado de sus requisiciones se
+        # actualiza (solo líneas vacías o con solo la Ubicación, ver
+        # `account.payment.order._apply_ticket_analytic_to_lines()`).
+        if 'analytic_account_id' in vals or 'area_analytic_account_id' in vals:
+            self.env['account.payment.order'].sudo().search(
+                [('ticket_mirror_id', '=', entry.id)])._apply_ticket_analytic_to_documents()
         if intervention_lines is not None:
             # Community reenvía el conjunto completo: se reemplaza, nunca se acumula.
             entry.intervention_ids.unlink()

@@ -66,17 +66,35 @@ class AccountPaymentOrder(models.Model):
         return {','.join(str(i) for i in ids): 100.0} if ids else False
 
     def _apply_ticket_analytic_to_lines(self, lines):
-        """Pone la distribución solo en líneas que todavía no tienen una propia (nunca pisa la
-        que el contable ya fijó a mano) y que no son sección/nota."""
+        """Pone la distribución en líneas sin una propia, y también AMPLÍA las que tienen
+        exactamente "solo la Ubicación al 100 %" (lo que se puso antes de conocer el Área) a
+        Ubicación + Área. Cualquier otra distribución (fijada a mano) nunca se toca. Excluye
+        líneas de sección/nota."""
         self.ensure_one()
         distribucion = self._ticket_analytic_distribution()
         if not distribucion:
             return
-        vacias = lines.filtered(
+        ubicacion = self.analytic_account_id or self.ticket_mirror_id.analytic_account_id
+        solo_ubicacion = {str(ubicacion.id): 100.0} if ubicacion else None
+        por_cambiar = lines.filtered(
             lambda l: l.display_type not in ('line_section', 'line_note')
-            and not l.analytic_distribution)
-        if vacias:
-            vacias.analytic_distribution = distribucion
+            and l.analytic_distribution != distribucion
+            and (not l.analytic_distribution
+                 or (solo_ubicacion and l.analytic_distribution == solo_ubicacion)))
+        if por_cambiar:
+            por_cambiar.analytic_distribution = distribucion
+
+    def _apply_ticket_analytic_to_documents(self):
+        """Aplica la distribución a todo lo que la requisición ya generó: facturas de proveedor,
+        pagos y asiento de conciliación."""
+        for order in self:
+            for factura in self.env['account.move'].search([
+                    ('payment_order_id', '=', order.id), ('move_type', '=', 'in_invoice')]):
+                order._apply_ticket_analytic_to_lines(factura.invoice_line_ids)
+            for pago in self.env['account.payment'].search([('payment_order_id', '=', order.id)]):
+                order._apply_ticket_analytic_to_lines(pago.move_id.line_ids)
+            if order.move_id:
+                order._apply_ticket_analytic_to_lines(order.move_id.line_ids)
 
     def action_conciliar(self):
         res = super().action_conciliar()
