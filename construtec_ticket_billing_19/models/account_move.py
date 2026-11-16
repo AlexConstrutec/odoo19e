@@ -103,10 +103,11 @@ class AccountMove(models.Model):
             lineas.analytic_distribution = distribucion
 
     def _apply_requisicion_analytic_distribution(self):
-        """Facturas de proveedor ligadas a una Requisición de Pago: sus líneas llevan la
+        """Facturas, notas de crédito y de débito de proveedor ligadas a una Requisición de Pago: sus líneas llevan la
         Ubicación + Área del ticket de la requisición (solo líneas sin distribución propia)."""
         for move in self:
-            if move.move_type != 'in_invoice' or not move.payment_order_id:
+            # in_invoice incluye notas de débito; in_refund, notas de crédito.
+            if move.move_type not in ('in_invoice', 'in_refund') or not move.payment_order_id:
                 continue
             move.payment_order_id._apply_ticket_analytic_to_lines(move.invoice_line_ids)
 

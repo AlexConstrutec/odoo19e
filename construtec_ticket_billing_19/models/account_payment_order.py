@@ -85,12 +85,17 @@ class AccountPaymentOrder(models.Model):
             por_cambiar.analytic_distribution = distribucion
 
     def _apply_ticket_analytic_to_documents(self):
-        """Aplica la distribución a todo lo que la requisición ya generó: facturas de proveedor,
-        pagos y asiento de conciliación."""
+        """Aplica la distribución a todo lo que la requisición ya generó: facturas, notas de
+        crédito y de débito de proveedor, sus pagos (los de la requisición y los registrados
+        desde la propia factura) y el asiento de conciliación."""
         for order in self:
-            for factura in self.env['account.move'].search([
-                    ('payment_order_id', '=', order.id), ('move_type', '=', 'in_invoice')]):
-                order._apply_ticket_analytic_to_lines(factura.invoice_line_ids)
+            documentos = self.env['account.move'].search([
+                ('payment_order_id', '=', order.id),
+                ('move_type', 'in', ('in_invoice', 'in_refund'))])
+            for doc in documentos:
+                order._apply_ticket_analytic_to_lines(doc.invoice_line_ids)
+                for pago in doc._get_reconciled_payments():
+                    order._apply_ticket_analytic_to_lines(pago.move_id.line_ids)
             for pago in self.env['account.payment'].search([('payment_order_id', '=', order.id)]):
                 order._apply_ticket_analytic_to_lines(pago.move_id.line_ids)
             if order.move_id:

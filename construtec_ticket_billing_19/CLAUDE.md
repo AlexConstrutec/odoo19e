@@ -179,3 +179,11 @@ pagos y facturas: un renglón con llave `"ubicación,área": 100`. Ya existían 
 `{"ubicación,área": 100}` (una distribución distinta, fijada a mano, no se toca). `_apply_ticket_analytic_to_documents()` aplica a facturas
 de proveedor, pagos y asiento de la requisición; se llama al reenviar el ticket si cambió la Ubicación o el Área (`sync_from_community`) y en
 la migración `19.0.1.8.1`. Hallazgo en producción (2026-11-16): el plan de áreas se llama "AREAS CONSTRUTEC" (9 cuentas); solo TKT-0157 tenía área.
+
+### 19.0.1.9.0 (2026-11-16): notas de crédito/débito y pagos desde la factura
+- `_apply_requisicion_analytic_distribution()` cubre `in_invoice` (incluye notas de débito) e `in_refund` (notas de crédito) ligados a una requisición.
+- `account.partial.reconcile.create()` (`models/account_partial_reconcile.py`): un pago conciliado con una factura/nota de proveedor de requisición toma la
+  distribución de la requisición; un pago de cliente conciliado con una factura de venta con tickets toma la de la factura. Solo líneas sin distribución propia.
+- `_apply_ticket_analytic_to_documents()` y la migración `19.0.1.9.0` aplican lo mismo a lo ya existente.
+- **Pendiente (decisión del usuario)**: Documento SAT (`construtec.sat.document`, `construtec_account_19`) no hereda aún Ubicación/Área de la requisición: su campo
+  `area_negocio_id` apunta al plan "Área de Negocio" (módulo, sin desplegar) y producción usa el plan "AREAS CONSTRUTEC"; hay que unificar el plan.
