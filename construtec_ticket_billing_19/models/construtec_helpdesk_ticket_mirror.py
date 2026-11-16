@@ -319,7 +319,10 @@ class ConstructecHelpdeskTicketMirror(models.Model):
                                ('ticket_mirror_id', '!=', self.id)]) if refs else Order
         if nuevas:
             nuevas.write({'ticket_mirror_id': self.id})
+        # Solo se sueltan las que llegaron de Community: una requisición creada en Enterprise
+        # (sin external_ref) y ligada a mano a este ticket no viene en `refs` y no debe perderse.
         sobrantes = Order.search([('ticket_mirror_id', '=', self.id),
+                                  ('origin', '=', 'synced'),
                                   ('external_ref', 'not in', refs or [])])
         if sobrantes:
             sobrantes.write({'ticket_mirror_id': False})

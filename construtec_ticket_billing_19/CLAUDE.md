@@ -192,3 +192,7 @@ la migración `19.0.1.8.1`. Hallazgo en producción (2026-11-16): el plan de ár
 `_apply_ticket_analytic_to_documents()` también llama `construtec.sat.document._heredar_analitica_de_requisicion()` (si el modelo existe). La migración de
 `construtec_account_19` 1.15.0 corría antes de cargar los campos de este módulo (`ticket_mirror_id`, `area_analytic_account_id`) y dejó 61 documentos sin área: esta
 migración lo repite ya con todo cargado. Lección: una migración que lee campos de otro módulo posterior en el orden de carga no los ve.
+
+
+## 19.0.1.9.2 (2026-11-16): `_link_payment_orders` no suelta requisiciones creadas en Enterprise
+Al reenviar un ticket, Community manda sus requisiciones (`refs`) y Enterprise soltaba toda requisicion ligada al espejo que no viniera en la lista. Una creada en Enterprise (origin local, sin `external_ref`) y ligada a mano a un ticket se perdia en cada reenvio. Ahora solo se sueltan las `origin = synced`.
