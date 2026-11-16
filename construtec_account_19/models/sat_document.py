@@ -69,6 +69,9 @@ BIEN_O_SERVICIO_SELECTION = [('B', 'Bien'), ('S', 'Servicio')]
 TIPO_COMPRA_SELECTION = [('local', 'Compra Local'), ('importacion', 'Importación')]
 
 
+# Plan analítico oficial de áreas (decisión del usuario, 2026-11-16).
+AREA_PLAN_NAME = "AREAS CONSTRUTEC"
+
 class ConstructecSatDocument(models.Model):
     _name = 'construtec.sat.document'
     _description = 'Documento SAT (DTE) importado desde Agencia Virtual'
@@ -188,6 +191,17 @@ class ConstructecSatDocument(models.Model):
              'datos potencialmente sin aprovechar. Se recalcula al usar "Rectificar desde XML".')
     pdf_attachment_id = fields.Many2one('ir.attachment', string='PDF', copy=False)
     cuenta_analitica_id = fields.Many2one('account.analytic.account', string='Cuenta Analítica')
+    # Área de negocio: cuenta del plan analítico "AREAS CONSTRUTEC", independiente de cuenta_analitica_id, que es la
+    # UBICACIÓN del cliente (sincronizada desde Community). Plan oficial "AREAS CONSTRUTEC".
+    # Si el documento se vincula a una Requisición con ticket, hereda ubicación y área del ticket
+    # (sat_document_ticket_analytic.py). Solo clasifica el documento;
+    # no genera ni modifica asientos contables.
+    area_negocio_id = fields.Many2one(
+        'account.analytic.account', string='Área de Negocio', index=True,
+        domain=lambda self: self._sat_area_negocio_domain(),
+        help='Unidad de negocio (Infraestructura, Care, Energy, IT, Forniture, Backoffice). '
+             'Cuenta del plan analítico "Área de Negocio", aparte de la cuenta analítica de '
+             'ubicación.')
     cuenta_contable_id = fields.Many2one('account.account', string='Cuenta Contable')
     line_ids = fields.One2many('construtec.sat.document.line', 'document_id', string='Líneas')
     state = fields.Selection([
@@ -251,6 +265,14 @@ class ConstructecSatDocument(models.Model):
         'unique(numero_autorizacion, company_id)',
         'Ya existe un documento SAT importado con este número de autorización para esta compañía.',
     )
+
+    @api.model
+    def _sat_area_negocio_domain(self):
+        """Cuentas del plan oficial de áreas, "AREAS CONSTRUTEC" (el mismo que usan los equipos y
+        los tickets). Se busca por nombre: es un plan creado a mano en Enterprise."""
+        plan = self.env['account.analytic.plan'].sudo().search(
+            [('name', '=', AREA_PLAN_NAME)], limit=1)
+        return [('plan_id', '=', plan.id)] if plan else [('id', '=', False)]
 
     @api.depends('xml_attachment_id')
     def _compute_xml_content(self):

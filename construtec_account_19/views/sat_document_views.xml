@@ -90,7 +90,8 @@
                                    decoration-success="move_payment_state in ('paid', 'reversed')"/>
                             <field name="move_amount_residual"
                                    invisible="state != 'convertido_factura'"/>
-                            <field name="cuenta_analitica_id"/>
+                            <field name="cuenta_analitica_id" string="Cuenta Analítica (Ubicación)"/>
+                            <field name="area_negocio_id" options="{'no_create': True}"/>
                             <field name="cuenta_contable_id"/>
                         </group>
                         <group>
@@ -201,6 +202,7 @@
                 <field name="numero_autorizacion"/>
                 <field name="monto_total" sum="Total"/>
                 <field name="cuenta_contable_id"/>
+                <field name="area_negocio_id" optional="show" options="{'no_create': True}"/>
                 <field name="anulado" optional="hide"/>
                 <field name="etiquetas_no_reconocidas" optional="hide"/>
                 <field name="state" widget="badge"
@@ -220,6 +222,7 @@
                 <field name="numero_autorizacion" string="No. Autorización"/>
                 <field name="partner_id" string="Proveedor"/>
                 <field name="nit_contacto" string="NIT del Proveedor"/>
+                <field name="area_negocio_id"/>
                 <filter string="Recibidas" name="recibidas" domain="[('direction', '=', 'recibida')]"/>
                 <filter string="Emitidas" name="emitidas" domain="[('direction', '=', 'emitida')]"/>
                 <separator/>
@@ -229,9 +232,12 @@
                 <filter string="Anuladas" name="anuladas" domain="[('anulado', '=', True)]"/>
                 <filter string="Con Etiquetas No Reconocidas" name="con_etiquetas_no_reconocidas"
                         domain="[('etiquetas_no_reconocidas', '!=', False)]"/>
+                <filter string="Sin Área de Negocio" name="sin_area_negocio"
+                        domain="[('area_negocio_id', '=', False)]"/>
                 <group>
                     <filter string="Dirección" name="group_direction" context="{'group_by': 'direction'}"/>
                     <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
+                    <filter string="Área de Negocio" name="group_area_negocio" context="{'group_by': 'area_negocio_id'}"/>
                 </group>
             </search>
         </field>

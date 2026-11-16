@@ -12,3 +12,4 @@ from . import sat_retention
 from . import sat_retention_import
 from . import sat_retention_emitida
 from . import sat_retention_emitida_import
+from . import sat_document_ticket_analytic
