@@ -161,3 +161,15 @@ factura. Versión 19.0.1.3.0.
 ## Renombre (2026-11-09, 19.0.1.7.1)
 
 "Costos directos" se llama ahora "Trabajos realizados con costos" (solo etiquetas del espejo y de su vista).
+
+## Distribución analítica Ubicación + Área en pagos y facturas de proveedor (2026-11-16, versión 19.0.1.8.0)
+
+Pedido del usuario: la cuenta analítica del ticket (Ubicación) y la del equipo (Área) llevan 100 % cada una en los asientos de
+pagos y facturas: un renglón con llave `"ubicación,área": 100`. Ya existían la factura de venta y la Orden de Compra; se agregó:
+- `account.payment.order._ticket_analytic_distribution()` / `_apply_ticket_analytic_to_lines()`: ubicación = la de la requisición (o la del
+  espejo), área = foto del equipo (o la del espejo). Solo líneas sin distribución propia.
+- Se aplica a facturas de proveedor ligadas a la requisición (`account.move` create/write), pagos (`account.payment.action_post`) y el
+  asiento de conciliación (`action_conciliar`). La migración `19.0.1.8.0` lo aplica a lo ya existente.
+- Sin Área solo viaja la Ubicación; el Área exige que el equipo tenga su cuenta de área en Community y que el ticket se reenvíe.
+- Límite: pagos de clientes a facturas de venta no se tocan.
+- Probado en `enterprise_test_4_noviembre` (shell, rollback). Sin probar en navegador.

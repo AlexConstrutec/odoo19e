@@ -51,3 +51,36 @@ class AccountPaymentOrder(models.Model):
                 if (line.analytic_distribution or False) == base:
                     line.analytic_distribution = nueva
         return res
+
+    def _ticket_analytic_distribution(self):
+        """Distribución analítica de TODO lo que esta requisición genera en contabilidad (facturas
+        de proveedor, pagos y asiento de conciliación): un solo renglón con llave "ubicación,
+        área" = 100 %, es decir las DOS cuentas (una por plan, cada plan al 100 %). La Ubicación
+        es la de la requisición (viene del ticket); si falta, la del espejo del ticket. El Área es
+        la foto del equipo al crear la requisición; si falta, la del espejo del ticket. Sin
+        ninguna de las dos devuelve False (no se toca nada)."""
+        self.ensure_one()
+        ubicacion = self.analytic_account_id or self.ticket_mirror_id.analytic_account_id
+        area = self.area_analytic_account_id or self.ticket_mirror_id.area_analytic_account_id
+        ids = [a.id for a in (ubicacion, area) if a]
+        return {','.join(str(i) for i in ids): 100.0} if ids else False
+
+    def _apply_ticket_analytic_to_lines(self, lines):
+        """Pone la distribución solo en líneas que todavía no tienen una propia (nunca pisa la
+        que el contable ya fijó a mano) y que no son sección/nota."""
+        self.ensure_one()
+        distribucion = self._ticket_analytic_distribution()
+        if not distribucion:
+            return
+        vacias = lines.filtered(
+            lambda l: l.display_type not in ('line_section', 'line_note')
+            and not l.analytic_distribution)
+        if vacias:
+            vacias.analytic_distribution = distribucion
+
+    def action_conciliar(self):
+        res = super().action_conciliar()
+        for order in self:
+            if order.move_id:
+                order._apply_ticket_analytic_to_lines(order.move_id.line_ids)
+        return res

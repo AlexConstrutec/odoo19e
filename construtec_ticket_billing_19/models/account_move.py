@@ -102,6 +102,14 @@ class AccountMove(models.Model):
             )
             lineas.analytic_distribution = distribucion
 
+    def _apply_requisicion_analytic_distribution(self):
+        """Facturas de proveedor ligadas a una Requisición de Pago: sus líneas llevan la
+        Ubicación + Área del ticket de la requisición (solo líneas sin distribución propia)."""
+        for move in self:
+            if move.move_type != 'in_invoice' or not move.payment_order_id:
+                continue
+            move.payment_order_id._apply_ticket_analytic_to_lines(move.invoice_line_ids)
+
     @api.onchange('ticket_mirror_ids', 'invoice_line_ids')
     def _onchange_ticket_mirror_ids_apply_analytic_distribution(self):
         self._apply_ticket_analytic_distribution()
@@ -112,10 +120,13 @@ class AccountMove(models.Model):
         # _apply_ticket_analytic_distribution() ya es un no-op seguro (move_type != 'out_invoice',
         # o sin tickets con Cuenta Analítica) - no hace falta filtrar cuáles vals traían qué.
         records._apply_ticket_analytic_distribution()
+        records._apply_requisicion_analytic_distribution()
         return records
 
     def write(self, vals):
         res = super().write(vals)
         if 'ticket_mirror_ids' in vals or 'invoice_line_ids' in vals:
             self._apply_ticket_analytic_distribution()
+        if 'payment_order_id' in vals or 'invoice_line_ids' in vals:
+            self._apply_requisicion_analytic_distribution()
         return res
