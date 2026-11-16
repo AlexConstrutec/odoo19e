@@ -187,3 +187,8 @@ la migración `19.0.1.8.1`. Hallazgo en producción (2026-11-16): el plan de ár
 - `_apply_ticket_analytic_to_documents()` y la migración `19.0.1.9.0` aplican lo mismo a lo ya existente.
 - **Pendiente (decisión del usuario)**: Documento SAT (`construtec.sat.document`, `construtec_account_19`) no hereda aún Ubicación/Área de la requisición: su campo
   `area_negocio_id` apunta al plan "Área de Negocio" (módulo, sin desplegar) y producción usa el plan "AREAS CONSTRUTEC"; hay que unificar el plan.
+
+### 19.0.1.9.1 (2026-11-16): documentos SAT
+`_apply_ticket_analytic_to_documents()` también llama `construtec.sat.document._heredar_analitica_de_requisicion()` (si el modelo existe). La migración de
+`construtec_account_19` 1.15.0 corría antes de cargar los campos de este módulo (`ticket_mirror_id`, `area_analytic_account_id`) y dejó 61 documentos sin área: esta
+migración lo repite ya con todo cargado. Lección: una migración que lee campos de otro módulo posterior en el orden de carga no los ve.

@@ -100,6 +100,11 @@ class AccountPaymentOrder(models.Model):
                 order._apply_ticket_analytic_to_lines(pago.move_id.line_ids)
             if order.move_id:
                 order._apply_ticket_analytic_to_lines(order.move_id.line_ids)
+            # Documentos SAT de la requisición (construtec_account_19, si está instalado).
+            if 'construtec.sat.document' in self.env:
+                self.env['construtec.sat.document'].search(
+                    ['|', ('payment_order_id', '=', order.id),
+                     ('move_id.payment_order_id', '=', order.id)])._heredar_analitica_de_requisicion()
 
     def action_conciliar(self):
         res = super().action_conciliar()
