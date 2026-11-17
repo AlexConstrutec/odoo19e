@@ -6,7 +6,12 @@
         <field name="inherit_id" ref="construtec_account_payment_order_19.view_account_payment_order_form" />
         <field name="arch" type="xml">
             <field name="analytic_account_id" position="before">
-                <field name="ticket_mirror_id" invisible="not ticket_mirror_id" />
+                <field name="origin" invisible="1" />
+                <!-- Solo se elige a mano en las creadas aquí (Local) y no cerradas; las
+                     sincronizadas dependen de Community. -->
+                <field name="ticket_mirror_id"
+                       readonly="origin != 'local' or state in ('liquidado', 'cancelado', 'rechazado')"
+                       options="{'no_create': True}" />
             </field>
             <!-- El Área de Negocio vive en la pestaña Información (2026-11-16). Siempre visible. -->
             <xpath expr="//page/group/field[@name='tipo_cuenta']/.." position="before">

@@ -203,3 +203,7 @@ Al reenviar un ticket, Community manda sus requisiciones (`refs`) y Enterprise s
 - Factura **cancelada**: `account.move.write()` suelta los tickets (`move_id=False`) y vuelven a Hecho, libres para otra factura.
   Factura **borrada**: el Many2one sin `ondelete` hace `set null`. Factura reabierta a borrador: el ticket sigue vinculado pero Sin Facturar.
 - Community lo lee en su pull (`billing_state`/`move_id`), así que su ticket también regresa a Sin Facturar.
+
+## Ticket de la requisición, visible siempre y editable en las creadas aquí (2026-11-17)
+- El campo **Ticket** (`ticket_mirror_id`) se ve siempre en la requisición de Enterprise. Es de solo lectura salvo en las creadas en Enterprise (`origin = 'local'`) que no estén Liquidadas, Canceladas ni Rechazadas: ahí se elige a mano (sin "Crear"). Las sincronizadas siguen dependiendo de Community.
+- Al elegirlo en una requisición local, `write()` toma la Ubicación del ticket si la requisición no tenía una y reparte la distribución analítica en lo ya contabilizado (solo líneas vacías o con solo la Ubicación). El Área sale del espejo del ticket cuando la requisición no tiene una propia.

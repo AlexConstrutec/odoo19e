@@ -6,12 +6,15 @@ class AccountPaymentOrder(models.Model):
     _inherit = 'account.payment.order'
 
     ticket_mirror_id = fields.Many2one(
-        'construtec.helpdesk.ticket.mirror', string='Ticket', index=True, readonly=True,
+        'construtec.helpdesk.ticket.mirror', string='Ticket', index=True,
         copy=False, ondelete='set null',
         help='El Ticket de Community que originó esta Requisición de Pago (2026-10-24). Llega '
              'por número de ticket, nunca por id: con la propia requisición (`ticket_number`, '
              'ver create()) o cuando Community reenvía el ticket con sus requisiciones '
-             '(`payment_order_refs`, ver construtec.helpdesk.ticket.mirror.sync_from_community()).')
+             '(`payment_order_refs`, ver construtec.helpdesk.ticket.mirror.sync_from_community()). '
+             'Solo se edita a mano en las requisiciones creadas aquí en Enterprise (origen Local) '
+             'que no están cerradas (2026-11-17): la vista lo controla; las sincronizadas siguen '
+             'dependiendo de Community.')
 
     area_analytic_account_id = fields.Many2one(
         'account.analytic.account', string='Área de Negocio', readonly=True, copy=False,
@@ -36,6 +39,21 @@ class AccountPaymentOrder(models.Model):
                 vals['ticket_mirror_id'] = self.env[
                     'construtec.helpdesk.ticket.mirror'].sudo()._get_or_create_by_number(number).id
         return super().create(vals_list)
+
+    def write(self, vals):
+        """Elegir/cambiar el ticket a mano en una requisición creada aquí (origen Local): la
+        Ubicación vacía se toma del ticket y lo ya contabilizado recibe su distribución analítica
+        (solo líneas vacías o con solo la Ubicación, nunca una fijada a mano). Las sincronizadas
+        quedan fuera: su ubicación y su ticket vienen de Community."""
+        res = super().write(vals)
+        if vals.get('ticket_mirror_id'):
+            locales = self.filtered(lambda o: o.origin == 'local' and o.ticket_mirror_id)
+            for order in locales.filtered(lambda o: not o.analytic_account_id):
+                ubicacion = order.ticket_mirror_id.analytic_account_id
+                if ubicacion:
+                    order.analytic_account_id = ubicacion
+            locales._apply_ticket_analytic_to_documents()
+        return res
 
     def action_generar_orden_compra(self):
         """Tras generar la Orden de Compra, agrega el Área al reparto analítico de sus líneas
