@@ -126,6 +126,12 @@ class AccountMove(models.Model):
 
     def write(self, vals):
         res = super().write(vals)
+        if vals.get('state') == 'cancel':
+            # Factura cancelada: sus tickets quedan libres y vuelven a Hecho (sin facturar), listos
+            # para otra factura (2026-11-16). Si la factura se BORRA, el vínculo se suelta solo
+            # (`move_id` es un Many2one sin `ondelete`, o sea `set null`). Con `sudo()`: quien
+            # cancela la factura no necesariamente puede escribir en el espejo.
+            self.sudo().ticket_mirror_ids.write({'move_id': False})
         if 'ticket_mirror_ids' in vals or 'invoice_line_ids' in vals:
             self._apply_ticket_analytic_distribution()
         if 'payment_order_id' in vals or 'invoice_line_ids' in vals:

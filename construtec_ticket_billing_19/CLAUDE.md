@@ -196,3 +196,10 @@ migración lo repite ya con todo cargado. Lección: una migración que lee campo
 
 ## 19.0.1.9.2 (2026-11-16): `_link_payment_orders` no suelta requisiciones creadas en Enterprise
 Al reenviar un ticket, Community manda sus requisiciones (`refs`) y Enterprise soltaba toda requisicion ligada al espejo que no viniera en la lista. Una creada en Enterprise (origin local, sin `external_ref`) y ligada a mano a un ticket se perdia en cada reenvio. Ahora solo se sueltan las `origin = synced`.
+
+## Ciclo del ticket en la factura de cliente (2026-11-16)
+- La factura solo ofrece tickets **Hechos** y sin facturar (`is_closed` + `billing_state='no_facturado'`); Community envía los tickets en cualquier etapa.
+- Hecho → vincular a la factura → **Facturado** al postearla → **Cobrado** al pagarse (`billing_state` calculado, nunca a mano).
+- Factura **cancelada**: `account.move.write()` suelta los tickets (`move_id=False`) y vuelven a Hecho, libres para otra factura.
+  Factura **borrada**: el Many2one sin `ondelete` hace `set null`. Factura reabierta a borrador: el ticket sigue vinculado pero Sin Facturar.
+- Community lo lee en su pull (`billing_state`/`move_id`), así que su ticket también regresa a Sin Facturar.
