@@ -7,8 +7,13 @@
         <field name="arch" type="xml">
             <field name="analytic_account_id" position="before">
                 <field name="ticket_mirror_id" invisible="not ticket_mirror_id" />
-                <field name="area_analytic_account_id" invisible="not area_analytic_account_id" />
             </field>
+            <!-- El Área de Negocio vive en la pestaña Información (2026-11-16). Siempre visible. -->
+            <xpath expr="//page[@string='Información']" position="inside">
+                <group string="Área de negocio">
+                    <field name="area_analytic_account_id" string="Área de negocio" />
+                </group>
+            </xpath>
         </field>
     </record>
 
