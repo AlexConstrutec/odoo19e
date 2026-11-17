@@ -478,13 +478,13 @@ class ResCompany(models.Model):
                 plan_name = acc['plan_id'][1]
                 plan = AnalyticPlan.search([('name', '=', plan_name)], limit=1)
                 if not plan:
-                    plan = AnalyticPlan.create({'name': plan_name})
+                    plan = AnalyticPlan.with_context(construtec_allow_plan_create=True).create({'name': plan_name})
             if not plan:
                 # plan_id es obligatorio en account.analytic.account - sin plan de origen,
                 # se agrupa en un plan generico en vez de fallar la sincronizacion completa.
                 plan = AnalyticPlan.search([('name', '=', 'Proyectos (sin plan de origen)')], limit=1)
                 if not plan:
-                    plan = AnalyticPlan.create({'name': 'Proyectos (sin plan de origen)'})
+                    plan = AnalyticPlan.with_context(construtec_allow_plan_create=True).create({'name': 'Proyectos (sin plan de origen)'})
             partner = self.env['res.partner']
             if acc.get('partner_id'):
                 partner = self.env['res.partner'].sudo().search(

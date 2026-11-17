@@ -168,7 +168,8 @@ class AccountAnalyticAccount(models.Model):
         if not plan:
             plan = Plan.search([('name', '=', 'Proyectos (sin plan de origen)')], limit=1)
         if not plan:
-            plan = Plan.create({'name': plan_name or 'Proyectos (sin plan de origen)'})
+            plan = Plan.with_context(construtec_allow_plan_create=True).create(
+                {'name': plan_name or 'Proyectos (sin plan de origen)'})
         clean_vals['plan_id'] = plan.id
 
         if partner_ref:
