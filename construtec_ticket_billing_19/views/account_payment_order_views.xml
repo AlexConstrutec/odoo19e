@@ -9,7 +9,7 @@
                 <field name="ticket_mirror_id" invisible="not ticket_mirror_id" />
             </field>
             <!-- El Área de Negocio vive en la pestaña Información (2026-11-16). Siempre visible. -->
-            <xpath expr="//page[@string='Información']" position="inside">
+            <xpath expr="//field[@name='tipo_cuenta']/.." position="before">
                 <group string="Área de negocio">
                     <field name="area_analytic_account_id" string="Área de negocio" />
                 </group>
