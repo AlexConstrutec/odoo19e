@@ -212,3 +212,6 @@ Al reenviar un ticket, Community manda sus requisiciones (`refs`) y Enterprise s
 - `costo_total` y `costo_general` **dejan de ser valores empujados** desde Community y se calculan aquí: `costo_real` = suma del `costo_real` de cada requisición vigente (facturas sin IVA o pagos, más traslados); `costo_general` = costo por plan + costo real + costos directos. `sync_from_community()` ignora lo que Community mande en esos dos campos.
 - Bloques nuevos: `costo_pagos` y `costo_por_justificar`. `costo_facturas` es la base sin IVA.
 - Solo cuentan requisiciones En compras, Aprobadas, Aplicadas o Liquidadas.
+
+## Aviso al elegir un ticket en Hecho (2026-11-17, F2)
+Un ticket en Hecho ya no debería recibir requisiciones nuevas, pero **solo se avisa, no se bloquea**: al elegir el ticket sale un aviso emergente y, mientras la requisición esté en Borrador, una franja amarilla en el formulario (`ticket_cerrado`). Las requisiciones ya en curso siguen recibiendo pagos, facturas y traslados. Community usa `ticket_id.closed`; Enterprise (solo requisiciones creadas allá) usa `ticket_mirror_id.is_closed`.

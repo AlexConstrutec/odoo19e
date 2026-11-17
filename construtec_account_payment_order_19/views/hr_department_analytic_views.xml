@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Distribución analítica en el Departamento (2026-11-17). Los empleados que lo elijan la heredan. -->
+    <record id="view_department_form_analytic" model="ir.ui.view">
+        <field name="name">hr.department.form.analytic</field>
+        <field name="model">hr.department</field>
+        <field name="inherit_id" ref="hr.view_department_form"/>
+        <field name="arch" type="xml">
+            <field name="parent_id" position="after">
+                <field name="analytic_precision" invisible="1"/>
+                <field name="analytic_distribution" widget="analytic_distribution"
+                       groups="analytic.group_analytic_accounting"/>
+            </field>
+        </field>
+    </record>
+
+    <!-- Community no tiene nómina: la distribución del empleado se muestra en la pestaña Trabajo. -->
+    <record id="view_employee_form_analytic" model="ir.ui.view">
+        <field name="name">hr.employee.form.analytic</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='work_information']//field[@name='department_id']" position="after">
+                <field name="muestra_distribucion_analitica" invisible="1"/>
+                <field name="analytic_precision" invisible="1"/>
+                <field name="analytic_distribution" widget="analytic_distribution"
+                       invisible="not muestra_distribucion_analitica"
+                       groups="analytic.group_analytic_accounting"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

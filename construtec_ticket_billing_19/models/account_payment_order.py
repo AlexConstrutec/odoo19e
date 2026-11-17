@@ -16,6 +16,22 @@ class AccountPaymentOrder(models.Model):
              'que no están cerradas (2026-11-17): la vista lo controla; las sincronizadas siguen '
              'dependiendo de Community.')
 
+    ticket_cerrado = fields.Boolean(
+        related='ticket_mirror_id.is_closed', string='Ticket en Hecho',
+        help='Auxiliar del aviso: el ticket de la requisición ya está en Hecho en Community.')
+
+    @api.onchange('ticket_mirror_id')
+    def _onchange_ticket_mirror_id_hecho(self):
+        """Aviso, no error (2026-11-17): un ticket en Hecho ya no debería recibir requisiciones nuevas."""
+        if self[:1].ticket_mirror_id.is_closed:
+            return {'warning': {
+                'title': self.env._('El ticket ya está en Hecho'),
+                'message': self.env._(
+                    'El ticket %s ya está terminado. Un ticket en Hecho no debería recibir '
+                    'requisiciones nuevas. Puede continuar, pero confirme que de verdad '
+                    'corresponde a este ticket.', self[:1].ticket_mirror_id.ticket_label),
+            }}
+
     area_analytic_account_id = fields.Many2one(
         'account.analytic.account', string='Área de Negocio', readonly=True, copy=False,
         help='Área del equipo del ticket al CREAR la requisición en Community (foto: no cambia '

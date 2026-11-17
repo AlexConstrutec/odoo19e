@@ -50,3 +50,11 @@ cotización, Orden de Compra, sincronización) sigue escribiendo las líneas com
 - **Community (`_pull_payment_order_status()`):** con varias copias del mismo número se queda con la de estado más avanzado (`_elegir_copia_remota()`), a igualdad la que ya conoce (`enterprise_record_id`). Así los duplicados ya existentes dejan de provocar saltos.
 - **Aviso:** `construtec_whatsapp_19._notify_estado_pull()` nunca avisa "Enviado" (solo sale desde `action_submit()`).
 - Las copias duplicadas que ya existen en Enterprise (RP/1448; RP/1346; RP/1354 a RP/1357) no se limpian solas: rechazarlas o cancelarlas a mano.
+
+## Distribución analítica del departamento, heredada por el empleado (2026-11-17, F2)
+- `hr.department` hereda `analytic.mixin` (campo `analytic_distribution`, widget analítico en su formulario). En el módulo compartido para que exista **igual en Enterprise y Community** (`construtec_hr_employee_19` es solo de Enterprise).
+- `hr.version` (donde vive el departamento del empleado en Odoo 19) hereda el mismo mixin. En Enterprise `hr_payroll_account` ya lo declaraba; en Community no hay nómina, así que se declara aquí con el mismo grupo (`hr.group_hr_user`).
+- **Herencia:** al elegir o cambiar el departamento, la versión toma la distribución del departamento (`_compute_analytic_distribution`, depende solo de `department_id`). Es editable. Si el departamento no tiene distribución, se conserva la que el empleado ya tenía. Si luego cambia la distribución del departamento, **no** se pisan las de los empleados.
+- **Ficha del empleado:** en Enterprise la muestra la pestaña de nómina; en Community, la pestaña Trabajo (`muestra_distribucion_analitica`, falso si hay nómina, evita duplicarla). Ambas piden el grupo "Contabilidad analítica".
+- **Community:** `_sync_department_distributions()` (al final de "Sincronizar empleados") trae la distribución de cada departamento de Enterprise. Las claves son ids de cuentas de Enterprise y se traducen con `enterprise_analytic_ref`; si falta alguna cuenta, ese departamento se omite. Rellena solo a los empleados **sin** distribución propia.
+- Versiones: Community 19.0.1.31.0, Enterprise 19.0.1.32.0.

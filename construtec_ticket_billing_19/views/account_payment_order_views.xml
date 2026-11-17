@@ -5,6 +5,15 @@
         <field name="model">account.payment.order</field>
         <field name="inherit_id" ref="construtec_account_payment_order_19.view_account_payment_order_form" />
         <field name="arch" type="xml">
+            <!-- Aviso (no bloquea): un ticket en Hecho ya no debería recibir requisiciones nuevas. -->
+            <xpath expr="//sheet" position="before">
+                <field name="ticket_cerrado" invisible="1" />
+                <div class="alert alert-warning mb-0" role="alert"
+                     invisible="not ticket_cerrado or state != 'borrador'">
+                    <strong>El ticket ya está en Hecho.</strong> Un ticket terminado no debería recibir
+                    requisiciones nuevas. Puede continuar, pero confirme que de verdad corresponde a este ticket.
+                </div>
+            </xpath>
             <field name="analytic_account_id" position="before">
                 <field name="origin" invisible="1" />
                 <!-- Solo se elige a mano en las creadas aquí (Local) y no cerradas; las
