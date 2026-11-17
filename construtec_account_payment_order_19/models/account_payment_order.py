@@ -901,8 +901,49 @@ class AccountPaymentOrder(models.Model):
             self.partner_id = self.env['hr.employee'].search(
                 [('user_id', '=', self.env.user.id)], limit=1).work_contact_id
 
+    @api.model
+    def _filtrar_envios_duplicados(self, vals_list):
+        """Idempotencia de los envíos desde Community (2026-11-17). Enterprise creaba una copia nueva
+        cada vez que llegaba el mismo `external_ref` (doble clic en Enviar, o reenvío tras "Volver a
+        borrador"), y Community, al consultar por número, recibía varias filas y su estado saltaba
+        de una a otra (con el aviso de WhatsApp repitiéndose). Solo aplica en Enterprise
+        (Procesador) y a lo que llega sincronizado:
+        - si ya existe una copia viva que alguien procesó (En compras, Aprobada, Aplicada...), NO se
+          crea otra: se devuelve esa;
+        - si la copia viva sigue en Enviado (nadie la ha atendido), se cancela y la nueva toma su
+          lugar, así el reenvío con cambios no se pierde;
+        - un lock por número serializa los envíos simultáneos: el segundo espera al commit del
+          primero y ya lo ve."""
+        if self.env.company.payment_order_role != 'procesador':
+            return vals_list, self.browse()
+        ya_existentes = self.browse()
+        limpios = []
+        for vals in vals_list:
+            ref = vals.get('external_ref')
+            if vals.get('origin') != 'synced' or not ref:
+                limpios.append(vals)
+                continue
+            self.env.cr.execute(
+                'SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))', ['payment_order_sync:%s' % ref])
+            vivas = self.sudo().with_context(active_test=False).search([
+                ('external_ref', '=', ref), ('origin', '=', 'synced'),
+                ('state', 'not in', ('rechazado', 'cancelado', 'dividida'))])
+            procesadas = vivas.filtered(lambda o: o.state != 'enviado')
+            if procesadas:
+                ya_existentes |= procesadas[:1]
+                continue
+            for previa in vivas:
+                previa.write({'state': 'cancelado'})
+                previa.message_post(body=self.env._(
+                    'Reemplazada por un reenvío del mismo número (%s) desde Community.', ref))
+            limpios.append(vals)
+        return limpios, ya_existentes
+
     @api.model_create_multi
     def create(self, vals_list):
+        vals_list, ya_existentes = self._filtrar_envios_duplicados(vals_list)
+        if not vals_list:
+            return ya_existentes
         sat_document_ids_list = [vals.pop('sat_document_ids', None) for vals in vals_list]
         for vals in vals_list:
             if vals.get('tipo', 'anticipo') in (
@@ -951,7 +992,7 @@ class AccountPaymentOrder(models.Model):
             # puede seguir cargándolo sin ese modelo instalado.
             if sat_document_ids and hasattr(record, '_resolve_sat_document_ids'):
                 record._resolve_sat_document_ids(sat_document_ids)
-        return records
+        return records | ya_existentes
 
     def _check_factura_mirror_disponible(self, mirror):
         """Mismo candado que `_check_factura_disponible()`, pero contra el mirror de solo

@@ -43,3 +43,10 @@ cotización, Orden de Compra, sincronización) sigue escribiendo las líneas com
 - `costo_por_justificar` = pagado - facturado (con IVA), solo si ya hay facturas. Positivo: anticipo sin justificar; negativo: falta pagar.
 - Community no calcula nada de esto: el pull trae `costo_pagos` y `facturas_con_iva` (solo si Enterprise ya los tiene: `fields_get`, así el orden de despliegue no importa). Después de desplegar, correr **Ajustes > Sincronizar ahora** para que Community vea los montos.
 - Versiones: Community 19.0.1.30.0, Enterprise 19.0.1.31.0 (cada lado lleva su propia numeración). La migración recalcula todas las requisiciones.
+
+## Envíos duplicados Community -> Enterprise: idempotencia y aviso único (2026-11-17)
+- **Qué pasó (RP/0585, RP/0565, RP/0569):** Enterprise creaba una requisición nueva en cada envío del mismo `external_ref` (doble clic en Enviar, o reenvío tras "Volver a borrador"). Community consulta por número, recibía varias filas y su estado saltaba de una a otra (en compras <-> enviado), y cada salto a "Enviado" repetía el aviso de WhatsApp.
+- **Enterprise (`create()` -> `_filtrar_envios_duplicados()`):** lock por número (`pg_advisory_xact_lock`) para serializar envíos simultáneos; si ya hay una copia viva ya atendida (En compras, Aprobada, Aplicada, Liquidada) no se crea otra y se devuelve esa; si la copia viva sigue en Enviado se cancela (con nota) y la nueva ocupa su lugar. Solo aplica con rol Procesador y `origin='synced'`.
+- **Community (`_pull_payment_order_status()`):** con varias copias del mismo número se queda con la de estado más avanzado (`_elegir_copia_remota()`), a igualdad la que ya conoce (`enterprise_record_id`). Así los duplicados ya existentes dejan de provocar saltos.
+- **Aviso:** `construtec_whatsapp_19._notify_estado_pull()` nunca avisa "Enviado" (solo sale desde `action_submit()`).
+- Las copias duplicadas que ya existen en Enterprise (RP/1448; RP/1346; RP/1354 a RP/1357) no se limpian solas: rechazarlas o cancelarlas a mano.
