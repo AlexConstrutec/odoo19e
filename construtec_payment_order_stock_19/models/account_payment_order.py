@@ -1,3 +1,5 @@
+import json
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
@@ -7,6 +9,35 @@ class AccountPaymentOrder(models.Model):
 
     traslado_picking_ids = fields.One2many(
         'stock.picking', 'payment_order_id', string='Traslados desde Bodega', readonly=True)
+
+    traslado_detalle = fields.Text(
+        string='Detalle de traslados (JSON)', compute='_compute_traslado_detalle',
+        help='Material que salió de bodega en los traslados ya validados (producto, cantidad, costo, '
+             'bodega, traslado, fecha). Lo lee Community por el pull de estado para mostrarlo en la '
+             'requisición y en el ticket.')
+
+    @api.depends('traslado_picking_ids.state', 'traslado_picking_ids.move_ids.value',
+                 'traslado_picking_ids.move_ids.quantity')
+    def _compute_traslado_detalle(self):
+        for orden in self:
+            filas = []
+            hechos = orden.sudo().traslado_picking_ids.filtered(lambda p: p.state == 'done')
+            for picking in hechos:
+                fecha = picking.date_done
+                for move in picking.move_ids.filtered(lambda mv: mv.state == 'done'):
+                    qty = move.quantity
+                    costo = abs(move.value)
+                    filas.append({
+                        'producto': move.product_id.display_name or '',
+                        'qty': qty,
+                        'uom': move.product_uom.name or '',
+                        'costo_unitario': (costo / qty) if qty else 0.0,
+                        'costo_total': costo,
+                        'bodega': picking.location_id.warehouse_id.name or picking.location_id.display_name or '',
+                        'picking': picking.name or '',
+                        'fecha': fecha.date().isoformat() if fecha else False,
+                    })
+            orden.traslado_detalle = json.dumps(filas)
 
     @api.depends('company_id.payment_order_role', 'traslado_picking_ids.state',
                  'traslado_picking_ids.move_ids.value')

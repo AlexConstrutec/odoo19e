@@ -1,7 +1,7 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 {
     "name": "Construtec - Materiales desde Bodega (Enterprise)",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "category": "Inventory/Inventory",
     "summary": "Solicitudes de Materiales: Compras revisa la existencia en bodega, traslada lo que hay "
     "y compra solo el faltante.",
