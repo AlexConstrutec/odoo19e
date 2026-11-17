@@ -1,6 +1,6 @@
 {
     'name': 'Construtec Requisición de Pago',
-    'version': '19.0.1.32.0',
+    'version': '19.0.1.33.0',
     'category': 'Accounting/Accounting',
     'summary': 'Órdenes de pago (Anticipo / Pago Directo) para conciliar facturas de varios '
                'proveedores contra pagos que no coinciden 1 a 1',
@@ -17,6 +17,7 @@
     'data': [
         'security/payment_order_request_security.xml',
         'security/ir.model.access.csv',
+        'security/costos_personal_security.xml',
         'security/security.xml',
         'data/account_payment_order_sequence.xml',
         'data/payment_order_sync_cron.xml',
@@ -39,6 +40,7 @@
         'views/account_payment_views.xml',
         'views/hr_employee_views.xml',
         'views/hr_department_analytic_views.xml',
+        'views/hr_employee_costo_views.xml',
         'views/res_partner_views.xml',
         'views/res_partner_bank_views.xml',
         'views/res_config_settings_views.xml',

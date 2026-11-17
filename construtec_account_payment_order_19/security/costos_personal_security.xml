@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Costos de personal (2026-11-17, F3): quién puede ver el costo por día/hora de los empleados.
+         La pertenencia se asigna a mano en cada base (Ajustes > Usuarios); aquí solo se crea el grupo. -->
+    <record id="group_costos_personal" model="res.groups">
+        <field name="name">Costos de personal</field>
+        <field name="comment">Ve el costo mensual, por día y por hora de cada empleado (sueldo, cargas patronales y provisiones).</field>
+        <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+    </record>
+</odoo>

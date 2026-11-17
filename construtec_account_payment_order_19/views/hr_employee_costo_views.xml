@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Costo de personal (2026-11-17, F3): solo el grupo "Costos de personal" lo ve. -->
+    <record id="view_employee_form_costo" model="ir.ui.view">
+        <field name="name">hr.employee.form.costo</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='work_information']" position="inside">
+                <group string="Costo de personal" groups="construtec_account_payment_order_19.group_costos_personal">
+                    <field name="currency_id" invisible="1"/>
+                    <field name="costo_mensual"/>
+                    <field name="costo_dia"/>
+                    <field name="costo_hora"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_company_form_costo" model="ir.ui.view">
+        <field name="name">res.company.form.costo</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Costo de personal" groups="construtec_account_payment_order_19.group_costos_personal">
+                    <group>
+                        <field name="costo_patronal_pct"/>
+                        <field name="costo_provisiones_pct"/>
+                        <field name="costo_dias_mes"/>
+                        <field name="costo_horas_dia"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

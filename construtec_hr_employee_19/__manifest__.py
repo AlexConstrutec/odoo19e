@@ -1,6 +1,6 @@
 {
     'name': 'Construtec Empleados',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'category': 'Human Resources/Employees',
     'summary': 'Ficha de empleado extendida: identidad, catálogos geográficos GT, historial laboral',
     'author': 'Alex Martínez',
@@ -12,6 +12,7 @@
         'hr',
         'hr_payroll',
         'construtec_hr_payroll_19',
+        'construtec_account_payment_order_19',
     ],
     'data': [
         'security/ir.model.access.csv',

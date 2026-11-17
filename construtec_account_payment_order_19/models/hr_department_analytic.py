@@ -21,18 +21,33 @@ class HrVersion(models.Model):
     analytic_precision = fields.Integer(groups='hr.group_hr_user', tracking=False)
     distribution_analytic_account_ids = fields.Many2many(groups='hr.group_hr_user', tracking=False)
 
-    @api.depends('department_id')
-    def _compute_analytic_distribution(self):
-        """Al elegir (o cambiar) el departamento, la versión toma la distribución del departamento. Es
-        editable después. Depende solo de `department_id` y no de la distribución del departamento: si
-        esta cambia más tarde, las distribuciones propias de cada empleado no se pisan. Un departamento
-        sin distribución conserva la que el empleado ya tenía."""
-        for version in self:
-            distribucion = version.department_id.sudo().analytic_distribution
-            if distribucion:
-                version.analytic_distribution = dict(distribucion)
-            elif not version.analytic_distribution:
-                version.analytic_distribution = False
+    @api.model_create_multi
+    def create(self, vals_list):
+        """Una versión nueva con departamento y sin distribución propia toma la del departamento."""
+        for vals in vals_list:
+            if vals.get('department_id') and not vals.get('analytic_distribution'):
+                distribucion = self.env['hr.department'].sudo().browse(
+                    vals['department_id']).analytic_distribution
+                if distribucion:
+                    vals['analytic_distribution'] = dict(distribucion)
+        return super().create(vals_list)
+
+    def write(self, vals):
+        """Al CAMBIAR el departamento, la versión toma la distribución del departamento nuevo (después
+        es editable). Solo cuando el departamento realmente cambia: la sincronización de empleados
+        reescribe el mismo departamento cada vez y no debe pisar la distribución propia del empleado.
+        Un departamento sin distribución conserva la que el empleado ya tenía. Si cambia luego la
+        distribución del departamento, las de los empleados no se tocan."""
+        cambia = 'department_id' in vals and 'analytic_distribution' not in vals
+        anteriores = {v.id: v.department_id.id for v in self} if cambia else {}
+        res = super().write(vals)
+        if cambia:
+            for version in self:
+                if version.department_id.id != anteriores[version.id]:
+                    distribucion = version.department_id.sudo().analytic_distribution
+                    if distribucion:
+                        version.analytic_distribution = dict(distribucion)
+        return res
 
 
 class HrEmployee(models.Model):
