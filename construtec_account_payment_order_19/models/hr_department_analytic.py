@@ -12,6 +12,16 @@ class HrDepartment(models.Model):
     _name = 'hr.department'
     _inherit = ['hr.department', 'analytic.mixin']
 
+    def write(self, vals):
+        """Al capturar o cambiar la distribución del departamento se rellena a sus empleados que NO
+        tienen una propia (2026-11-17): los que ya la tienen no se tocan. Sin esto, quien ya estaba en
+        el departamento antes de capturar la distribución se quedaba sin ella."""
+        res = super().write(vals)
+        if vals.get('analytic_distribution'):
+            self.env['hr.version'].sudo().with_context(active_test=False).search(
+                [('department_id', 'in', self.ids)])._heredar_distribucion_departamento()
+        return res
+
 
 class HrVersion(models.Model):
     _name = 'hr.version'
@@ -20,6 +30,17 @@ class HrVersion(models.Model):
     analytic_distribution = fields.Json(groups='hr.group_hr_user', tracking=False)
     analytic_precision = fields.Integer(groups='hr.group_hr_user', tracking=False)
     distribution_analytic_account_ids = fields.Many2many(groups='hr.group_hr_user', tracking=False)
+
+    def _heredar_distribucion_departamento(self):
+        """Rellena SOLO las versiones sin distribución propia con la de su departamento; nunca pisa una
+        existente ni toca las de un departamento sin distribución. Devuelve cuántas rellenó."""
+        rellenadas = 0
+        for version in self:
+            distribucion = version.department_id.sudo().analytic_distribution
+            if distribucion and not version.analytic_distribution:
+                version.analytic_distribution = dict(distribucion)
+                rellenadas += 1
+        return rellenadas
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -58,6 +79,17 @@ class HrEmployee(models.Model):
         help='En Enterprise la ficha ya muestra la distribución en la pestaña de nómina '
              '(`hr_payroll_account`); este campo evita mostrarla dos veces. En Community no hay '
              'nómina y se muestra en la pestaña Trabajo.')
+
+    def action_heredar_distribucion_departamento(self):
+        """Acción de la lista de empleados: a los seleccionados SIN distribución propia les pone la de su
+        departamento. No pisa ninguna existente."""
+        rellenadas = self.sudo().mapped('version_id')._heredar_distribucion_departamento()
+        sin_depto = len(self.filtered(lambda e: not e.sudo().department_id))
+        mensaje = self.env._('%(n)s empleado(s) recibieron la distribución de su departamento.', n=rellenadas)
+        if sin_depto:
+            mensaje += ' ' + self.env._('%(n)s no tienen departamento.', n=sin_depto)
+        return {'type': 'ir.actions.client', 'tag': 'display_notification',
+                'params': {'message': mensaje, 'type': 'success', 'sticky': False}}
 
     def _compute_muestra_distribucion_analitica(self):
         sin_nomina = 'hr.payslip' not in self.env

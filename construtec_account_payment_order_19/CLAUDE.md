@@ -71,3 +71,10 @@ cotización, Orden de Compra, sincronización) sigue escribiendo las líneas com
 `construtec_analytic_plan_lock_19` bloquea que **una persona** cree planes. Pero la alta rápida de "Ubicación" desde un ticket intentaba crear sola el plan genérico "Proyectos (sin plan de origen)" (que no existía en producción) y el bloqueo hacía fallar la creación de la **cuenta**.
 - **Ticket (`construtec_helpdesk_field_service`)**: la cuenta nueva usa el plan **existente** "UBICACION CLIENTE" (comparación `=ilike`); si no existe, el genérico si ya existe; solo como último recurso se crea el genérico levantando el bloqueo (`construtec_allow_plan_create`).
 - **Sincronización (módulo compartido)**: crear un plan para replicar el que ya existe del otro lado (`_sync_analytic_accounts_from_enterprise`, `create_analytic_account_from_community`) es una creación automática del sistema y también levanta el bloqueo. Un usuario creando un plan a mano sigue bloqueado.
+
+## Relleno de la distribución analítica de empleados sin ella (2026-11-17)
+En producción de Enterprise 73 de 74 empleados activos estaban sin distribución, aunque 8 departamentos ya la tenían: la herencia solo ocurre al elegir/cambiar el departamento, no a quien ya estaba en él cuando se capturó la distribución.
+- **Migración** (`19.0.1.34.0` Enterprise / `19.0.1.33.0` Community): rellena a toda versión de empleado SIN distribución propia con la de su departamento. Idempotente; **nunca pisa una existente**.
+- **`hr.department.write()`**: al capturar o cambiar la distribución de un departamento se rellena a sus empleados que no tienen (los que ya tienen no se tocan).
+- **Acción de la lista de empleados** "Heredar distribución analítica del departamento" (`action_heredar_distribucion_departamento`, grupo RR.HH.): lo mismo para los seleccionados; avisa cuántos no tienen departamento.
+- Un empleado **sin departamento** no puede heredar nada: hay que asignarle departamento primero.

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Lista de empleados: "Heredar distribución del departamento" (solo rellena a quien no tiene). -->
+    <record id="action_server_heredar_distribucion_departamento" model="ir.actions.server">
+        <field name="name">Heredar distribución analítica del departamento</field>
+        <field name="model_id" ref="hr.model_hr_employee"/>
+        <field name="binding_model_id" ref="hr.model_hr_employee"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="group_ids" eval="[(4, ref('hr.group_hr_user'))]"/>
+        <field name="code">action = records.action_heredar_distribucion_departamento()</field>
+    </record>
+</odoo>
