@@ -146,7 +146,7 @@ class AccountPaymentOrder(models.Model):
     costo_facturas = fields.Monetary(
         string='Costo por Facturas', currency_field='currency_id',
         compute='_compute_costo_facturas', store=True, readonly=False,
-        help='Suma del total CON IVA de las facturas de proveedor ya publicadas y vinculadas a '
+        help='Suma de la BASE (sin IVA) de las facturas de proveedor ya publicadas y vinculadas a '
              'esta requisición (una nota de crédito resta). Se calcula en Enterprise y se trae a '
              'Community.')
     costo_traslados = fields.Monetary(
@@ -155,21 +155,62 @@ class AccountPaymentOrder(models.Model):
         help='Valor de inventario (costo) del material que salió de bodega hacia el cliente en los '
              'traslados ya validados de esta requisición. Se calcula en Enterprise y se trae a '
              'Community.')
+    costo_pagos = fields.Monetary(
+        string='Costo por Pagos', currency_field='currency_id',
+        compute='_compute_costo_pagos', store=True, readonly=False,
+        help='Salida de dinero real: suma de los pagos de esta requisición que ya están en proceso o '
+             'pagados (un pago de proveedor devuelto resta). Un anticipo aplicado cuenta aquí como '
+             'costo provisional aunque todavía no se liquide. Se calcula en Enterprise y se trae a '
+             'Community.')
+    facturas_con_iva = fields.Monetary(
+        string='Facturas con IVA', currency_field='currency_id',
+        compute='_compute_facturas_con_iva', store=True, readonly=False,
+        help='Total CON IVA de las facturas publicadas. Solo sirve para comparar contra los pagos '
+             '(que sí llevan IVA) en "Por justificar"; el costo usa la base sin IVA. Se calcula en '
+             'Enterprise y se trae a Community.')
     costo_real = fields.Monetary(
         string='Costo Real', currency_field='currency_id',
         compute='_compute_costo_real', store=True,
-        help='Costo por Facturas + Costo por Traslados: lo que la requisición realmente costó, '
-             'a diferencia de `monto` (lo que se pidió/pagó).')
+        help='Lo que la requisición realmente costó: las facturas (sin IVA) si las tiene; si no, los '
+             'pagos aplicados; más el material que salió de bodega. Nunca suma pagos y facturas a la '
+             'vez, porque son el mismo dinero visto de dos formas. A diferencia de `monto` (lo que '
+             'se pidió).')
+    costo_por_justificar = fields.Monetary(
+        string='Por justificar', currency_field='currency_id',
+        compute='_compute_costo_real', store=True,
+        help='Pagado menos facturado (ambos con IVA). Positivo: se pagó de más, anticipo sin '
+             'justificar. Negativo: se facturó de más, falta pagar. Solo se calcula si ya hay '
+             'facturas; sin facturas es 0 porque el costo son los pagos.')
 
-    @api.depends('factura_ids.amount_total_signed', 'factura_ids.state')
+    @api.depends('factura_ids.amount_untaxed_signed', 'factura_ids.state')
     def _compute_costo_facturas(self):
         for rec in self:
             if rec.company_id.payment_order_role == 'procesador':
                 # sudo: quien edita la requisición no necesariamente puede leer facturas.
                 rec.costo_facturas = sum(
-                    -m.amount_total_signed for m in rec.sudo().factura_ids if m.state == 'posted')
+                    -m.amount_untaxed_signed for m in rec.sudo().factura_ids if m.state == 'posted')
             else:
                 rec.costo_facturas = rec.costo_facturas  # Community: lo escribe el pull
+
+    @api.depends('factura_ids.amount_total_signed', 'factura_ids.state')
+    def _compute_facturas_con_iva(self):
+        for rec in self:
+            if rec.company_id.payment_order_role == 'procesador':
+                rec.facturas_con_iva = sum(
+                    -m.amount_total_signed for m in rec.sudo().factura_ids if m.state == 'posted')
+            else:
+                rec.facturas_con_iva = rec.facturas_con_iva  # Community: lo escribe el pull
+
+    @api.depends('pago_ids.amount_company_currency_signed', 'pago_ids.state')
+    def _compute_costo_pagos(self):
+        for rec in self:
+            if rec.company_id.payment_order_role == 'procesador':
+                # Saliente = negativo en moneda de la compañía: se invierte el signo.
+                rec.costo_pagos = sum(
+                    -p.amount_company_currency_signed for p in rec.sudo().pago_ids
+                    if p.state in ('in_process', 'paid'))
+            else:
+                rec.costo_pagos = rec.costo_pagos  # Community: lo escribe el pull
 
     @api.depends('company_id.payment_order_role')
     def _compute_costo_traslados(self):
@@ -183,10 +224,14 @@ class AccountPaymentOrder(models.Model):
         """Gancho: el módulo de inventario de Enterprise lo reemplaza con el valor real."""
         return 0.0
 
-    @api.depends('costo_facturas', 'costo_traslados')
+    @api.depends('costo_facturas', 'costo_pagos', 'facturas_con_iva', 'costo_traslados')
     def _compute_costo_real(self):
         for rec in self:
-            rec.costo_real = rec.costo_facturas + rec.costo_traslados
+            # Cascada: facturas si las hay, si no pagos. Nunca los dos (es el mismo dinero).
+            base = rec.costo_facturas if rec.costo_facturas else rec.costo_pagos
+            rec.costo_real = base + rec.costo_traslados
+            rec.costo_por_justificar = (
+                rec.costo_pagos - rec.facturas_con_iva if rec.facturas_con_iva else 0.0)
 
     available_payment_method_line_ids = fields.Many2many(
         'account.payment.method.line', compute='_compute_available_payment_method_line_ids',

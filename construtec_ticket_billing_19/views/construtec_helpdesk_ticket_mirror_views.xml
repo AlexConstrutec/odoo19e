@@ -45,9 +45,11 @@
                             <field name="costo_pago_directo" readonly="1" />
                         </group>
                         <group>
+                            <field name="costo_pagos" readonly="1" />
                             <field name="costo_facturas" readonly="1" />
                             <field name="costo_traslados" readonly="1" />
                             <field name="costo_real" readonly="1" class="fw-bold" />
+                            <field name="costo_por_justificar" readonly="1" />
                         </group>
                     </group>
                     <group string="Tickets del proyecto" invisible="not child_ids">
@@ -81,6 +83,7 @@
                                 <field name="tipo" />
                                 <field name="fecha" />
                                 <field name="monto" />
+                                <field name="costo_pagos" optional="show" />
                                 <field name="costo_facturas" optional="show" />
                                 <field name="costo_traslados" optional="show" />
                                 <field name="costo_real" optional="show" />
@@ -114,6 +117,7 @@
                 <field name="costo_general" sum="Total" />
                 <field name="costo_proyecto" optional="hide" />
                 <field name="parent_id" optional="hide" />
+                <field name="costo_pagos" sum="Total" optional="hide" />
                 <field name="costo_facturas" sum="Total" optional="hide" />
                 <field name="costo_traslados" sum="Total" optional="hide" />
                 <field name="costo_real" sum="Total" optional="show" />

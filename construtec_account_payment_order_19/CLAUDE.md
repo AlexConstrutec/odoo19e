@@ -35,3 +35,11 @@ Compras, y quedan **bloqueadas desde que Compras presiona "Fin de intervención 
 Aplicado; ahora el One2many es de solo lectura en cualquier estado distinto de `borrador`/`en_compras` (vista, `readonly=` del campo).
 Para volver a editar hay que usar "Pasar a Gestión de Compras" (desde Aprobado). Solo bloquea la interfaz: el código (importar
 cotización, Orden de Compra, sincronización) sigue escribiendo las líneas como antes. Versión 19.0.1.29.0.
+
+## Costeo F1: costo real en cascada, sin IVA (2026-11-17)
+- `costo_facturas` ahora es la **base sin IVA** (`amount_untaxed_signed`) de las facturas publicadas. `facturas_con_iva` guarda el total con IVA solo para comparar contra los pagos.
+- `costo_pagos` (nuevo): pagos de la requisición en proceso o pagados, en moneda de la compañía. Un anticipo aplicado cuenta aquí como **costo provisional**.
+- `costo_real` = **facturas (sin IVA) si las hay; si no, pagos**; más traslados. Nunca suma pagos y facturas (son el mismo dinero).
+- `costo_por_justificar` = pagado - facturado (con IVA), solo si ya hay facturas. Positivo: anticipo sin justificar; negativo: falta pagar.
+- Community no calcula nada de esto: el pull trae `costo_pagos` y `facturas_con_iva` (solo si Enterprise ya los tiene: `fields_get`, así el orden de despliegue no importa). Después de desplegar, correr **Ajustes > Sincronizar ahora** para que Community vea los montos.
+- Versiones: Community 19.0.1.30.0, Enterprise 19.0.1.31.0 (cada lado lleva su propia numeración). La migración recalcula todas las requisiciones.

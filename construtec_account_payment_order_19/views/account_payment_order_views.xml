@@ -470,11 +470,15 @@
                                     <field name="user_id"/>
                                 </group>
                             </group>
-                            <group string="Costo Real (Facturas y Traslados)"
-                                   invisible="not costo_facturas and not costo_traslados">
+                            <group string="Costo Real (facturas o pagos, más traslados)"
+                                   invisible="not costo_facturas and not costo_pagos and not costo_traslados">
+                                <field name="costo_pagos"/>
                                 <field name="costo_facturas"/>
+                                <field name="facturas_con_iva" optional="hide"/>
                                 <field name="costo_traslados"/>
                                 <field name="costo_real" class="fw-bold"/>
+                                <field name="costo_por_justificar"
+                                       invisible="not facturas_con_iva"/>
                             </group>
                             <group string="Vínculo Community / Enterprise"
                                    invisible="not community_url and not enterprise_url">

@@ -207,3 +207,8 @@ Al reenviar un ticket, Community manda sus requisiciones (`refs`) y Enterprise s
 ## Ticket de la requisición, visible siempre y editable en las creadas aquí (2026-11-17)
 - El campo **Ticket** (`ticket_mirror_id`) se ve siempre en la requisición de Enterprise. Es de solo lectura salvo en las creadas en Enterprise (`origin = 'local'`) que no estén Liquidadas, Canceladas ni Rechazadas: ahí se elige a mano (sin "Crear"). Las sincronizadas siguen dependiendo de Community.
 - Al elegirlo en una requisición local, `write()` toma la Ubicación del ticket si la requisición no tenía una y reparte la distribución analítica en lo ya contabilizado (solo líneas vacías o con solo la Ubicación). El Área sale del espejo del ticket cuando la requisición no tiene una propia.
+
+## Costeo F1 en el espejo del ticket (2026-11-17, v19.0.1.10.0)
+- `costo_total` y `costo_general` **dejan de ser valores empujados** desde Community y se calculan aquí: `costo_real` = suma del `costo_real` de cada requisición vigente (facturas sin IVA o pagos, más traslados); `costo_general` = costo por plan + costo real + costos directos. `sync_from_community()` ignora lo que Community mande en esos dos campos.
+- Bloques nuevos: `costo_pagos` y `costo_por_justificar`. `costo_facturas` es la base sin IVA.
+- Solo cuentan requisiciones En compras, Aprobadas, Aplicadas o Liquidadas.

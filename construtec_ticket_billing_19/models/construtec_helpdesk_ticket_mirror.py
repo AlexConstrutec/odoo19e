@@ -34,10 +34,10 @@ class ConstructecHelpdeskTicketMirror(models.Model):
              'empuje - un espejo, no algo calculado aquí.')
     costo_total = fields.Monetary(
         string='Costo por Requisiciones de Pago', currency_field='currency_id',
-        help='Suma de las Requisiciones de Pago vinculadas al Ticket en Community (payment_order_ids) '
-             'ya Aprobadas, Aplicadas o Liquidadas, tal como llegó en el último empuje - un espejo, '
-             'no algo calculado aquí. (El nombre del campo se conserva por compatibilidad: antes era '
-             'el único costo; el total de los dos es `costo_general`.)')
+        compute='_compute_costeo_real', store=True,
+        help='Costo real de las requisiciones vinculadas (facturas sin IVA o pagos, más traslados), '
+             'calculado aquí. Igual a `costo_real`; el nombre se conserva por compatibilidad con lo '
+             'que Community empuja. Desde 2026-11-17 ya no es el monto pedido.')
     parent_id = fields.Many2one(
         'construtec.helpdesk.ticket.mirror', string='Ticket padre (proyecto)', index=True,
         ondelete='set null',
@@ -66,8 +66,10 @@ class ConstructecHelpdeskTicketMirror(models.Model):
         readonly=True)
     costo_general = fields.Monetary(
         string='Costo Total', currency_field='currency_id',
-        help='Suma de Costo por Plan + Costo por Requisiciones de Pago, tal como llegó en el último '
-             'empuje de Community (2026-10-19: ahora el Ticket manda los tres costos).')
+        compute='_compute_costo_general', store=True,
+        help='Costo por Plan + costo real de las requisiciones + costos directos. Se calcula aquí con '
+             'los datos de Enterprise (desde 2026-11-17 ya no es un valor empujado), así nunca queda '
+             'desfasado respecto a las facturas y pagos.')
     # Costeo real (2026-10-27): calculado AQUÍ desde las requisiciones vinculadas (que ya traen su
     # costo por facturas y traslados), no empujado desde Community - así quien factura ve siempre
     # el costo real actual. Solo cuentan requisiciones Aprobadas/Aplicadas/Liquidadas.
@@ -80,18 +82,28 @@ class ConstructecHelpdeskTicketMirror(models.Model):
     costo_pago_directo = fields.Monetary(
         string='Pagos Directos', currency_field='currency_id', compute='_compute_costeo_real',
         store=True, help='`monto` de las requisiciones de Pago Directo vigentes.')
+    costo_pagos = fields.Monetary(
+        string='Pagos', currency_field='currency_id', compute='_compute_costeo_real', store=True,
+        help='Salida de dinero real de las requisiciones vigentes (pagos en proceso o pagados). Un '
+             'anticipo aplicado cuenta como costo provisional.')
     costo_facturas = fields.Monetary(
         string='Facturas Vinculadas', currency_field='currency_id', compute='_compute_costeo_real',
         store=True,
-        help='Total con IVA de las facturas de proveedor realmente vinculadas a las requisiciones.')
+        help='Base SIN IVA de las facturas de proveedor realmente vinculadas a las requisiciones.')
+    costo_por_justificar = fields.Monetary(
+        string='Por justificar', currency_field='currency_id', compute='_compute_costeo_real',
+        store=True,
+        help='Pagado menos facturado (con IVA) en las requisiciones que ya tienen facturas. Positivo: '
+             'anticipo sin justificar. Negativo: falta pagar.')
     costo_traslados = fields.Monetary(
         string='Traslados de Bodega', currency_field='currency_id', compute='_compute_costeo_real',
         store=True,
         help='Costo de inventario del material que salió de bodega hacia el cliente.')
     costo_real = fields.Monetary(
         string='Costo Real', currency_field='currency_id', compute='_compute_costeo_real', store=True,
-        help='Facturas vinculadas + Traslados de bodega: lo que el ticket realmente costó según sus '
-             'requisiciones (a diferencia de Viáticos/Materiales/Pagos Directos, que son lo pedido).')
+        help='Costo real de las requisiciones: por cada una, las facturas (sin IVA) si las tiene, si no '
+             'los pagos; más los traslados de bodega. Nunca suma pagos y facturas a la vez. (A '
+             'diferencia de Viáticos/Materiales/Pagos Directos, que son lo pedido.)')
     currency_id = fields.Many2one(
         'res.currency', string='Moneda', default=lambda self: self.env.company.currency_id)
     stage_name = fields.Char(string='Etapa (Community)')
@@ -160,7 +172,9 @@ class ConstructecHelpdeskTicketMirror(models.Model):
     )
 
     @api.depends('payment_order_ids.state', 'payment_order_ids.tipo', 'payment_order_ids.monto',
-                 'payment_order_ids.costo_facturas', 'payment_order_ids.costo_traslados')
+                 'payment_order_ids.costo_facturas', 'payment_order_ids.costo_traslados',
+                 'payment_order_ids.costo_pagos', 'payment_order_ids.costo_real',
+                 'payment_order_ids.costo_por_justificar')
     def _compute_costeo_real(self):
         for rec in self:
             vigentes = rec.payment_order_ids.filtered(
@@ -171,9 +185,18 @@ class ConstructecHelpdeskTicketMirror(models.Model):
                 lambda o: o.tipo == 'anticipo_materiales').mapped('monto'))
             rec.costo_pago_directo = sum(vigentes.filtered(
                 lambda o: o.tipo == 'pago_directo').mapped('monto'))
+            rec.costo_pagos = sum(vigentes.mapped('costo_pagos'))
             rec.costo_facturas = sum(vigentes.mapped('costo_facturas'))
             rec.costo_traslados = sum(vigentes.mapped('costo_traslados'))
-            rec.costo_real = rec.costo_facturas + rec.costo_traslados
+            rec.costo_por_justificar = sum(vigentes.mapped('costo_por_justificar'))
+            # Cascada por requisición (facturas o pagos), no la suma de bloques.
+            rec.costo_real = sum(vigentes.mapped('costo_real'))
+            rec.costo_total = rec.costo_real
+
+    @api.depends('costo_plan', 'costo_real', 'costo_intervenciones')
+    def _compute_costo_general(self):
+        for rec in self:
+            rec.costo_general = rec.costo_plan + rec.costo_real + rec.costo_intervenciones
 
     @api.depends('costo_general', 'costo_real', 'child_ids.costo_general', 'child_ids.costo_real')
     def _compute_costo_proyecto(self):
@@ -269,6 +292,9 @@ class ConstructecHelpdeskTicketMirror(models.Model):
         if not number:
             raise ValueError('Falta number - no se puede actualizar sin la clave de upsert.')
         vals = dict(vals, received_date=fields.Datetime.now())
+        # Calculados aquí desde 2026-11-17: se ignora lo que Community mande (versiones viejas aún lo envían).
+        vals.pop('costo_total', None)
+        vals.pop('costo_general', None)
         if not vals.get('company_id'):
             vals['company_id'] = self.env.company.id
         self._resolve_analytic_enterprise_ref(vals)
